@@ -13,8 +13,16 @@ export const NewsAlertsView: React.FC<NewsAlertsViewProps> = ({ stocks, onSelect
 
   useEffect(() => {
     fetch('/api/market/news')
-      .then((res) => res.json())
-      .then((data) => setNews(data));
+      .then((res) => {
+        if (!res.ok || !(res.headers.get('content-type') || '').includes('application/json')) {
+          return [];
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) setNews(data);
+      })
+      .catch((err) => console.error('Failed to fetch news:', err));
   }, []);
 
   const getNormalizedSentiment = (sentiment: string) => {

@@ -7,6 +7,7 @@ import { HeatmapView } from './components/HeatmapView';
 import { NewsAlertsView } from './components/NewsAlertsView';
 import { PortfolioView } from './components/PortfolioView';
 import { RecommendationView } from './components/RecommendationView';
+import { TelegramSettingsModal } from './components/TelegramSettingsModal';
 import { TerminalView } from './components/TerminalView';
 import { WatchlistView } from './components/WatchlistView';
 import { Candle, MarketIndex, OrderBook, StockData, TradeTick } from './types';
@@ -21,16 +22,25 @@ export function App() {
   const [orderBook, setOrderBook] = useState<OrderBook>({ bid: [], ask: [] });
   const [tradeTicks, setTradeTicks] = useState<TradeTick[]>([]);
   const [aiChatPrompt, setAiChatPrompt] = useState<string>('');
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
+
+  // Helper to safely parse JSON response
+  const safeParseJson = async (res: Response) => {
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return null;
+    return await res.json();
+  };
 
   // Fetch initial market data & setup real-time polling interval
   const fetchData = async () => {
     try {
       const [stocksRes, indicesRes] = await Promise.all([fetch('/api/market/stocks'), fetch('/api/market/indices')]);
-      const stocksData = await stocksRes.json();
-      const indicesData = await indicesRes.json();
+      const stocksData = await safeParseJson(stocksRes);
+      const indicesData = await safeParseJson(indicesRes);
 
-      setStocks(stocksData);
-      setIndices(indicesData);
+      if (Array.isArray(stocksData)) setStocks(stocksData);
+      if (Array.isArray(indicesData)) setIndices(indicesData);
     } catch (err) {
       console.error('Data fetch error:', err);
     }
@@ -45,16 +55,16 @@ export function App() {
         fetch(`/api/market/ticks/${symbol}`),
       ]);
 
-      if (stockRes.ok) {
-        const stockData = await stockRes.json();
-        const candleData = await candleRes.json();
-        const obData = await obRes.json();
-        const ticksData = await ticksRes.json();
+      const stockData = await safeParseJson(stockRes);
+      const candleData = await safeParseJson(candleRes);
+      const obData = await safeParseJson(obRes);
+      const ticksData = await safeParseJson(ticksRes);
 
+      if (stockData) {
         setCurrentStock(stockData);
-        setCandles(candleData);
-        setOrderBook(obData);
-        setTradeTicks(ticksData);
+        if (Array.isArray(candleData)) setCandles(candleData);
+        if (obData) setOrderBook(obData);
+        if (Array.isArray(ticksData)) setTradeTicks(ticksData);
 
         // Merge newly fetched dynamic stock into stocks list if missing
         setStocks((prev) => {
@@ -105,6 +115,12 @@ export function App() {
           setActiveTab={setActiveTab}
           onSelectStock={handleSelectStock}
           selectedStockSymbol={selectedStockSymbol}
+          onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+        />
+
+        <TelegramSettingsModal
+          isOpen={isTelegramModalOpen}
+          onClose={() => setIsTelegramModalOpen(false)}
         />
 
         <main className="w-full">

@@ -18,8 +18,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
     setLoading(true);
     try {
       const res = await fetch('/api/recommendations');
+      if (!res.ok || !(res.headers.get('content-type') || '').includes('application/json')) {
+        return;
+      }
       const data = await res.json();
-      setRecommendations(data);
+      if (Array.isArray(data)) setRecommendations(data);
     } catch (err) {
       console.error(err);
     } finally {

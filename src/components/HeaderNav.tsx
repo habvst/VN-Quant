@@ -1,5 +1,5 @@
-import { Activity, Bot, Cpu, Eye, FileText, LayoutDashboard, LineChart, Newspaper, PieChart, RefreshCw, Search, ShieldAlert, Zap, ChevronDown } from 'lucide-react';
-import React, { useEffect, useState, useRef } from 'react';
+import { Activity, Bot, ChevronDown, Cpu, Eye, FileText, LayoutDashboard, LineChart, Newspaper, PieChart, RefreshCw, Search, Send, ShieldAlert, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MarketIndex, StockData } from '../types';
 
 interface HeaderNavProps {
@@ -9,6 +9,7 @@ interface HeaderNavProps {
   setActiveTab: (tab: string) => void;
   onSelectStock: (symbol: string) => void;
   selectedStockSymbol: string;
+  onOpenTelegramModal?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -18,6 +19,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   setActiveTab,
   onSelectStock,
   selectedStockSymbol,
+  onOpenTelegramModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -160,6 +162,18 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <span>AI Refresh:</span>
             <span className="font-mono text-blue-400 font-bold">{formatTime(countdown)}</span>
           </div>
+
+          {/* Telegram Settings Modal Opener */}
+          {onOpenTelegramModal && (
+            <button
+              onClick={onOpenTelegramModal}
+              className="flex items-center space-x-1 bg-gradient-to-r from-blue-950 to-indigo-950 hover:from-blue-900 hover:to-indigo-900 text-blue-300 hover:text-white px-2 py-0.5 rounded border border-blue-700/80 text-[10px] font-mono font-bold transition shadow-sm cursor-pointer group"
+              title="Cấu hình Telegram Bot tự động gửi cảnh báo"
+            >
+              <Send className="w-3 h-3 text-blue-400 group-hover:text-emerald-400 transition" />
+              <span>CẤU HÌNH TELEGRAM BOT ✈️</span>
+            </button>
+          )}
         </div>
       </div>
 

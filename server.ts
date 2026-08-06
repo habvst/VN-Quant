@@ -15,12 +15,95 @@ import {
   getTradeTicks,
 } from './server/marketDataService';
 import { generateScreenerRecommendations } from './server/screenerEngine';
+import {
+  addServerAlert,
+  deleteServerAlert,
+  getServerAlerts,
+  getTelegramConfig,
+  runCronMarketSyncAndCheckAlerts,
+  sendTelegramMessage,
+  updateTelegramConfig,
+} from './server/telegramAlertService';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
+
+  // Health check & Cron Trigger Endpoint for Render & cron-job.org
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // 5-Minute Market Data Refresh & Telegram Alert Cron Endpoint (Target for cron-job.org)
+  app.get('/api/cron/sync', async (req, res) => {
+    try {
+      const result = await runCronMarketSyncAndCheckAlerts();
+      if (req.query.verbose === 'true') {
+        res.json(result);
+      } else {
+        // Ultra-compact response to prevent "output too large" errors on cron-job.org (which has strict 1KB body limit)
+        res.json({
+          ok: true,
+          status: result.status,
+          updated: result.summary.totalStocksUpdated,
+          triggered: result.summary.alertsTriggered,
+          telegramSent: result.summary.telegramSentCount,
+        });
+      }
+    } catch (err: any) {
+      console.error('[CRON ERROR]:', err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Telegram Config Endpoints
+  app.get('/api/telegram/config', (req, res) => {
+    const cfg = getTelegramConfig();
+    // Mask bot token for security
+    const maskedToken = cfg.botToken ? `${cfg.botToken.substring(0, 6)}...${cfg.botToken.slice(-4)}` : '';
+    res.json({
+      botToken: cfg.botToken,
+      maskedToken,
+      chatId: cfg.chatId,
+      enabled: cfg.enabled,
+      isConfigured: Boolean(cfg.botToken && cfg.chatId),
+    });
+  });
+
+  app.post('/api/telegram/config', (req, res) => {
+    const { botToken, chatId, enabled } = req.body;
+    const updated = updateTelegramConfig({
+      botToken: typeof botToken === 'string' ? botToken.trim() : undefined,
+      chatId: typeof chatId === 'string' ? chatId.trim() : undefined,
+      enabled: typeof enabled === 'boolean' ? enabled : undefined,
+    });
+    res.json({ status: 'success', config: updated });
+  });
+
+  // Send Test Message via Telegram Bot
+  app.post('/api/telegram/test', async (req, res) => {
+    const { message } = req.body;
+    const testText = message || `🧪 <b>VIETSTOCK QUANT - THỬ NGHIỆM TELEGRAM BOT</b> 🤖\n---------------------------------------------\n✅ Kết nối giữa Server Vietstock Quant và Telegram Chat thành công!\n⏰ Thời gian: ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`;
+    const result = await sendTelegramMessage(testText);
+    res.json(result);
+  });
+
+  // Server-side Active Alerts Endpoints
+  app.get('/api/alerts', (req, res) => {
+    res.json(getServerAlerts());
+  });
+
+  app.post('/api/alerts', (req, res) => {
+    const newAlert = addServerAlert(req.body);
+    res.json(newAlert);
+  });
+
+  app.delete('/api/alerts/:id', (req, res) => {
+    const success = deleteServerAlert(req.params.id);
+    res.json({ success });
+  });
 
   // API Routes
 
@@ -222,6 +305,11 @@ spec:
     });
   });
 
+  // API 404 Fallback Handler (Returns JSON instead of HTML SPA fallback)
+  app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: `API endpoint ${req.originalUrl} not found` });
+  });
+
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -239,6 +327,13 @@ spec:
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`VN-Quant Server running on http://localhost:${PORT}`);
+
+    // Auto-start internal 5-minute background sync timer as server backup
+    setInterval(() => {
+      runCronMarketSyncAndCheckAlerts().catch((err) =>
+        console.error('[INTERNAL CRON ERROR]:', err)
+      );
+    }, 5 * 60 * 1000);
   });
 }
 

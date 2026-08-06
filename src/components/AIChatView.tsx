@@ -65,6 +65,9 @@ Tôi được cấp quyền truy cập thời gian thực tới toàn bộ dữ 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
       });
+      if (!res.ok || !(res.headers.get('content-type') || '').includes('application/json')) {
+        throw new Error('Lỗi phản hồi từ AI server');
+      }
       const data = await res.json();
 
       const aiMsg: AIChatMessage = {
