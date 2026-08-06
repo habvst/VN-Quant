@@ -1,0 +1,6 @@
+{
+  "name": "VN-Quant Terminal",
+  "description": "Enterprise-grade Vietnam Stock Market Real-Time AI Trading & Portfolio Terminal with quantitative analysis, technical indicators, fundamental models, live data proxies, auto screener & Gemini AI recommendations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
