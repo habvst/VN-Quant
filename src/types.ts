@@ -220,6 +220,7 @@ export interface PortfolioSummary {
   nav: number;
   maxDrawdown: number;
   sharpeRatio: number;
+  sortinoRatio: number;
   beta: number;
   var95: number; // Value at Risk 95%
   expectedShortfall: number;
@@ -235,6 +236,10 @@ export interface PortfolioSummary {
     riskContribution: number;
     aiRecommendation: 'GIỮ' | 'MUA THÊM' | 'CHỐT LỜI' | 'CẮT LỖ';
     kellyOptimalWeight: number; // %
+    kellyOptimalVnd: number; // VNĐ khuyên dùng
+    kellyOptimalShares: number; // Cổ phiếu khuyên dùng
+    atr: number; // Giá trị ATR biến động (VNĐ)
+    atrStopLossPrice: number; // Giá cắt lỗ ATR động (1.8 * ATR)
   })[];
 }
 

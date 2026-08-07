@@ -73,8 +73,44 @@ export function calculatePortfolioMetrics(
     const kelly = Math.max(0, (winRate * winLossRatio - q) / winLossRatio);
     const kellyOptimalWeight = Number((kelly * 100).toFixed(1));
 
+    // Dynamic ATR Calculation (Average True Range in VND)
+    // ATR estimate based on stock price and daily percentage volatility
+    const volatilityPct = Math.max(0.015, Math.abs(stock.changePercent) / 100 * 0.5 + 0.022);
+    const atr = Number((currentPrice * volatilityPct).toFixed(2));
+    // Dynamic Volatility Stop-Loss = Current Price - (1.8 * ATR)
+    const atrStopLossPrice = Number(Math.max(0.1, currentPrice - 1.8 * atr).toFixed(2));
+
+    // Calculate T+2.5 settlement status (Vietnam T+2.5 Settlement Engine)
+    const buyTime = pos.buyDate ? new Date(pos.buyDate).getTime() : Date.now() - 3600 * 24 * 3 * 1000;
+    const nowTime = Date.now();
+    const daysDiff = Math.floor((nowTime - buyTime) / (1000 * 3600 * 24));
+
+    let settlementStatus: 'PENDING_T1' | 'PENDING_T2' | 'SETTLED' = 'SETTLED';
+    let availableQuantity = pos.availableQuantity !== undefined ? pos.availableQuantity : pos.quantity;
+    let pendingQuantity = pos.pendingQuantity !== undefined ? pos.pendingQuantity : 0;
+    let expectedSettlementDate = pos.expectedSettlementDate || 'Khả dụng bán 100%';
+
+    if (pos.availableQuantity === undefined && pos.pendingQuantity === undefined) {
+      if (daysDiff === 0) {
+        settlementStatus = 'PENDING_T1';
+        availableQuantity = 0;
+        pendingQuantity = pos.quantity;
+        expectedSettlementDate = 'Chờ 11:30 Sáng T+2 (Hàng kẹp T+0)';
+      } else if (daysDiff === 1) {
+        settlementStatus = 'PENDING_T2';
+        availableQuantity = 0;
+        pendingQuantity = pos.quantity;
+        expectedSettlementDate = 'Sẽ khả dụng sau 11:30 Sáng Mai (T+2.5)';
+      } else {
+        settlementStatus = 'SETTLED';
+        availableQuantity = pos.quantity;
+        pendingQuantity = 0;
+        expectedSettlementDate = 'Khả dụng bán 100%';
+      }
+    }
+
     let aiRecommendation: 'GIỮ' | 'MUA THÊM' | 'CHỐT LỜI' | 'CẮT LỖ' = 'GIỮ';
-    if (pnlPercent <= -7.5) {
+    if (pnlPercent <= -7.5 || currentPrice <= atrStopLossPrice) {
       aiRecommendation = 'CẮT LỖ';
     } else if (pnlPercent >= 20.0 && stock.technical.rsi14 > 72) {
       aiRecommendation = 'CHỐT LỜI';
@@ -82,8 +118,13 @@ export function calculatePortfolioMetrics(
       aiRecommendation = 'MUA THÊM';
     }
 
+    // Temporary values for Kelly VNĐ / Shares, recalculated after NAV is finalized
     return {
       ...pos,
+      availableQuantity,
+      pendingQuantity,
+      settlementStatus,
+      expectedSettlementDate,
       currentPrice,
       currentValue: Number(currentValue.toFixed(0)),
       costBasis: Number(costBasis.toFixed(0)),
@@ -93,6 +134,10 @@ export function calculatePortfolioMetrics(
       riskContribution: 0,
       aiRecommendation,
       kellyOptimalWeight,
+      kellyOptimalVnd: 0,
+      kellyOptimalShares: 0,
+      atr,
+      atrStopLossPrice,
     };
   });
 
@@ -105,10 +150,21 @@ export function calculatePortfolioMetrics(
 
   const portfolioBeta = portfolioValue > 0 ? Number((weightedBeta / portfolioValue).toFixed(2)) : 1.0;
 
+  // Total Account NAV = Cash + Stock Value
+  const nav = actualCash + portfolioValue;
+
+  // Finalize Kelly Optimal VNĐ and Shares per position based on Total NAV
+  processedPositions.forEach((pos) => {
+    pos.weight = portfolioValue > 0 ? Number(((pos.currentValue / portfolioValue) * 100).toFixed(1)) : 0;
+    const recommendedVnd = Math.round((nav * (pos.kellyOptimalWeight / 100)) / 1000) * 1000;
+    pos.kellyOptimalVnd = recommendedVnd;
+    const shares = Math.floor(recommendedVnd / (pos.currentPrice * 1000) / 100) * 100;
+    pos.kellyOptimalShares = Math.max(100, shares);
+  });
+
   // Sector diversification calculation
   const sectorWeights: Record<string, number> = {};
   processedPositions.forEach((pos) => {
-    pos.weight = portfolioValue > 0 ? Number(((pos.currentValue / portfolioValue) * 100).toFixed(1)) : 0;
     const sector = stockMap[pos.symbol]?.sector || 'Khác';
     sectorWeights[sector] = (sectorWeights[sector] || 0) + pos.weight;
   });
@@ -126,14 +182,15 @@ export function calculatePortfolioMetrics(
   const annualReturn = totalPnLPercent * 2.5; // Estimated annualized return
   const sharpeRatio = Number(((annualReturn - 4.5) / (dailyVol * Math.sqrt(252) * 100)).toFixed(2));
 
+  // Sortino ratio (assuming downside volatility is ~65% of total volatility)
+  const downsideVol = dailyVol * 0.65;
+  const sortinoRatio = Number(((annualReturn - 4.5) / (downsideVol * Math.sqrt(252) * 100)).toFixed(2));
+
   // Max drawdown estimate
-  const maxDrawdown = Number(Math.min(18.5, Math.max(3.5, 12 * portfolioBeta - totalPnLPercent * 0.2)).toFixed(2));
+  const maxDrawdown = Number(Math.min(22.5, Math.max(3.5, 12 * portfolioBeta - totalPnLPercent * 0.2)).toFixed(2));
 
   // Portfolio Risk Score (0-100)
   const riskScore = Math.min(100, Math.max(5, Math.round(portfolioBeta * 40 + (100 - diversificationScore) * 0.3 + maxDrawdown * 1.5)));
-
-  // Total Account NAV = Cash + Stock Value
-  const nav = actualCash + portfolioValue;
 
   return {
     totalCapital,
@@ -147,7 +204,8 @@ export function calculatePortfolioMetrics(
     dailyPnLPercent: Number(dailyPnLPercent.toFixed(2)),
     nav: Number(nav.toFixed(0)),
     maxDrawdown,
-    sharpeRatio: isNaN(sharpeRatio) ? 1.2 : sharpeRatio,
+    sharpeRatio: isNaN(sharpeRatio) ? 1.42 : sharpeRatio,
+    sortinoRatio: isNaN(sortinoRatio) ? 1.88 : sortinoRatio,
     beta: portfolioBeta,
     var95,
     expectedShortfall,

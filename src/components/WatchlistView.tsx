@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronRight, Eye, Plus, Search, Trash2, Zap } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { StockData, WatchlistItem } from '../types';
 
 interface WatchlistViewProps {
@@ -19,6 +20,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
 
   const [newSymbol, setNewSymbol] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
+  const tableParentRef = useRef<HTMLDivElement>(null);
 
   const handleAddStock = () => {
     const sym = newSymbol.trim().toUpperCase();
@@ -59,6 +61,13 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
     })
     .filter((s): s is (StockData & { watchItem: WatchlistItem }) => s !== null)
     .filter((s) => s.symbol.toLowerCase().includes(filterQuery.toLowerCase()) || s.name.toLowerCase().includes(filterQuery.toLowerCase()));
+
+  const rowVirtualizer = useVirtualizer({
+    count: watchlistStocks.length,
+    getScrollElement: () => tableParentRef.current,
+    estimateSize: () => 52,
+    overscan: 5,
+  });
 
   return (
     <div className="p-4 bg-[#050505] text-[#d1d5db] min-h-screen space-y-4">
@@ -106,26 +115,27 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
         />
       </div>
 
-      {/* Watchlist Table */}
-      <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
+      {/* Watchlist Table with Virtual Scroll Engine (@tanstack/react-virtual) */}
+      <div ref={tableParentRef} className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl max-h-[650px] overflow-y-auto">
         <table className="w-full text-xs font-mono text-left">
-          <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider">
+          <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-md">
             <tr>
-              <th className="p-3">Mã CP</th>
-              <th className="p-3">Sàn / Ngành</th>
-              <th className="p-3 text-right">Giá Hiện Tại</th>
-              <th className="p-3 text-right">Biến Động %</th>
-              <th className="p-3 text-right">Khối Lượng</th>
-              <th className="p-3 text-center">RSI (14)</th>
-              <th className="p-3 text-center">MA20 / MA50</th>
-              <th className="p-3 text-center">Hỗ Trợ / Kháng Cự</th>
-              <th className="p-3 text-center">Đánh Giá AI</th>
-              <th className="p-3 text-right">Mục Tiêu / Cắt Lỗ</th>
-              <th className="p-3 text-center">Hành Động</th>
+              <th className="p-3 bg-[#050505]">Mã CP</th>
+              <th className="p-3 bg-[#050505]">Sàn / Ngành</th>
+              <th className="p-3 bg-[#050505] text-right">Giá Hiện Tại</th>
+              <th className="p-3 bg-[#050505] text-right">Biến Động %</th>
+              <th className="p-3 bg-[#050505] text-right">Khối Lượng</th>
+              <th className="p-3 bg-[#050505] text-center">RSI (14)</th>
+              <th className="p-3 bg-[#050505] text-center">MA20 / MA50</th>
+              <th className="p-3 bg-[#050505] text-center">Hỗ Trợ / Kháng Cự</th>
+              <th className="p-3 bg-[#050505] text-center">Đánh Giá AI</th>
+              <th className="p-3 bg-[#050505] text-right">Mục Tiêu / Cắt Lỗ</th>
+              <th className="p-3 bg-[#050505] text-center">Hành Động</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {watchlistStocks.map((stk) => {
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const stk = watchlistStocks[virtualRow.index];
               const pos = stk.changePercent >= 0;
               const tech = stk.technical;
 

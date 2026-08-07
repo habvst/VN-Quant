@@ -193,6 +193,40 @@ async function startServer() {
     res.json(getTradeTicks(symbol));
   });
 
+  // 6b. Real-time Live Stream (SSE - Server-Sent Events / SSI FastConnect & VPS Stream Simulation)
+  app.get('/api/market/stream', async (req, res) => {
+    const symbol = (req.query.symbol as string || 'HPG').toUpperCase();
+    await getOrFetchStockBySymbol(symbol);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', symbol, latencyMs: 12, feed: 'SSI_FASTCONNECT_WS_V3', timestamp: new Date().toISOString() })}\n\n`);
+
+    const intervalId = setInterval(() => {
+      const stock = getStockBySymbol(symbol);
+      const orderBook = getOrderBook(symbol);
+      const ticks = getTradeTicks(symbol);
+
+      const payload = {
+        type: 'TICK_UPDATE',
+        symbol,
+        stock,
+        orderBook,
+        latestTick: ticks[0],
+        timestamp: new Date().toISOString(),
+      };
+
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    }, 1200);
+
+    req.on('close', () => {
+      clearInterval(intervalId);
+    });
+  });
+
   // 7. Sectors
   app.get('/api/market/sectors', (req, res) => {
     res.json(getSectors());

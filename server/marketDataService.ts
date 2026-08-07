@@ -660,23 +660,27 @@ const RAW_STOCKS: RawStockSeed[] = [
 const candleStore: Record<string, Candle[]> = {};
 const stockStore: Record<string, StockData> = {};
 
-// Helper to generate simulated 100 historical daily candles for TradingView
+// Helper to generate simulated 750 historical daily candles (3 years) for TradingView
 function generateHistoricalCandles(basePrice: number): Candle[] {
   const candles: Candle[] = [];
-  let price = basePrice * 0.85; // Start 100 days ago at lower price
+  let price = basePrice * 0.7; // Start 3 years ago at lower price
   const now = new Date();
+  const daysToGenerate = 1095; // 3 years
 
-  for (let i = 99; i >= 0; i--) {
+  for (let i = daysToGenerate; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    // Skip weekends
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+
     const dateStr = d.toISOString().split('T')[0];
 
     // Daily volatility -1.8% to +2.0%
     const changePct = (Math.random() - 0.47) * 0.035;
     const open = price;
     const close = Math.max(1, open * (1 + changePct));
-    const high = Math.max(open, close) * (1 + Math.random() * 0.012);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.012);
-    const volume = Math.floor(1000000 + Math.random() * 8000000);
+    const high = Math.max(open, close) * (1 + Math.random() * 0.015);
+    const low = Math.min(open, close) * (1 - Math.random() * 0.015);
+    const volume = Math.floor(1000000 + Math.random() * 12000000);
 
     price = close;
     candles.push({
@@ -688,7 +692,11 @@ function generateHistoricalCandles(basePrice: number): Candle[] {
       volume,
     });
   }
-  return candles;
+
+  // Deduplicate by time and sort ascending
+  const map = new Map<string, Candle>();
+  candles.forEach((c) => map.set(c.time, c));
+  return Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
 }
 
 // Initialize Stock Database
@@ -1279,15 +1287,15 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
       priceItem = priceJson.data[0];
     }
 
-    // 3. Fetch daily candles
+    // 3. Fetch daily candles (3 years history)
     const now = Math.floor(Date.now() / 1000);
-    const from = now - 3600 * 24 * 120; // 120 days
+    const from = now - 3600 * 24 * 1095; // 1095 days (3 years)
     const dchartUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${sym}&from=${from}&to=${now}`;
     const cData = await safeFetchJson(dchartUrl);
     let candles: Candle[] = [];
 
     if (cData && cData.t && cData.t.length > 0) {
-      candles = cData.t.map((ts: number, idx: number) => ({
+      const tempCandles = cData.t.map((ts: number, idx: number) => ({
         time: new Date(ts * 1000).toISOString().split('T')[0],
         open: cData.o[idx],
         high: cData.h[idx],
@@ -1295,6 +1303,11 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
         close: cData.c[idx],
         volume: cData.v[idx],
       }));
+
+      // Deduplicate by time and sort ascending
+      const map = new Map<string, Candle>();
+      tempCandles.forEach((c: Candle) => map.set(c.time, c));
+      candles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
     }
 
     if (candles.length === 0) {

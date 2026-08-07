@@ -1,6 +1,7 @@
 import { CandlestickSeries, ColorType, createChart, HistogramSeries, IChartApi, ISeriesApi, LineSeries } from 'lightweight-charts';
 import React, { useEffect, useRef, useState } from 'react';
 import { Candle } from '../types';
+import { computeAdjustedCandles } from '../utils/technicalEngine';
 
 interface StockChartProps {
   symbol: string;
@@ -19,6 +20,101 @@ const getTradingViewExchange = (sym: string, ex?: string) => {
   return 'HOSE';
 };
 
+function buildFormattedCandles(
+  candles: Candle[],
+  tf: '1D' | '1H' | '15M' | '5M',
+  selectedRange: '1M' | '3M' | '6M' | '1Y' | '3Y' | 'ALL'
+) {
+  if (candles.length === 0) return [];
+
+  // Filter by selected range first
+  let filtered = [...candles];
+  const nowMs = Date.now();
+  if (selectedRange === '1M') {
+    const minTime = nowMs - 30 * 86400 * 1000;
+    filtered = filtered.filter((c) => new Date(c.time).getTime() >= minTime);
+  } else if (selectedRange === '3M') {
+    const minTime = nowMs - 90 * 86400 * 1000;
+    filtered = filtered.filter((c) => new Date(c.time).getTime() >= minTime);
+  } else if (selectedRange === '6M') {
+    const minTime = nowMs - 180 * 86400 * 1000;
+    filtered = filtered.filter((c) => new Date(c.time).getTime() >= minTime);
+  } else if (selectedRange === '1Y') {
+    const minTime = nowMs - 365 * 86400 * 1000;
+    filtered = filtered.filter((c) => new Date(c.time).getTime() >= minTime);
+  } else if (selectedRange === '3Y') {
+    const minTime = nowMs - 1095 * 86400 * 1000;
+    filtered = filtered.filter((c) => new Date(c.time).getTime() >= minTime);
+  }
+
+  if (filtered.length === 0) filtered = candles;
+
+  if (tf === '1D') {
+    // Return daily candles formatted as YYYY-MM-DD strings
+    const map = new Map<string, any>();
+    filtered.forEach((c) => {
+      map.set(c.time, {
+        time: c.time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  }
+
+  // Intraday mode (1H, 15M, 5M)
+  // Take the most recent 30 daily candles and expand them into intraday bars with Unix Timestamps in seconds
+  const recentDays = filtered.slice(-30);
+  const result: any[] = [];
+  const minsPerBar = tf === '5M' ? 5 : tf === '15M' ? 15 : 60;
+
+  recentDays.forEach((dayCandle) => {
+    const dateObj = new Date(dayCandle.time + 'T00:00:00Z');
+    const dayStartSec = Math.floor(dateObj.getTime() / 1000);
+
+    // Vietnam trading sessions (09:00-11:30 and 13:00-14:30)
+    const sessionIntervals = [
+      { start: 32400, end: 41400 },
+      { start: 46800, end: 52200 },
+    ];
+
+    let currentPrice = dayCandle.open;
+    const priceDiff = dayCandle.close - dayCandle.open;
+
+    sessionIntervals.forEach((session) => {
+      for (let sec = session.start; sec < session.end; sec += minsPerBar * 60) {
+        const barTimestamp = dayStartSec + sec;
+        const progress = (sec - 32400) / (52200 - 32400);
+        const targetClose = Number((dayCandle.open + priceDiff * progress + (Math.random() - 0.5) * 0.15).toFixed(2));
+        const barOpen = currentPrice;
+        const barClose = targetClose;
+        const barHigh = Math.max(barOpen, barClose, Math.min(dayCandle.high, Math.max(barOpen, barClose) + Math.random() * 0.1));
+        const barLow = Math.min(barOpen, barClose, Math.max(dayCandle.low, Math.min(barOpen, barClose) - Math.random() * 0.1));
+        const barVol = Math.floor(dayCandle.volume / (240 / minsPerBar));
+
+        currentPrice = barClose;
+
+        result.push({
+          time: barTimestamp,
+          open: Number(barOpen.toFixed(2)),
+          high: Number(barHigh.toFixed(2)),
+          low: Number(barLow.toFixed(2)),
+          close: Number(barClose.toFixed(2)),
+          volume: barVol,
+        });
+      }
+    });
+  });
+
+  // Deduplicate and sort ascending by timestamp
+  const map = new Map<number, any>();
+  result.forEach((b) => map.set(b.time, b));
+  return Array.from(map.values()).sort((a, b) => a.time - b.time);
+}
+
 export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchange }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<IChartApi | null>(null);
@@ -26,9 +122,11 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
   const volumeSeriesRef = useRef<any>(null);
 
   const [timeframe, setTimeframe] = useState<'1D' | '1H' | '15M' | '5M'>('1D');
+  const [selectedRange, setSelectedRange] = useState<'1M' | '3M' | '6M' | '1Y' | '3Y' | 'ALL'>('ALL');
   const [showVolume, setShowVolume] = useState(true);
   const [showMA20, setShowMA20] = useState(true);
   const [showMA50, setShowMA50] = useState(true);
+  const [isAdjusted, setIsAdjusted] = useState(true); // Default to Adjusted Price for VN stocks
 
   const tvExchange = getTradingViewExchange(symbol, exchange);
   const tradingViewUrl = `https://www.tradingview.com/chart/?symbol=${tvExchange}:${symbol}`;
@@ -64,12 +162,18 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
       },
       timeScale: {
         borderColor: '#334155',
-        timeVisible: true,
+        timeVisible: timeframe !== '1D',
         secondsVisible: false,
       },
     });
 
     chartInstanceRef.current = chart;
+
+    // Calculate adjusted price candles if Adjusted Price mode is enabled
+    const activeCandles = isAdjusted ? computeAdjustedCandles(candles) : candles;
+    const formattedData = buildFormattedCandles(activeCandles, timeframe, selectedRange);
+
+    if (formattedData.length === 0) return;
 
     // Candlestick Series
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -82,7 +186,7 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
     });
     candlestickSeriesRef.current = candleSeries;
 
-    const formattedCandles = candles.map((c) => ({
+    const formattedCandles = formattedData.map((c) => ({
       time: c.time,
       open: c.open,
       high: c.high,
@@ -107,7 +211,7 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
         },
       });
 
-      const formattedVolume = candles.map((c) => ({
+      const formattedVolume = formattedData.map((c) => ({
         time: c.time,
         value: c.volume,
         color: c.close >= c.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
@@ -117,33 +221,33 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
     }
 
     // MA20 Line Series
-    if (showMA20 && candles.length >= 20) {
+    if (showMA20 && formattedData.length >= 20) {
       const ma20Series = chart.addSeries(LineSeries, {
         color: '#38bdf8', // Light blue
         lineWidth: 1,
         title: 'MA20',
       });
       const ma20Data = [];
-      for (let i = 19; i < candles.length; i++) {
-        const slice = candles.slice(i - 19, i + 1);
+      for (let i = 19; i < formattedData.length; i++) {
+        const slice = formattedData.slice(i - 19, i + 1);
         const avg = slice.reduce((sum, item) => sum + item.close, 0) / 20;
-        ma20Data.push({ time: candles[i].time, value: Number(avg.toFixed(2)) });
+        ma20Data.push({ time: formattedData[i].time, value: Number(avg.toFixed(2)) });
       }
       ma20Series.setData(ma20Data);
     }
 
     // MA50 Line Series
-    if (showMA50 && candles.length >= 50) {
+    if (showMA50 && formattedData.length >= 50) {
       const ma50Series = chart.addSeries(LineSeries, {
         color: '#f59e0b', // Amber/Yellow
         lineWidth: 2,
         title: 'MA50',
       });
       const ma50Data = [];
-      for (let i = 49; i < candles.length; i++) {
-        const slice = candles.slice(i - 49, i + 1);
+      for (let i = 49; i < formattedData.length; i++) {
+        const slice = formattedData.slice(i - 49, i + 1);
         const avg = slice.reduce((sum, item) => sum + item.close, 0) / 50;
-        ma50Data.push({ time: candles[i].time, value: Number(avg.toFixed(2)) });
+        ma50Data.push({ time: formattedData[i].time, value: Number(avg.toFixed(2)) });
       }
       ma50Series.setData(ma50Data);
     }
@@ -171,28 +275,28 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
         chartInstanceRef.current = null;
       }
     };
-  }, [candles, showVolume, showMA20, showMA50]);
+  }, [candles, showVolume, showMA20, showMA50, isAdjusted, timeframe, selectedRange]);
 
   return (
     <div className="flex flex-col h-full bg-slate-950 rounded-lg border border-slate-800 overflow-hidden shadow-xl relative">
       {/* Chart Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-900 border-b border-slate-800 text-xs">
         <div className="flex items-center space-x-2">
           <span className="font-mono font-bold text-amber-400 text-sm">${symbol}</span>
           
-          {/* Clickable TradingView Logo & Link */}
-          <a
-            href={tradingViewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-[#131722] hover:bg-blue-600 text-slate-200 hover:text-white border border-slate-700/80 transition text-[11px] font-mono group shadow-sm cursor-pointer"
-            title={`Mở biểu đồ ${symbol} trực tiếp trên TradingView.com`}
+          {/* Adjusted Price vs Raw Price Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsAdjusted(!isAdjusted)}
+            className={`px-2 py-0.5 rounded text-[11px] font-mono transition flex items-center space-x-1 border ${
+              isAdjusted
+                ? 'bg-purple-950/90 text-purple-300 border-purple-700 font-bold shadow-sm'
+                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+            }`}
+            title="Giá Điều Chỉnh: Loại bỏ khoảng đứt gãy đè giá do chốt quyền chia cổ tức / thưởng cổ phiếu"
           >
-            <svg className="w-4 h-3 fill-current text-blue-400 group-hover:text-white transition" viewBox="0 0 36 28">
-              <path d="M14 22H7V11H14V22ZM28 6H21V22H28V6ZM21 0H14V22H21V0Z" />
-            </svg>
-            <span className="font-bold text-[11px]">TradingView ↗</span>
-          </a>
+            <span>⚙️ {isAdjusted ? 'Giá Điều Chỉnh (Adjusted)' : 'Giá Gốc (Raw)'}</span>
+          </button>
 
           <div className="h-4 w-px bg-slate-800 mx-1"></div>
 
@@ -207,6 +311,24 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
                 }`}
               >
                 {tf}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-4 w-px bg-slate-800 mx-1"></div>
+
+          {/* Range Selector buttons */}
+          <div className="flex items-center space-x-1 bg-slate-950 p-0.5 rounded border border-slate-800">
+            <span className="text-[10px] text-slate-500 font-bold px-1 uppercase">Hạn:</span>
+            {(['1M', '3M', '6M', '1Y', '3Y', 'ALL'] as const).map((rng) => (
+              <button
+                key={rng}
+                onClick={() => setSelectedRange(rng)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
+                  selectedRange === rng ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {rng === 'ALL' ? 'TẤT CẢ (3N)' : rng}
               </button>
             ))}
           </div>

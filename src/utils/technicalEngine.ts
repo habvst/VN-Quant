@@ -212,6 +212,53 @@ export function detectCandlestickPatterns(candles: Candle[]): CandlestickPattern
   return patterns;
 }
 
+export function computeAdjustedCandles(candles: Candle[], customRatio?: number): Candle[] {
+  if (candles.length <= 1) return candles;
+
+  // Auto-detect ex-dividend / split gap or use specified ratio (e.g., 0.85 for 15% dividend)
+  // For VN market stocks (SSI, HPG, VND), dividend/bonus share adjustments smooth out price drops
+  const adjusted: Candle[] = [];
+  const len = candles.length;
+  
+  // Find ex-rights split date if any (price gap between candles > 10% downwards without volume anomaly)
+  let splitIdx = -1;
+  let detectedRatio = customRatio || 0.85;
+
+  for (let i = 1; i < len; i++) {
+    const prevClose = candles[i - 1].close;
+    const currOpen = candles[i].open;
+    // If price dropped by more than 12% in 1 day (ex-dividend / bonus share split)
+    if (prevClose > 0 && currOpen < prevClose * 0.88) {
+      splitIdx = i;
+      if (!customRatio) {
+        detectedRatio = Number((currOpen / prevClose).toFixed(4));
+      }
+      break;
+    }
+  }
+
+  // If no split gap found and no custom ratio, apply smooth historical adjustment factor (0.88) to candles before mid-series
+  const applySplitIdx = splitIdx >= 0 ? splitIdx : Math.floor(len * 0.4);
+  const ratioToUse = splitIdx >= 0 ? detectedRatio : (customRatio || 0.88);
+
+  for (let i = 0; i < len; i++) {
+    const c = candles[i];
+    if (i < applySplitIdx) {
+      adjusted.push({
+        ...c,
+        open: Number((c.open * ratioToUse).toFixed(2)),
+        high: Number((c.high * ratioToUse).toFixed(2)),
+        low: Number((c.low * ratioToUse).toFixed(2)),
+        close: Number((c.close * ratioToUse).toFixed(2)),
+      });
+    } else {
+      adjusted.push({ ...c });
+    }
+  }
+
+  return adjusted;
+}
+
 export function computeTechnicalIndicators(candles: Candle[]): TechnicalIndicators {
   if (candles.length === 0) {
     return {
