@@ -197,6 +197,10 @@ export interface PortfolioPosition {
   buyDate: string;
   buyPrice: number;
   quantity: number;
+  availableQuantity?: number; // Số lượng CP khả dụng để bán (Đã qua T+2.5)
+  pendingQuantity?: number; // Số lượng CP chờ về T+2.5
+  settlementStatus?: 'PENDING_T1' | 'PENDING_T2' | 'SETTLED'; // Trạng thái thanh toán T+2.5
+  expectedSettlementDate?: string; // Ngày giờ dự kiến cổ phiếu khả dụng
   feePercent: number; // %
   taxPercent: number; // %
   note?: string;
@@ -205,6 +209,8 @@ export interface PortfolioPosition {
 export interface PortfolioSummary {
   totalCapital: number;
   currentValue: number;
+  cashBalance?: number; // Tiền mặt khả dụng
+  pendingCashSettlement?: number; // Tiền chờ về T+2.5 từ lệnh bán
   totalPnL: number;
   totalPnLPercent: number;
   realizedPnL: number;

@@ -24,6 +24,11 @@ import {
   sendTelegramMessage,
   updateTelegramConfig,
 } from './server/telegramAlertService';
+import {
+  getTriggerHistoryStore,
+  getWatchlistStore,
+  updateWatchlistStore,
+} from './server/dataStore';
 
 async function startServer() {
   const app = express();
@@ -103,6 +108,25 @@ async function startServer() {
   app.delete('/api/alerts/:id', (req, res) => {
     const success = deleteServerAlert(req.params.id);
     res.json({ success });
+  });
+
+  app.get('/api/alerts/history', (req, res) => {
+    res.json(getTriggerHistoryStore());
+  });
+
+  // Persistent Watchlist Endpoints
+  app.get('/api/watchlist', (req, res) => {
+    res.json(getWatchlistStore());
+  });
+
+  app.post('/api/watchlist', (req, res) => {
+    const { symbols } = req.body;
+    if (Array.isArray(symbols)) {
+      const updated = updateWatchlistStore(symbols);
+      res.json({ status: 'success', watchlist: updated });
+    } else {
+      res.status(400).json({ status: 'error', message: 'symbols array is required' });
+    }
   });
 
   // API Routes

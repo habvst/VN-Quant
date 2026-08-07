@@ -3,19 +3,24 @@ import { PortfolioPosition, PortfolioSummary, StockData } from '../types';
 export function calculatePortfolioMetrics(
   positions: PortfolioPosition[],
   stockMap: Record<string, StockData>,
-  totalCapital: number = 1000000000 // Default 1 Billion VND
+  totalCapital: number = 1000000000, // Default 1 Billion VND
+  cashBalance?: number,
+  realizedPnL: number = 0
 ): PortfolioSummary {
+  const actualCash = cashBalance !== undefined ? cashBalance : Math.max(0, totalCapital);
+
   if (positions.length === 0) {
     return {
       totalCapital,
       currentValue: 0,
-      totalPnL: 0,
+      cashBalance: actualCash,
+      totalPnL: realizedPnL,
       totalPnLPercent: 0,
-      realizedPnL: 0,
+      realizedPnL,
       unrealizedPnL: 0,
       dailyPnL: 0,
       dailyPnLPercent: 0,
-      nav: totalCapital,
+      nav: actualCash,
       maxDrawdown: 0,
       sharpeRatio: 0,
       beta: 1.0,
@@ -43,8 +48,8 @@ export function calculatePortfolioMetrics(
     };
 
     const currentPrice = stock.price;
-    const costBasis = pos.buyPrice * pos.quantity * (1 + pos.feePercent / 100);
-    const currentValue = currentPrice * pos.quantity * (1 - pos.feePercent / 100 - pos.taxPercent / 100);
+    const costBasis = pos.buyPrice * 1000 * pos.quantity * (1 + pos.feePercent / 100);
+    const currentValue = currentPrice * 1000 * pos.quantity * (1 - pos.feePercent / 100 - pos.taxPercent / 100);
     const pnl = currentValue - costBasis;
     const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
 
@@ -93,8 +98,9 @@ export function calculatePortfolioMetrics(
 
   // Calculate Weights and Portfolio Level Metrics
   const portfolioValue = totalCurrentValue;
-  const totalPnL = portfolioValue - totalCost;
-  const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+  const unrealizedPnL = portfolioValue - totalCost;
+  const combinedPnL = unrealizedPnL + realizedPnL;
+  const totalPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
   const dailyPnLPercent = portfolioValue > 0 ? (totalDailyPnL / portfolioValue) * 100 : 0;
 
   const portfolioBeta = portfolioValue > 0 ? Number((weightedBeta / portfolioValue).toFixed(2)) : 1.0;
@@ -126,16 +132,20 @@ export function calculatePortfolioMetrics(
   // Portfolio Risk Score (0-100)
   const riskScore = Math.min(100, Math.max(5, Math.round(portfolioBeta * 40 + (100 - diversificationScore) * 0.3 + maxDrawdown * 1.5)));
 
+  // Total Account NAV = Cash + Stock Value
+  const nav = actualCash + portfolioValue;
+
   return {
     totalCapital,
     currentValue: Number(portfolioValue.toFixed(0)),
-    totalPnL: Number(totalPnL.toFixed(0)),
+    cashBalance: Number(actualCash.toFixed(0)),
+    totalPnL: Number(combinedPnL.toFixed(0)),
     totalPnLPercent: Number(totalPnLPercent.toFixed(2)),
-    realizedPnL: 0,
-    unrealizedPnL: Number(totalPnL.toFixed(0)),
+    realizedPnL: Number(realizedPnL.toFixed(0)),
+    unrealizedPnL: Number(unrealizedPnL.toFixed(0)),
     dailyPnL: Number(totalDailyPnL.toFixed(0)),
     dailyPnLPercent: Number(dailyPnLPercent.toFixed(2)),
-    nav: Number((totalCapital + totalPnL).toFixed(0)),
+    nav: Number(nav.toFixed(0)),
     maxDrawdown,
     sharpeRatio: isNaN(sharpeRatio) ? 1.2 : sharpeRatio,
     beta: portfolioBeta,

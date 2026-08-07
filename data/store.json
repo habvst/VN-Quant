@@ -1,0 +1,68 @@
+{
+  "telegramConfig": {
+    "botToken": "7187437454:AAEGPhBIvlKe4J6U8XUvrELaTly6x6OtRQA",
+    "chatId": "-5366040852",
+    "enabled": true
+  },
+  "serverAlerts": [
+    {
+      "id": "srv-alt-1",
+      "symbol": "HPG",
+      "triggerType": "PRICE_THRESHOLD",
+      "condition": "ABOVE_PRICE",
+      "targetValue": 22,
+      "note": "Cảnh báo bứt phá HPG vùng giá 22.0",
+      "channel": "TELEGRAM",
+      "isActive": true,
+      "createdAt": "2026-08-07T00:59:06.189Z",
+      "triggerCount": 0
+    },
+    {
+      "id": "srv-alt-2",
+      "symbol": "FPT",
+      "triggerType": "RSI_LEVEL",
+      "condition": "RSI_OVERBOUGHT",
+      "targetValue": 70,
+      "note": "Cảnh báo RSI FPT đi vào vùng quá mua (>70)",
+      "channel": "TELEGRAM",
+      "isActive": true,
+      "createdAt": "2026-08-07T00:59:06.189Z",
+      "triggerCount": 0
+    },
+    {
+      "id": "srv-alt-3",
+      "symbol": "SSI",
+      "triggerType": "MA_CROSSOVER",
+      "condition": "PRICE_CROSS_ABOVE_MA20",
+      "targetValue": 36,
+      "note": "SSI cắt lên MA20",
+      "channel": "TELEGRAM",
+      "isActive": true,
+      "createdAt": "2026-08-07T00:59:06.189Z",
+      "triggerCount": 1,
+      "lastSentSignature": "srv-alt-3_SSI_MA_CROSSOVER_PRICE_CROSS_ABOVE_MA20_36_Tín hiệu bứt phá: SSI (24.30) vượt lên đường trung bình MA20 (24.01).",
+      "lastTriggeredAt": "2026-08-07T00:59:09.924Z"
+    }
+  ],
+  "watchlistSymbols": [
+    "VNINDEX",
+    "VN30",
+    "VCB",
+    "FPT",
+    "HPG",
+    "SSI",
+    "MWG",
+    "VHM"
+  ],
+  "triggerHistory": [
+    {
+      "symbol": "SSI",
+      "alertId": "srv-alt-3",
+      "message": "Tín hiệu bứt phá: SSI (24.30) vượt lên đường trung bình MA20 (24.01).",
+      "telegramSuccess": true,
+      "id": "hist-1786064349924-597",
+      "timestamp": "2026-08-07T00:59:09.924Z"
+    }
+  ],
+  "lastUpdated": "2026-08-07T00:59:09.924Z"
+}

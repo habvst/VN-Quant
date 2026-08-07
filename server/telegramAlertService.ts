@@ -2,95 +2,35 @@ import { getLatestNewsAsync, getAllStocks, getOrFetchStockBySymbol } from './mar
 import { StockData } from '../src/types';
 import { StockAlert } from '../src/types/alert';
 import { checkAlertTrigger, formatConditionLabel } from '../src/services/alertService';
-
-// Memory store for Telegram Bot Config & Active Server Alerts
-interface TelegramConfig {
-  botToken: string;
-  chatId: string;
-  enabled: boolean;
-}
-
-let telegramConfig: TelegramConfig = {
-  botToken: process.env.TELEGRAM_BOT_TOKEN || '',
-  chatId: process.env.TELEGRAM_CHAT_ID || '',
-  enabled: true,
-};
-
-// In-memory Server-side Active Alerts list (initialized with default stock triggers)
-let serverAlerts: StockAlert[] = [
-  {
-    id: 'srv-alt-1',
-    symbol: 'HPG',
-    triggerType: 'PRICE_THRESHOLD',
-    condition: 'ABOVE_PRICE',
-    targetValue: 22.0,
-    note: 'Cảnh báo bứt phá HPG vùng giá 22.0',
-    channel: 'TELEGRAM',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    triggerCount: 0,
-  },
-  {
-    id: 'srv-alt-2',
-    symbol: 'FPT',
-    triggerType: 'RSI_LEVEL',
-    condition: 'RSI_OVERBOUGHT',
-    targetValue: 70,
-    note: 'Cảnh báo RSI FPT đi vào vùng quá mua (>70)',
-    channel: 'TELEGRAM',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    triggerCount: 0,
-  },
-  {
-    id: 'srv-alt-3',
-    symbol: 'SSI',
-    triggerType: 'MA_CROSSOVER',
-    condition: 'PRICE_CROSS_ABOVE_MA20',
-    targetValue: 36.0,
-    note: 'SSI cắt lên MA20',
-    channel: 'TELEGRAM',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    triggerCount: 0,
-  },
-];
+import {
+  getTelegramConfigStore,
+  updateTelegramConfigStore,
+  getServerAlertsStore,
+  addServerAlertStore,
+  deleteServerAlertStore,
+  saveStore,
+  addTriggerHistoryItem,
+  TelegramConfig,
+} from './dataStore';
 
 export function getTelegramConfig(): TelegramConfig {
-  return {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || telegramConfig.botToken,
-    chatId: process.env.TELEGRAM_CHAT_ID || telegramConfig.chatId,
-    enabled: telegramConfig.enabled,
-  };
+  return getTelegramConfigStore();
 }
 
 export function updateTelegramConfig(config: Partial<TelegramConfig>): TelegramConfig {
-  telegramConfig = {
-    ...telegramConfig,
-    ...config,
-  };
-  return getTelegramConfig();
+  return updateTelegramConfigStore(config);
 }
 
 export function getServerAlerts(): StockAlert[] {
-  return serverAlerts;
+  return getServerAlertsStore();
 }
 
 export function addServerAlert(alert: Omit<StockAlert, 'id' | 'createdAt' | 'triggerCount'>): StockAlert {
-  const newAlert: StockAlert = {
-    ...alert,
-    id: `srv-alt-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    createdAt: new Date().toISOString(),
-    triggerCount: 0,
-  };
-  serverAlerts.unshift(newAlert);
-  return newAlert;
+  return addServerAlertStore(alert);
 }
 
 export function deleteServerAlert(id: string): boolean {
-  const initialLength = serverAlerts.length;
-  serverAlerts = serverAlerts.filter((a) => a.id !== id);
-  return serverAlerts.length < initialLength;
+  return deleteServerAlertStore(id);
 }
 
 /**
@@ -188,6 +128,9 @@ export async function runCronMarketSyncAndCheckAlerts() {
   const cfg = getTelegramConfig();
 
   // 2. Evaluate active server alerts
+  const serverAlerts = getServerAlertsStore();
+  let stateChanged = false;
+
   for (const alert of serverAlerts) {
     if (!alert.isActive) continue;
     alertsEvaluated++;
@@ -225,13 +168,23 @@ export async function runCronMarketSyncAndCheckAlerts() {
           alert.lastSentSignature = currentSignature; // Record sent signature
           alert.triggerCount = (alert.triggerCount || 0) + 1;
           alert.lastTriggeredAt = new Date().toISOString();
+          stateChanged = true;
         }
       } else {
         // Record signature even if Telegram isn't configured so trigger state is tracked
         alert.lastSentSignature = currentSignature;
         alert.triggerCount = (alert.triggerCount || 0) + 1;
         alert.lastTriggeredAt = new Date().toISOString();
+        stateChanged = true;
       }
+
+      // Record to persistent trigger history
+      addTriggerHistoryItem({
+        symbol: alert.symbol,
+        alertId: alert.id,
+        message: evalResult.message,
+        telegramSuccess,
+      });
 
       triggerLog.push({
         symbol: alert.symbol,
@@ -241,8 +194,15 @@ export async function runCronMarketSyncAndCheckAlerts() {
       });
     } else {
       // If condition is no longer met, reset lastSentSignature so future cross-overs will notify again
-      alert.lastSentSignature = undefined;
+      if (alert.lastSentSignature !== undefined) {
+        alert.lastSentSignature = undefined;
+        stateChanged = true;
+      }
     }
+  }
+
+  if (stateChanged) {
+    saveStore();
   }
 
   const durationMs = Date.now() - startTime;
