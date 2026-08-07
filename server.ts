@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { analyzeStockWithAI, chatWithAIAgent } from './server/aiAgent';
+import { analyzeBatchNewsSentiment, analyzeStockNewsSentiment, analyzeStockWithAI, chatWithAIAgent } from './server/aiAgent';
 import {
   getAllStocks,
   getCandlesForSymbol,
@@ -267,6 +267,27 @@ async function startServer() {
     }
     const reply = await chatWithAIAgent(message);
     res.json(reply);
+  });
+
+  // 12b. Gemini AI News Sentiment Analysis (Single & Batch)
+  app.post('/api/ai/news-sentiment', async (req, res) => {
+    const { symbol } = req.body;
+    if (!symbol) {
+      res.status(400).json({ error: 'Symbol parameter required' });
+      return;
+    }
+    const sentiment = await analyzeStockNewsSentiment(symbol);
+    res.json(sentiment);
+  });
+
+  app.post('/api/ai/news-sentiment/batch', async (req, res) => {
+    const { symbols } = req.body;
+    if (!Array.isArray(symbols) || symbols.length === 0) {
+      res.status(400).json({ error: 'symbols array parameter required' });
+      return;
+    }
+    const batchResults = await analyzeBatchNewsSentiment(symbols);
+    res.json(batchResults);
   });
 
   // 13. System Blueprint & Enterprise Specs (Docker, K8s, ERD, OpenAPI)

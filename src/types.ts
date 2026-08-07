@@ -288,6 +288,18 @@ export interface NewsItem {
   impactScore: number; // 1 - 5
 }
 
+export interface StockNewsSentiment {
+  symbol: string;
+  score: number; // -100 to +100
+  label: 'TÍCH CỰC' | 'TIÊU CỰC' | 'TRUNG TÍNH';
+  confidence: number; // 0 to 100
+  headlineCount: number;
+  summary: string;
+  keyHighlights: string[];
+  recentHeadlines?: { title: string; url: string; time: string; source: string; sentiment: string }[];
+  updatedAt?: string;
+}
+
 export interface RealtimeAlert {
   id: string;
   timestamp: string;

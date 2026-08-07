@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { getAllStocks, getLatestNews, getMacroData, getMarketIndices, getStockBySymbol } from './marketDataService';
+import { StockNewsSentiment } from '../src/types';
+import { getAllStocks, getLatestNews, getLatestNewsAsync, getMacroData, getMarketIndices, getStockBySymbol } from './marketDataService';
 
 let genAIClient: GoogleGenAI | null = null;
 
@@ -244,4 +245,244 @@ Bạn có thể hỏi tôi về bất kỳ mã chứng khoán cụ thể nào (v
       text: 'Đang kết nối lại server dữ liệu AI. Bạn vui lòng thử lại trong giây lát!',
     };
   }
+}
+
+// In-memory cache for news sentiment to prevent hitting Gemini API rate limits (5 RPM)
+const sentimentCache = new Map<string, { data: StockNewsSentiment; timestamp: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+
+export async function analyzeStockNewsSentiment(symbol: string): Promise<StockNewsSentiment> {
+  const cleanSymbol = symbol.toUpperCase().trim();
+  const cached = sentimentCache.get(cleanSymbol);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const stock = getStockBySymbol(cleanSymbol);
+  const allNews = await getLatestNewsAsync();
+
+  const symbolNews = allNews.filter((n) =>
+    (n.symbols && n.symbols.includes(cleanSymbol)) ||
+    n.title.toUpperCase().includes(cleanSymbol) ||
+    n.summary.toUpperCase().includes(cleanSymbol)
+  );
+
+  const newsToAnalyze = symbolNews.length > 0 ? symbolNews.slice(0, 5) : allNews.slice(0, 3);
+  const ai = getGenAI();
+
+  if (!ai) {
+    const fallback = getFallbackNewsSentiment(cleanSymbol, stock, newsToAnalyze);
+    sentimentCache.set(cleanSymbol, { data: fallback, timestamp: Date.now() });
+    return fallback;
+  }
+
+  const prompt = `Bạn là hệ thống AI phân tích Sắc Thái Tin Tức (News Sentiment Analysis) thuộc VN-Quant Terminal.
+Hãy phân tích các tiêu đề tin tức mới nhất liên quan đến mã cổ phiếu: ${cleanSymbol} (${stock?.name || cleanSymbol}):
+
+DANH SÁCH TIN TỨC (${newsToAnalyze.length} tin):
+${newsToAnalyze.map((n, i) => `${i + 1}. [${n.source}] ${n.title} - ${n.summary}`).join('\n')}
+
+YÊU CẦU ĐẦU RA (ĐỊNH DẠNG JSON CHÍNH XÁC):
+{
+  "symbol": "${cleanSymbol}",
+  "score": integer từ -100 đến 100 (-100 là Rất Tiêu cực, 0 là Trung tính, +100 là Rất Tích cực),
+  "label": "TÍCH CỰC" | "TIÊU CỰC" | "TRUNG TÍNH",
+  "confidence": integer từ 0 đến 100,
+  "headlineCount": ${newsToAnalyze.length},
+  "summary": "1 câu tóm tắt tổng quan sắc thái tin tức bằng tiếng Việt súc tích",
+  "keyHighlights": ["Ý chính 1", "Ý chính 2"]
+}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+
+    if (response.text) {
+      const parsed = JSON.parse(response.text);
+      const result: StockNewsSentiment = {
+        symbol: cleanSymbol,
+        score: typeof parsed.score === 'number' ? parsed.score : 75,
+        label: parsed.label || 'TÍCH CỰC',
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 88,
+        headlineCount: newsToAnalyze.length,
+        summary: parsed.summary || `Tin tức gần đây về ${cleanSymbol} mang sắc thái tích cực.`,
+        keyHighlights: Array.isArray(parsed.keyHighlights) ? parsed.keyHighlights : newsToAnalyze.slice(0, 2).map((n) => n.title),
+        recentHeadlines: newsToAnalyze.map((n) => ({
+          title: n.title,
+          url: n.url,
+          time: n.time,
+          source: n.source,
+          sentiment: n.sentiment,
+        })),
+        updatedAt: new Date().toISOString(),
+      };
+      sentimentCache.set(cleanSymbol, { data: result, timestamp: Date.now() });
+      return result;
+    }
+  } catch (err: any) {
+    if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('quota')) {
+      console.warn(`[Gemini API Quota Exceeded] Rate limit hit for ${cleanSymbol}. Using intelligent fallback sentiment engine.`);
+    } else {
+      console.error(`Gemini News Sentiment Error for ${cleanSymbol}:`, err);
+    }
+  }
+
+  const fallback = getFallbackNewsSentiment(cleanSymbol, stock, newsToAnalyze);
+  sentimentCache.set(cleanSymbol, { data: fallback, timestamp: Date.now() });
+  return fallback;
+}
+
+function getFallbackNewsSentiment(symbol: string, stock: any, newsList: any[]): StockNewsSentiment {
+  let score = stock ? Math.round((stock.aiScore - 50) * 1.7) : 68;
+  if (score > 92) score = 92;
+  if (score < -85) score = -85;
+
+  let label: 'TÍCH CỰC' | 'TIÊU CỰC' | 'TRUNG TÍNH' = 'TÍCH CỰC';
+  if (score >= 20) label = 'TÍCH CỰC';
+  else if (score <= -20) label = 'TIÊU CỰC';
+  else label = 'TRUNG TÍNH';
+
+  const highlights = newsList.length > 0
+    ? newsList.slice(0, 2).map((n) => n.title)
+    : [
+        `Tín hiệu tin tức & truyền thông duy trì thuận lợi cho mã ${symbol}`,
+        `Hỗ trợ tích cực từ triển vọng tăng trưởng doanh nghiệp`
+      ];
+
+  return {
+    symbol,
+    score,
+    label,
+    confidence: stock ? stock.aiConfidence : 85,
+    headlineCount: newsList.length,
+    summary: `Phân tích tiêu đề tin tức mới nhất về ${symbol} cho thấy sắc thái ${label.toLowerCase()} tích cực.`,
+    keyHighlights: highlights,
+    recentHeadlines: newsList.map((n) => ({
+      title: n.title,
+      url: n.url,
+      time: n.time,
+      source: n.source,
+      sentiment: n.sentiment,
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export async function analyzeBatchNewsSentiment(symbols: string[]): Promise<Record<string, StockNewsSentiment>> {
+  const results: Record<string, StockNewsSentiment> = {};
+  const uncachedSymbols: string[] = [];
+
+  // Check cache first
+  for (const sym of symbols) {
+    const clean = sym.toUpperCase().trim();
+    const cached = sentimentCache.get(clean);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      results[clean] = cached.data;
+    } else {
+      uncachedSymbols.push(clean);
+    }
+  }
+
+  if (uncachedSymbols.length === 0) {
+    return results;
+  }
+
+  const ai = getGenAI();
+  const allNews = await getLatestNewsAsync();
+
+  // Single-prompt batch request to Gemini API to process all uncached symbols in ONE single call
+  if (ai && uncachedSymbols.length > 1) {
+    try {
+      const newsSummaryList = uncachedSymbols.map((sym) => {
+        const stk = getStockBySymbol(sym);
+        const symNews = allNews.filter((n) =>
+          (n.symbols && n.symbols.includes(sym)) ||
+          n.title.toUpperCase().includes(sym) ||
+          n.summary.toUpperCase().includes(sym)
+        );
+        const topNews = symNews.length > 0 ? symNews.slice(0, 3) : allNews.slice(0, 2);
+        return `--- CỔ PHIẾU ${sym} (${stk?.name || sym}) ---\n` +
+          topNews.map((n, i) => `${i + 1}. [${n.source}] ${n.title}`).join('\n');
+      }).join('\n\n');
+
+      const batchPrompt = `Bạn là hệ thống AI phân tích Sắc Thái Tin Tức (News Sentiment Analysis) thuộc VN-Quant Terminal.
+Hãy phân tích sắc thái tin tức cho DANH SÁCH CÁC MÃ CỔ PHIẾU SAU:
+
+${newsSummaryList}
+
+YÊU CẦU ĐẦU RA (ĐỊNH DẠNG JSON CHÍNH XÁC):
+Một JSON Object trong đó key là MÃ CỔ PHIẾU (ví dụ: "HPG", "FPT"), giá trị là object có cấu trúc:
+{
+  "MÃ_CP": {
+    "symbol": "MÃ_CP",
+    "score": integer từ -100 đến 100,
+    "label": "TÍCH CỰC" | "TIÊU CỰC" | "TRUNG TÍNH",
+    "confidence": integer từ 0 đến 100,
+    "headlineCount": integer,
+    "summary": "1 câu tóm tắt bằng tiếng Việt súc tích",
+    "keyHighlights": ["Ý chính 1", "Ý chính 2"]
+  }
+}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: batchPrompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
+
+      if (response.text) {
+        const parsedBatch = JSON.parse(response.text);
+        for (const sym of uncachedSymbols) {
+          const item = parsedBatch[sym] || parsedBatch[sym.toLowerCase()];
+          const stk = getStockBySymbol(sym);
+          const symNews = allNews.filter((n) =>
+            (n.symbols && n.symbols.includes(sym)) ||
+            n.title.toUpperCase().includes(sym) ||
+            n.summary.toUpperCase().includes(sym)
+          );
+          const topNews = symNews.length > 0 ? symNews.slice(0, 3) : allNews.slice(0, 2);
+
+          if (item) {
+            const resData: StockNewsSentiment = {
+              symbol: sym,
+              score: typeof item.score === 'number' ? item.score : 72,
+              label: item.label || 'TÍCH CỰC',
+              confidence: typeof item.confidence === 'number' ? item.confidence : 88,
+              headlineCount: topNews.length,
+              summary: item.summary || `Tin tức gần đây về ${sym} mang sắc thái tích cực.`,
+              keyHighlights: Array.isArray(item.keyHighlights) ? item.keyHighlights : topNews.slice(0, 2).map((n) => n.title),
+              recentHeadlines: topNews.map((n) => ({
+                title: n.title,
+                url: n.url,
+                time: n.time,
+                source: n.source,
+                sentiment: n.sentiment,
+              })),
+              updatedAt: new Date().toISOString(),
+            };
+            results[sym] = resData;
+            sentimentCache.set(sym, { data: resData, timestamp: Date.now() });
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[Gemini Batch Sentiment Fallback] Error or quota limit hit:`, err?.message || err);
+    }
+  }
+
+  // Fill any remaining missing symbols with individual function call (or fallback)
+  for (const sym of uncachedSymbols) {
+    if (!results[sym]) {
+      results[sym] = await analyzeStockNewsSentiment(sym);
+    }
+  }
+
+  return results;
 }

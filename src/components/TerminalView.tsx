@@ -234,10 +234,11 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
       </div>
 
       {/* Main Stock Header Card */}
-      <div className="bg-[#0a0a0a] rounded-sm p-3.5 border border-gray-800 flex flex-wrap items-center justify-between gap-4 shadow-lg">
-        <div className="flex flex-wrap items-center gap-4">
-          <div>
-            <div className="flex items-center space-x-2">
+      <div className="bg-[#0a0a0a] rounded-sm p-4 border border-gray-800 space-y-3.5 shadow-lg">
+        {/* Top Header Row: Stock Identification (Left) & Real-time Price (Right) */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-2xl font-black font-mono text-white tracking-tight">{stock.symbol}</h2>
               <span className="bg-[#050505] text-gray-300 border border-gray-700 px-2 py-0.5 rounded-sm text-xs font-mono font-semibold">
                 {stock.exchange} ({bandPercent})
@@ -249,9 +250,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                 {priceBadgeText}
               </span>
             </div>
-            <div className="flex items-center space-x-2 mt-1 font-mono">
-              <p className="text-xs text-gray-400">{stock.name}</p>
-              <span className="text-[10px] text-gray-500">•</span>
+            <div className="flex flex-wrap items-center gap-2 font-mono">
+              <p className="text-xs text-gray-400 font-medium">{stock.name}</p>
+              <span className="text-[10px] text-gray-500 hidden sm:inline">•</span>
               <div className="flex items-center space-x-1.5 bg-black px-2 py-0.5 rounded border border-gray-800 text-[10px]">
                 <span className={`w-2 h-2 rounded-full ${streamConnected ? 'bg-emerald-400 animate-ping' : 'bg-amber-500'}`}></span>
                 <span className="text-emerald-400 font-bold">FASTCONNECT SSE LIVE (1s)</span>
@@ -263,10 +264,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             </div>
           </div>
 
-          <div className="h-10 w-px bg-gray-800 hidden sm:block"></div>
-
-          <div className="flex items-baseline space-x-3">
-            <span className={`text-3xl font-black font-mono ${priceColorClass}`}>
+          {/* Real-time Price Display */}
+          <div className="flex items-baseline space-x-3 bg-[#050505] px-3.5 py-1.5 rounded-sm border border-gray-800/80 shadow-inner">
+            <span className={`text-3xl font-black font-mono tracking-tight ${priceColorClass}`}>
               {stock.price.toFixed(2)}
             </span>
             <div className={`flex items-center space-x-1 font-mono font-bold text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -278,14 +278,38 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               </span>
             </div>
           </div>
+        </div>
 
-          <div className="h-10 w-px bg-gray-800 hidden md:block"></div>
+        {/* Bottom Toolbar Row: Quick Reference Metrics (Left) & Action Buttons (Right) */}
+        <div className="border-t border-gray-800/80 pt-3 flex flex-wrap items-center justify-between gap-3">
+          {/* Quick Reference Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono flex-1 min-w-[280px]">
+            <div className="bg-[#050505] p-2 rounded-sm border border-gray-800/80">
+              <span className="text-gray-500 block text-[9px] uppercase font-bold tracking-wider">THAM CHIẾU</span>
+              <span className="text-amber-400 font-semibold">{stock.referencePrice}</span>
+            </div>
+            <div className="bg-[#050505] p-2 rounded-sm border border-gray-800/80">
+              <span className="text-gray-500 block text-[9px] uppercase font-bold tracking-wider">TRẦN / SÀN</span>
+              <span className="text-purple-400 font-semibold">{stock.ceilingPrice}</span> / <span className="text-blue-400 font-semibold">{stock.floorPrice}</span>
+            </div>
+            <div className="bg-[#050505] p-2 rounded-sm border border-gray-800/80">
+              <span className="text-gray-500 block text-[9px] uppercase font-bold tracking-wider">KHỐI LƯỢNG (CP)</span>
+              <span className="text-gray-200 font-semibold">{(stock.volume ?? 0).toLocaleString('vi-VN')}</span>
+            </div>
+            <div className="bg-[#050505] p-2 rounded-sm border border-gray-800/80">
+              <span className="text-gray-500 block text-[9px] uppercase font-bold tracking-wider">KHỐI NGOẠI RÒNG</span>
+              <span className={stock.foreignNetVal >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
+                {stock.foreignNetVal >= 0 ? '+' : ''}
+                {stock.foreignNetVal} Tỷ
+              </span>
+            </div>
+          </div>
 
-          {/* Action Buttons: Set Alert & Active Alerts Drawer Toggle */}
-          <div className="flex items-center space-x-2">
+          {/* Unified Action Button Bar */}
+          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
             <button
               onClick={() => setIsSetAlertModalOpen(true)}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-sm text-xs flex items-center space-x-1.5 shadow transition"
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-sm text-xs flex items-center space-x-1.5 shadow transition whitespace-nowrap"
             >
               <Bell className="w-4 h-4 animate-pulse text-amber-300" />
               <span>TẠO CẢNH BÁO ({stock.symbol})</span>
@@ -293,7 +317,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
             <button
               onClick={() => setIsAlertsDrawerOpen(true)}
-              className="relative px-3 py-2 bg-[#050505] hover:bg-gray-800 text-gray-200 font-bold rounded-sm text-xs border border-gray-800 flex items-center space-x-1.5 transition"
+              className="relative px-3 py-2 bg-[#050505] hover:bg-gray-800 text-gray-200 font-bold rounded-sm text-xs border border-gray-800 flex items-center space-x-1.5 transition whitespace-nowrap"
             >
               <Zap className="w-4 h-4 text-amber-400" />
               <span>CẢNH BÁO ({alerts.filter((a) => a.isActive).length})</span>
@@ -309,7 +333,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               href={`https://www.tradingview.com/chart/?symbol=${stock.exchange || 'HOSE'}:${stock.symbol}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-2 bg-[#131722] hover:bg-blue-600 text-slate-200 hover:text-white font-mono font-bold rounded-sm text-xs border border-slate-700/80 flex items-center space-x-1.5 transition shadow group cursor-pointer"
+              className="px-3 py-2 bg-[#131722] hover:bg-blue-600 text-slate-200 hover:text-white font-mono font-bold rounded-sm text-xs border border-slate-700/80 flex items-center space-x-1.5 transition shadow group cursor-pointer whitespace-nowrap"
               title={`Mở biểu đồ ${stock.symbol} trực tiếp trên TradingView.com`}
             >
               <svg className="w-4 h-3 fill-current text-blue-400 group-hover:text-white transition" viewBox="0 0 36 28">
@@ -317,29 +341,6 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               </svg>
               <span>TRADINGVIEW.COM ↗</span>
             </a>
-          </div>
-        </div>
-
-        {/* Quick Reference Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-          <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">THAM CHIẾU</span>
-            <span className="text-amber-400 font-semibold">{stock.referencePrice}</span>
-          </div>
-          <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">TRẦN / SÀN</span>
-            <span className="text-purple-400 font-semibold">{stock.ceilingPrice}</span> / <span className="text-blue-400 font-semibold">{stock.floorPrice}</span>
-          </div>
-          <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">KHỐI LƯỢNG (CP)</span>
-            <span className="text-gray-200 font-semibold">{(stock.volume ?? 0).toLocaleString('vi-VN')}</span>
-          </div>
-          <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">KHỐI NGOẠI RÒNG</span>
-            <span className={stock.foreignNetVal >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
-              {stock.foreignNetVal >= 0 ? '+' : ''}
-              {stock.foreignNetVal} Tỷ
-            </span>
           </div>
         </div>
       </div>
