@@ -563,7 +563,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                   <h3 className="font-mono font-bold text-[11px] text-gray-300 uppercase tracking-widest">KHUYẾN NGHỊ AI QUANT</h3>
                 </div>
                 <span
-                  className={`text-xs px-2.5 py-0.5 rounded-sm font-black font-mono border ${
+                  className={`text-xs px-2.5 py-0.5 rounded-sm font-black font-mono border whitespace-nowrap ${
                     stock.aiVerdict === 'MUA MẠNH'
                       ? 'bg-blue-600 text-white border-blue-500'
                       : stock.aiVerdict === 'MUA'

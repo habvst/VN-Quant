@@ -117,8 +117,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
 
       {/* Watchlist Table with Virtual Scroll Engine (@tanstack/react-virtual) */}
       <div ref={tableParentRef} className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl max-h-[650px] overflow-y-auto">
-        <table className="w-full text-xs font-mono text-left">
-          <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-md">
+        <table className="w-full text-xs font-mono text-left min-w-[950px]">
+          <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-md whitespace-nowrap">
             <tr>
               <th className="p-3 bg-[#050505]">Mã CP</th>
               <th className="p-3 bg-[#050505]">Sàn / Ngành</th>
@@ -140,7 +140,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
               const tech = stk.technical;
 
               return (
-                <tr key={stk.symbol} className="hover:bg-gray-900/50 transition">
+                <tr key={stk.symbol} className="hover:bg-gray-900/50 transition whitespace-nowrap">
                   <td className="p-3 font-bold text-white">
                     <button onClick={() => onSelectStock(stk.symbol)} className="hover:text-blue-400 flex items-center space-x-1 transition">
                       <span>{stk.symbol}</span>
@@ -148,8 +148,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                     <span className="block text-[10px] text-gray-400 font-normal truncate max-w-[120px]">{stk.name}</span>
                   </td>
                   <td className="p-3">
-                    <span className="bg-[#050505] text-gray-300 px-1.5 py-0.5 rounded-sm text-[10px] border border-gray-800 mr-1">{stk.exchange}</span>
-                    <span className="text-gray-400 text-[11px]">{stk.sector}</span>
+                    <span className="bg-[#050505] text-gray-300 px-1.5 py-0.5 rounded-sm text-[10px] border border-gray-800 mr-1 inline-block whitespace-nowrap">{stk.exchange}</span>
+                    <span className="text-gray-400 text-[11px] inline-block whitespace-nowrap">{stk.sector}</span>
                   </td>
                   <td className={`p-3 text-right font-bold text-sm ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
                     {stk.price.toFixed(2)}
@@ -165,18 +165,18 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                   </td>
                   <td className="p-3 text-right text-gray-300">{(stk.volume ?? 0).toLocaleString('vi-VN')}</td>
                   <td className="p-3 text-center">
-                    <span className={`px-2 py-0.5 rounded-sm font-bold ${tech.rsi14 > 70 ? 'bg-red-950 text-red-400' : tech.rsi14 < 30 ? 'bg-emerald-950 text-emerald-400' : 'bg-[#050505] text-blue-400'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded-sm font-bold whitespace-nowrap ${tech.rsi14 > 70 ? 'bg-red-950 text-red-400' : tech.rsi14 < 30 ? 'bg-emerald-950 text-emerald-400' : 'bg-[#050505] text-blue-400'}`}>
                       {tech.rsi14}
                     </span>
                   </td>
-                  <td className="p-3 text-center text-gray-300">
+                  <td className="p-3 text-center text-gray-300 whitespace-nowrap">
                     <span className="text-blue-400">{tech.ma20}</span> / <span className="text-sky-400">{tech.ma50}</span>
                   </td>
-                  <td className="p-3 text-center text-gray-300">
+                  <td className="p-3 text-center text-gray-300 whitespace-nowrap">
                     <span className="text-emerald-400">{tech.supportLevel}</span> - <span className="text-red-400">{tech.resistanceLevel}</span>
                   </td>
                   <td className="p-3 text-center">
-                    <span className="bg-blue-950/60 text-blue-400 border border-blue-800 px-2 py-0.5 rounded-sm text-[10px] font-bold">
+                    <span className="inline-block bg-blue-950/60 text-blue-400 border border-blue-800 px-2.5 py-1 rounded-sm text-[10px] font-bold whitespace-nowrap shadow-sm">
                       {stk.aiVerdict} ({stk.aiScore})
                     </span>
                   </td>
