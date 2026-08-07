@@ -22,6 +22,7 @@ export interface StockAlert {
   isActive: boolean;
   createdAt: string;
   lastTriggeredAt?: string;
+  lastSentSignature?: string;
   triggerCount: number;
 }
 

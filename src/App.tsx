@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AIChatView } from './components/AIChatView';
 import { ArchitectureView } from './components/ArchitectureView';
+import { FearGreedGauge } from './components/FearGreedGauge';
 import { FinancialReportView } from './components/FinancialReportView';
 import { HeaderNav } from './components/HeaderNav';
 import { HeatmapView } from './components/HeatmapView';
@@ -169,18 +170,22 @@ export function App() {
       </div>
 
       {/* Geometric Balance Footer Status */}
-      <footer className="h-8 border-t border-gray-800 bg-[#0a0a0a] flex items-center px-4 justify-between text-[10px] font-mono sticky bottom-0 z-40">
-        <div className="flex space-x-4 text-gray-500">
+      <footer className="h-9 border-t border-gray-800 bg-[#0a0a0a] flex items-center px-4 justify-between text-[10px] font-mono sticky bottom-0 z-40">
+        <div className="flex items-center space-x-4 text-gray-500">
           <span>CPU: <strong className="text-gray-300">24%</strong></span>
           <span>LATENCY: <strong className="text-gray-300">42ms</strong></span>
-          <span className="text-blue-400 italic uppercase">Agent Status: Active</span>
+          <span className="text-blue-400 italic uppercase hidden md:inline">Agent: Active</span>
         </div>
-        <div className="flex space-x-6">
+
+        {/* Real-time Market Fear & Greed Sentiment Gauge */}
+        <FearGreedGauge stocks={stocks} indices={indices} tradeTicks={tradeTicks} />
+
+        <div className="flex items-center space-x-4">
           <span className="text-emerald-400 uppercase flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Real-time Feed Active
+            <span className="hidden sm:inline">Real-time Feed Active</span>
           </span>
-          <span className="text-gray-500">System: OK-200</span>
+          <span className="text-gray-500 hidden sm:inline">System: OK-200</span>
         </div>
       </footer>
     </div>

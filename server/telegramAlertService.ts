@@ -198,11 +198,23 @@ export async function runCronMarketSyncAndCheckAlerts() {
     const evalResult = checkAlertTrigger(alert, stock);
 
     if (evalResult.isTriggered) {
-      alertsTriggered++;
-      alert.triggerCount = (alert.triggerCount || 0) + 1;
-      alert.lastTriggeredAt = new Date().toISOString();
+      // Build unique signature for this specific trigger condition
+      const currentSignature = `${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}_${evalResult.message}`;
 
-      // Check cooling off period (don't spam Telegram more than once per 10 minutes for same alert)
+      // Deduplication check: Do NOT resend if this exact notification signature was already sent
+      if (alert.lastSentSignature === currentSignature) {
+        console.log(`[CRON] ⚠️ Bỏ qua gửi Telegram cho ${alert.symbol} (${alert.id}): Thông báo trùng lặp đã được gửi trước đó.`);
+        triggerLog.push({
+          symbol: alert.symbol,
+          alertId: alert.id,
+          message: `${evalResult.message} [ĐÃ BỎ QUA - THÔNG BÁO LẶP]`,
+          telegramSuccess: false,
+        });
+        continue;
+      }
+
+      alertsTriggered++;
+      
       let telegramSuccess = false;
       if (cfg.enabled && cfg.botToken && cfg.chatId) {
         const msg = formatTelegramAlertMessage(alert, stock, evalResult);
@@ -210,7 +222,15 @@ export async function runCronMarketSyncAndCheckAlerts() {
         telegramSuccess = res.success;
         if (res.success) {
           telegramSentCount++;
+          alert.lastSentSignature = currentSignature; // Record sent signature
+          alert.triggerCount = (alert.triggerCount || 0) + 1;
+          alert.lastTriggeredAt = new Date().toISOString();
         }
+      } else {
+        // Record signature even if Telegram isn't configured so trigger state is tracked
+        alert.lastSentSignature = currentSignature;
+        alert.triggerCount = (alert.triggerCount || 0) + 1;
+        alert.lastTriggeredAt = new Date().toISOString();
       }
 
       triggerLog.push({
@@ -219,6 +239,9 @@ export async function runCronMarketSyncAndCheckAlerts() {
         message: evalResult.message,
         telegramSuccess,
       });
+    } else {
+      // If condition is no longer met, reset lastSentSignature so future cross-overs will notify again
+      alert.lastSentSignature = undefined;
     }
   }
 
