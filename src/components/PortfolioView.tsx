@@ -27,37 +27,62 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
     return acc;
   }, {} as Record<string, StockData>);
 
-  const [positions, setPositions] = useState<PortfolioPosition[]>([
-    { id: 'pos-1', symbol: 'HPG', buyDate: '2026-07-10', buyPrice: 27.2, quantity: 15000, feePercent: 0.15, taxPercent: 0.1, note: 'Giai đoạn tích lũy' },
-    { id: 'pos-2', symbol: 'FPT', buyDate: '2026-06-15', buyPrice: 120.5, quantity: 3000, feePercent: 0.15, taxPercent: 0.1, note: 'Tăng trưởng công nghệ' },
-    { id: 'pos-3', symbol: 'MBB', buyDate: '2026-07-20', buyPrice: 23.0, quantity: 20000, feePercent: 0.15, taxPercent: 0.1, note: 'Định giá P/B siêu rẻ' },
-    { id: 'pos-4', symbol: 'STB', buyDate: '2026-07-28', buyPrice: 30.2, quantity: 10000, feePercent: 0.15, taxPercent: 0.1, note: 'Dòng tiền VAMC' },
-  ]);
+  const [positions, setPositions] = useState<PortfolioPosition[]>(() => {
+    const saved = localStorage.getItem('vnquant_portfolio_positions');
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved positions:', e);
+      }
+    }
+    return [];
+  });
 
-  const [realizedTrades, setRealizedTrades] = useState<RealizedTrade[]>([]);
-  const [capital, setCapital] = useState<number>(1000000000); // 1 Billion VND
-  const [cashBalance, setCashBalance] = useState<number>(250000000); // Tiền mặt khả dụng
+  const [realizedTrades, setRealizedTrades] = useState<RealizedTrade[]>(() => {
+    const saved = localStorage.getItem('vnquant_portfolio_trades');
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved trades:', e);
+      }
+    }
+    return [];
+  });
+
+  const [capital, setCapital] = useState<number>(() => {
+    const saved = localStorage.getItem('vnquant_portfolio_capital');
+    return saved !== null ? Number(saved) : 0;
+  });
+
+  const [cashBalance, setCashBalance] = useState<number>(() => {
+    const saved = localStorage.getItem('vnquant_portfolio_cash');
+    return saved !== null ? Number(saved) : 0;
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // Left Form Mode & States
   const [tradeMode, setTradeMode] = useState<'BUY' | 'SELL'>('BUY');
   const [symbol, setSymbol] = useState('VNM');
   const [buyPrice, setBuyPrice] = useState('65.0');
-  const [quantity, setQuantity] = useState('5000');
-  const [tradeDate, setTradeDate] = useState('2026-08-01');
+  const [quantity, setQuantity] = useState('1000');
+  const [tradeDate, setTradeDate] = useState(todayStr);
 
   // Sell Modal States
   const [sellingPosition, setSellingPosition] = useState<PortfolioPosition | null>(null);
   const [sellPriceInput, setSellPriceInput] = useState<string>('');
   const [sellQuantityInput, setSellQuantityInput] = useState<string>('');
-  const [sellDateInput, setSellDateInput] = useState<string>('2026-08-06');
+  const [sellDateInput, setSellDateInput] = useState<string>(todayStr);
 
   // Delete Modal States
   const [deletingPosition, setDeletingPosition] = useState<PortfolioPosition | null>(null);
 
   // Edit Capital & Cash Modal State
   const [isEditCapitalModalOpen, setIsEditCapitalModalOpen] = useState<boolean>(false);
-  const [capitalInput, setCapitalInput] = useState<string>('1000000000');
-  const [cashInput, setCashInput] = useState<string>('250000000');
+  const [capitalInput, setCapitalInput] = useState<string>('500000000');
+  const [cashInput, setCashInput] = useState<string>('500000000');
 
   // Settlement Filter State (T+2.5 Cycle)
   const [settlementFilter, setSettlementFilter] = useState<'ALL' | 'SETTLED' | 'PENDING'>('ALL');
@@ -68,13 +93,34 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [kellySymbol, setKellySymbol] = useState<string>('HPG');
   const [kellyPrice, setKellyPrice] = useState<string>('25.0');
 
+  // Sync state changes with localStorage
+  useEffect(() => {
+    localStorage.setItem('vnquant_portfolio_positions', JSON.stringify(positions));
+  }, [positions]);
+
+  useEffect(() => {
+    localStorage.setItem('vnquant_portfolio_trades', JSON.stringify(realizedTrades));
+  }, [realizedTrades]);
+
+  useEffect(() => {
+    localStorage.setItem('vnquant_portfolio_capital', String(capital));
+  }, [capital]);
+
+  useEffect(() => {
+    localStorage.setItem('vnquant_portfolio_cash', String(cashBalance));
+  }, [cashBalance]);
+
   // Handle Reset All Sample Data
   const handleResetSampleData = () => {
-    if (confirm('XÁC NHẬN TẢI LẠI TÀI KHOẢN TRỐNG?\n\n• Tất cả vị thế mẫu sẽ bị xóa hoàn toàn.\n• Số dư Tiền mặt & Tổng tài sản (NAV) sẽ đặt về đúng 1.000.000.000 VNĐ (1 Tỷ).\n• Lịch sử chốt lời/cắt lỗ sẽ về 0.')) {
+    if (confirm('XÁC NHẬN DỌN SẠCH TÀI KHOẢN MẪU?\n\n• Tất cả vị thế và lịch sử giao dịch mẫu sẽ bị xóa về 0.\n• Bạn có thể nhập Vốn Đầu Tư Thực Tế mới để bắt đầu sử dụng.')) {
       setPositions([]);
       setRealizedTrades([]);
-      setCapital(1000000000);
-      setCashBalance(1000000000);
+      setCapital(0);
+      setCashBalance(0);
+      localStorage.removeItem('vnquant_portfolio_positions');
+      localStorage.removeItem('vnquant_portfolio_trades');
+      localStorage.removeItem('vnquant_portfolio_capital');
+      localStorage.removeItem('vnquant_portfolio_cash');
     }
   };
 
@@ -725,8 +771,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                 <tbody className="divide-y divide-gray-800">
                   {portfolioSummary.positions.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="p-6 text-center text-gray-500 italic">
-                        Chưa có cổ phiếu nào trong danh mục. Hãy thêm vị thế mới ở bên trái!
+                      <td colSpan={12} className="p-8 text-center text-gray-400 font-mono space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-blue-950/60 border border-blue-800/80 flex items-center justify-center mx-auto text-blue-400 mb-2">
+                          <BarChart3 className="w-6 h-6" />
+                        </div>
+                        <div className="font-bold text-white text-sm">DANH MỤC THỰC TẾ CHƯA CÓ VỊ THẾ</div>
+                        <p className="text-xs text-gray-400 max-w-md mx-auto">
+                          Đã dọn dẹp sạch dữ liệu mẫu. Hãy dùng nút <strong className="text-blue-400">"SỬA VỐN & TIỀN MẶT"</strong> ở góc trên để cài đặt Vốn Đầu Tư Thực Tế, sau đó nhập các lệnh mua/bán ở khung bên trái.
+                        </p>
                       </td>
                     </tr>
                   ) : (

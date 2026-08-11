@@ -9,14 +9,17 @@ interface WatchlistViewProps {
 }
 
 export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectStock }) => {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([
-    { symbol: 'HPG', addedAt: '2026-08-01', targetPrice: 34.5, stopLoss: 26.2, note: 'Tăng trưởng công suất Dung Quất 2' },
-    { symbol: 'FPT', addedAt: '2026-08-01', targetPrice: 160.0, stopLoss: 124.0, note: 'Hợp đồng AI chip bán dẫn Nhật Bản' },
-    { symbol: 'STB', addedAt: '2026-08-02', targetPrice: 38.5, stopLoss: 29.0, note: 'Đấu giá cổ phần VAMC' },
-    { symbol: 'MBB', addedAt: '2026-08-02', targetPrice: 30.0, stopLoss: 22.5, note: 'ROE 21.5% P/B 1.15x' },
-    { symbol: 'DGC', addedAt: '2026-08-03', targetPrice: 135.0, stopLoss: 102.0, note: 'Giá P4 hóa chất bùng nổ' },
-    { symbol: 'FRT', addedAt: '2026-08-03', targetPrice: 210.0, stopLoss: 162.0, note: 'Chuỗi Long Châu bá chủ' },
-  ]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
+    const saved = localStorage.getItem('vnquant_watchlist');
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved watchlist:', e);
+      }
+    }
+    return [];
+  });
 
   const [newSymbol, setNewSymbol] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
@@ -25,6 +28,15 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
   const [selectedSentiment, setSelectedSentiment] = useState<StockNewsSentiment | null>(null);
 
   const tableParentRef = useRef<HTMLDivElement>(null);
+
+  // Persist watchlist changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('vnquant_watchlist', JSON.stringify(watchlist));
+    const symbols = watchlist.map((w) => w.symbol);
+    if (symbols.length > 0) {
+      fetchSentiments(symbols);
+    }
+  }, [watchlist]);
 
   // Fetch sentiment scores for watchlist symbols
   const fetchSentiments = async (symbolsToFetch: string[]) => {
@@ -46,11 +58,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
       setLoadingSentiments(false);
     }
   };
-
-  useEffect(() => {
-    const symbols = watchlist.map((w) => w.symbol);
-    fetchSentiments(symbols);
-  }, [watchlist.length]);
 
   const handleAddStock = () => {
     const sym = newSymbol.trim().toUpperCase();
@@ -82,6 +89,13 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
 
   const handleRemoveStock = (sym: string) => {
     setWatchlist((prev) => prev.filter((item) => item.symbol !== sym));
+  };
+
+  const handleClearAllWatchlist = () => {
+    if (confirm('XÁC NHẬN DỌN SẠCH WATCHLIST?\n\nTất cả mã trong danh mục theo dõi sẽ được xóa hoàn toàn.')) {
+      setWatchlist([]);
+      setSentiments({});
+    }
   };
 
   const watchlistStocks = watchlist
@@ -126,9 +140,20 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
 
         {/* Action Controls */}
         <div className="flex items-center space-x-3">
+          {watchlist.length > 0 && (
+            <button
+              onClick={handleClearAllWatchlist}
+              className="bg-[#0f172a] hover:bg-red-950 text-red-400 hover:text-red-300 border border-red-900/60 font-mono text-xs px-3 py-1.5 rounded-sm flex items-center space-x-1.5 transition"
+              title="Dọn dẹp toàn bộ mã khỏi danh mục theo dõi"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Dọn Sạch Watchlist</span>
+            </button>
+          )}
+
           <button
             onClick={handleRefreshAllSentiments}
-            disabled={loadingSentiments}
+            disabled={loadingSentiments || watchlist.length === 0}
             className="bg-[#0f172a] hover:bg-slate-800 text-blue-400 border border-blue-800/60 font-mono text-xs px-3 py-1.5 rounded-sm flex items-center space-x-1.5 transition disabled:opacity-50"
             title="Quét tin tức & Phân tích lại chỉ số Sắc Thái Gemini AI"
           >
@@ -169,9 +194,46 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
         />
       </div>
 
-      {/* Watchlist Table with Virtual Scroll Engine (@tanstack/react-virtual) */}
-      <div ref={tableParentRef} className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl max-h-[650px] overflow-y-auto">
-        <table className="w-full text-xs font-mono text-left min-w-[1080px]">
+      {/* Watchlist Table / Empty State */}
+      {watchlistStocks.length === 0 ? (
+        <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 p-12 text-center font-mono space-y-4 shadow-xl">
+          <div className="w-16 h-16 rounded-full bg-blue-950/60 border border-blue-800/80 flex items-center justify-center mx-auto text-blue-400">
+            <Eye className="w-8 h-8" />
+          </div>
+          <h3 className="text-base font-bold text-white uppercase">Danh Mục Theo Dõi Đang Trống</h3>
+          <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
+            Hệ thống đã dọn dẹp dữ liệu mẫu. Bạn có thể nhập mã chứng khoán bất kỳ (ví dụ: VNM, HPG, FPT...) ở thanh công cụ phía trên hoặc chọn nhanh từ danh sách gợi ý bên dưới để bắt đầu sử dụng thực tế.
+          </p>
+          <div className="pt-3 flex items-center justify-center space-x-2 flex-wrap gap-y-2">
+            <span className="text-xs text-gray-500">Gợi ý thêm nhanh:</span>
+            {['HPG', 'FPT', 'VNM', 'SSI', 'MBB', 'TCB', 'MWG'].map((quickSym) => (
+              <button
+                key={quickSym}
+                onClick={() => {
+                  const stock = stocks.find((s) => s.symbol === quickSym);
+                  if (stock) {
+                    setWatchlist([
+                      {
+                        symbol: quickSym,
+                        addedAt: new Date().toISOString().split('T')[0],
+                        targetPrice: stock.aiTargetPrice,
+                        stopLoss: stock.aiStopLoss,
+                        note: 'Thêm từ thanh gợi ý nhanh',
+                      },
+                    ]);
+                  }
+                }}
+                className="bg-[#050505] hover:bg-blue-950 hover:text-blue-300 text-gray-300 border border-gray-800 hover:border-blue-700 px-3 py-1 rounded-sm text-xs font-mono font-bold transition flex items-center space-x-1"
+              >
+                <Plus className="w-3 h-3 text-blue-400" />
+                <span>{quickSym}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div ref={tableParentRef} className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl max-h-[650px] overflow-y-auto">
+          <table className="w-full text-xs font-mono text-left min-w-[1080px]">
           <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-md whitespace-nowrap">
             <tr>
               <th className="p-3 bg-[#050505]">Mã CP</th>
@@ -326,6 +388,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
           </tbody>
         </table>
       </div>
+      )}
 
       {/* GEMINI NEWS SENTIMENT ANALYSIS MODAL */}
       {selectedSentiment && (
