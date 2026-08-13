@@ -25,9 +25,7 @@ export function App() {
   const [tradeTicks, setTradeTicks] = useState<TradeTick[]>([]);
   const [aiChatPrompt, setAiChatPrompt] = useState<string>('');
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
-  const [isLocked, setIsLocked] = useState<boolean>(() => {
-    return localStorage.getItem('vnquant_is_locked') !== 'false';
-  });
+  const [isLocked, setIsLocked] = useState<boolean>(true);
 
   // Helper to safely parse JSON response
   const safeParseJson = async (res: Response) => {
