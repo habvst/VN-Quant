@@ -37,6 +37,9 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
   const [confirmPassInput, setConfirmPassInput] = useState<string>('');
   const [changeSuccessMsg, setChangeSuccessMsg] = useState<string>('');
 
+  const currentCycleAttempts = failedAttempts % MAX_FAILED_ATTEMPTS;
+  const remainingAttempts = lockoutRemaining > 0 ? 0 : MAX_FAILED_ATTEMPTS - currentCycleAttempts;
+
   // 1. Enforce lock on page reload / mount
   useEffect(() => {
     setIsLocked(true);
@@ -150,36 +153,43 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
   if (!isLocked) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#03050a]/95 backdrop-blur-2xl flex items-center justify-center p-4 font-mono select-none">
-      <div className="w-full max-w-md">
+    <div className="fixed inset-0 z-[9999] bg-[#020408]/80 backdrop-blur-md flex items-center justify-center p-4 font-mono select-none">
+      {/* Subtle Ambient Background Glows */}
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
+      <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10">
         {/* Terminal Header Branding */}
         <div className="text-center mb-6 space-y-2">
-          <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-gradient-to-br from-blue-900/40 via-indigo-950/60 to-black border-2 border-blue-500/50 shadow-2xl shadow-blue-500/20 mb-2 relative">
+          <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-slate-900/80 backdrop-blur-xl border border-blue-500/40 shadow-2xl shadow-blue-500/20 mb-2 relative group">
             <Lock className={`w-10 h-10 ${lockoutRemaining > 0 ? 'text-red-500' : 'text-blue-400'} animate-pulse`} />
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-black animate-ping" />
           </div>
-          <h1 className="text-xl font-black text-white tracking-widest uppercase flex items-center justify-center space-x-2">
+          <h1 className="text-xl font-black text-white tracking-widest uppercase flex items-center justify-center space-x-2 drop-shadow-md">
             <span>VN-QUANT TERMINAL</span>
-            <span className="bg-red-950/90 text-red-400 border border-red-800 text-[10px] px-2 py-0.5 rounded font-bold">LOCKED</span>
+            <span className="bg-red-950/90 text-red-400 border border-red-800/80 text-[10px] px-2 py-0.5 rounded font-bold shadow-inner">LOCKED</span>
           </h1>
-          <p className="text-xs text-gray-400">Yêu Cầu Mật Khẩu Đăng Nhập Mỗi Khi Tải Trang (Auth Protection)</p>
+          <p className="text-xs text-gray-300 font-medium">Yêu Cầu Mật Khẩu Đăng Nhập Mỗi Khi Tải Trang (Auth Protection)</p>
         </div>
 
-        {/* Lock Card Container */}
+        {/* Lock Card Container - Glassmorphism */}
         <div
-          className={`bg-[#0a0f1d] border-2 ${
-            lockoutRemaining > 0 ? 'border-red-500/80 shadow-red-950/50' : 'border-blue-500/40'
-          } rounded-xl p-6 shadow-2xl shadow-black/80 space-y-5 transition-transform duration-200 ${
+          className={`bg-slate-900/65 backdrop-blur-xl border ${
+            lockoutRemaining > 0 ? 'border-red-500/80 shadow-red-950/50' : 'border-slate-700/70 hover:border-blue-500/60'
+          } rounded-2xl p-6 shadow-[0_16px_40px_rgba(0,0,0,0.8)] space-y-5 transition-all duration-300 relative overflow-hidden ${
             shake ? 'animate-bounce border-red-500' : ''
           }`}
         >
+          {/* Subtle Inner Glass Refraction Line */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent pointer-events-none" />
+
           {/* Status & Security Indicator */}
-          <div className="flex items-center justify-between bg-[#050811] p-3 rounded-lg border border-gray-800 text-xs">
+          <div className="flex items-center justify-between bg-slate-950/70 backdrop-blur-md p-3 rounded-xl border border-slate-800 text-xs">
             <div className="flex items-center space-x-2 text-emerald-400">
               <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>Chống Dò Mật Khẩu Active</span>
+              <span className="font-semibold">Chống Dò Mật Khẩu Active</span>
             </div>
-            <span className="text-[10px] text-gray-500">Mã PIN mặc định: <strong className="text-amber-400 font-bold">1234</strong></span>
+            <span className="text-[10px] text-gray-400">Mã PIN mặc định: <strong className="text-amber-400 font-bold">1234</strong></span>
           </div>
 
           {/* Brute-Force Lockout Banner */}
@@ -209,7 +219,27 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
           {/* Password Form */}
           <form onSubmit={handleUnlock} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-300 uppercase mb-2">Nhập Mật Khẩu Khóa Terminal:</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-300 uppercase">Nhập Mật Khẩu Khóa Terminal:</label>
+                {/* Visual Counter Badge */}
+                <div className="flex items-center space-x-1.5 font-mono text-[11px]">
+                  <span className="text-gray-400">Khả dụng:</span>
+                  <span
+                    className={`px-2 py-0.5 rounded border text-[10px] font-bold transition ${
+                      lockoutRemaining > 0
+                        ? 'bg-red-950 text-red-400 border-red-700 animate-pulse'
+                        : remainingAttempts === 1
+                        ? 'bg-amber-950 text-amber-300 border-amber-600 animate-pulse'
+                        : remainingAttempts < 5
+                        ? 'bg-blue-950 text-blue-300 border-blue-700'
+                        : 'bg-emerald-950 text-emerald-400 border-emerald-700'
+                    }`}
+                  >
+                    {lockoutRemaining > 0 ? '0/5 (Đã Khóa)' : `${remainingAttempts}/${MAX_FAILED_ATTEMPTS} Lần`}
+                  </span>
+                </div>
+              </div>
+
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -218,16 +248,79 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={lockoutRemaining > 0 ? `Bị khóa tạm thời... (${lockoutRemaining}s)` : 'Nhập mã PIN hoặc mật khẩu...'}
                   autoFocus
-                  className="w-full bg-[#050811] text-white placeholder-gray-600 px-4 py-3 rounded-lg border-2 border-gray-800 focus:border-blue-500 outline-none text-sm font-bold tracking-widest transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full bg-slate-950/80 backdrop-blur-md text-white placeholder-gray-500 px-4 py-3 rounded-xl border-2 ${
+                    lockoutRemaining > 0
+                      ? 'border-red-600 shadow-red-950/40'
+                      : remainingAttempts === 1
+                      ? 'border-amber-500 focus:border-amber-400 shadow-amber-950/40'
+                      : 'border-slate-800/90 focus:border-blue-500/80 focus:shadow-[0_0_15px_rgba(59,130,246,0.25)]'
+                  } outline-none text-sm font-bold tracking-widest transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-inner`}
                 />
                 <button
                   type="button"
                   disabled={lockoutRemaining > 0}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-white transition disabled:opacity-30"
+                  className="absolute right-3.5 top-3.5 text-gray-400 hover:text-white transition disabled:opacity-30"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
+              </div>
+
+              {/* Visual Segmented Progress Bar Indicator */}
+              <div className="mt-2.5 bg-slate-950/70 backdrop-blur-md p-2.5 rounded-xl border border-slate-800/90 space-y-1.5 shadow-inner">
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-gray-400 flex items-center space-x-1">
+                    <ShieldAlert className="w-3 h-3 text-gray-400" />
+                    <span>Tiến trình cơ chế chống dò PIN:</span>
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      lockoutRemaining > 0
+                        ? 'text-red-400'
+                        : remainingAttempts === 1
+                        ? 'text-amber-400'
+                        : remainingAttempts < 5
+                        ? 'text-blue-400'
+                        : 'text-emerald-400'
+                    }`}
+                  >
+                    {lockoutRemaining > 0
+                      ? 'TẠM KHÓA TOÀN BỘ'
+                      : remainingAttempts === 1
+                      ? '⚠️ CẢNH BÁO LẦN THỬ CUỐI'
+                      : `Còn lại ${remainingAttempts} lần thử`}
+                  </span>
+                </div>
+
+                {/* Segmented Progress Bars (5 blocks) */}
+                <div className="grid grid-cols-5 gap-1.5 h-2.5 w-full">
+                  {Array.from({ length: MAX_FAILED_ATTEMPTS }).map((_, idx) => {
+                    const isUsed = idx < currentCycleAttempts || lockoutRemaining > 0;
+                    const isCurrentWarning = idx === currentCycleAttempts && remainingAttempts === 1 && lockoutRemaining === 0;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`h-full rounded-sm transition-all duration-300 relative overflow-hidden ${
+                          lockoutRemaining > 0
+                            ? 'bg-red-600 animate-pulse'
+                            : isUsed
+                            ? 'bg-slate-800 border border-slate-700/50 opacity-40'
+                            : isCurrentWarning
+                            ? 'bg-amber-400 border border-amber-300 animate-pulse shadow-sm shadow-amber-400/50'
+                            : 'bg-emerald-500 border border-emerald-400/80 shadow-sm shadow-emerald-500/20'
+                        }`}
+                        title={
+                          lockoutRemaining > 0
+                            ? 'Đã bị khóa tạm thời'
+                            : isUsed
+                            ? `Thử sai lần ${idx + 1}`
+                            : `Lần thử ${idx + 1} khả dụng`
+                        }
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -245,10 +338,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
                       setPassword((prev) => prev + digit);
                     }
                   }}
-                  className={`py-2 rounded border text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                  className={`py-2.5 rounded-xl border text-xs font-bold transition duration-150 backdrop-blur-sm disabled:opacity-30 disabled:cursor-not-allowed ${
                     digit === '1234'
-                      ? 'col-span-2 bg-amber-950/60 hover:bg-amber-900 text-amber-300 border-amber-800'
-                      : 'bg-[#050811] hover:bg-blue-900/40 text-gray-300 border-gray-800'
+                      ? 'col-span-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border-amber-800/80 shadow-lg shadow-amber-950/30'
+                      : 'bg-slate-950/60 hover:bg-blue-900/40 text-gray-200 border-slate-800/90 hover:border-blue-500/50'
                   }`}
                 >
                   {digit === '1234' ? 'Thử 1234' : digit}
@@ -258,7 +351,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
                 type="button"
                 disabled={lockoutRemaining > 0}
                 onClick={() => setPassword('')}
-                className="col-span-2 py-2 rounded bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/60 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="col-span-2 py-2.5 rounded-xl bg-red-950/50 hover:bg-red-900/70 text-red-400 border border-red-900/60 text-xs font-bold transition duration-150 backdrop-blur-sm disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 XÓA NHẬP
               </button>
