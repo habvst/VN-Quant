@@ -5,6 +5,7 @@ import { FearGreedGauge } from './components/FearGreedGauge';
 import { FinancialReportView } from './components/FinancialReportView';
 import { HeaderNav } from './components/HeaderNav';
 import { HeatmapView } from './components/HeatmapView';
+import { LockScreen } from './components/LockScreen';
 import { NewsAlertsView } from './components/NewsAlertsView';
 import { PortfolioView } from './components/PortfolioView';
 import { RecommendationView } from './components/RecommendationView';
@@ -24,6 +25,9 @@ export function App() {
   const [tradeTicks, setTradeTicks] = useState<TradeTick[]>([]);
   const [aiChatPrompt, setAiChatPrompt] = useState<string>('');
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    return localStorage.getItem('vnquant_is_locked') !== 'false';
+  });
 
   // Helper to safely parse JSON response
   const safeParseJson = async (res: Response) => {
@@ -108,6 +112,9 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#d1d5db] font-sans selection:bg-blue-600 selection:text-white flex flex-col justify-between">
+      {/* Secure LockScreen Overlay */}
+      <LockScreen isLocked={isLocked} setIsLocked={setIsLocked} />
+
       <div>
         <HeaderNav
           indices={indices}
@@ -117,6 +124,10 @@ export function App() {
           onSelectStock={handleSelectStock}
           selectedStockSymbol={selectedStockSymbol}
           onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+          onLockApp={() => {
+            setIsLocked(true);
+            localStorage.setItem('vnquant_is_locked', 'true');
+          }}
         />
 
         <TelegramSettingsModal

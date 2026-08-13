@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronDown, Cpu, Eye, FileText, LayoutDashboard, LineChart, Newspaper, PieChart, RefreshCw, Search, Send, ShieldAlert, Zap } from 'lucide-react';
+import { Activity, Bot, ChevronDown, Cpu, Eye, FileText, KeyRound, LayoutDashboard, LineChart, Lock, Newspaper, PieChart, RefreshCw, Search, Send, ShieldAlert, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { MarketIndex, StockData } from '../types';
 
@@ -10,6 +10,7 @@ interface HeaderNavProps {
   onSelectStock: (symbol: string) => void;
   selectedStockSymbol: string;
   onOpenTelegramModal?: () => void;
+  onLockApp?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -20,6 +21,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onSelectStock,
   selectedStockSymbol,
   onOpenTelegramModal,
+  onLockApp,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -163,17 +165,30 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <span className="font-mono text-blue-400 font-bold">{formatTime(countdown)}</span>
           </div>
 
-          {/* Telegram Settings Modal Opener */}
-          {onOpenTelegramModal && (
-            <button
-              onClick={onOpenTelegramModal}
-              className="flex items-center space-x-1 bg-gradient-to-r from-blue-950 to-indigo-950 hover:from-blue-900 hover:to-indigo-900 text-blue-300 hover:text-white px-2 py-0.5 rounded border border-blue-700/80 text-[10px] font-mono font-bold transition shadow-sm cursor-pointer group"
-              title="Cấu hình Telegram Bot tự động gửi cảnh báo"
-            >
-              <Send className="w-3 h-3 text-blue-400 group-hover:text-emerald-400 transition" />
-              <span>CẤU HÌNH TELEGRAM BOT ✈️</span>
-            </button>
-          )}
+          {/* Telegram Settings Modal Opener & Lock Terminal Button */}
+          <div className="flex items-center space-x-2">
+            {onOpenTelegramModal && (
+              <button
+                onClick={onOpenTelegramModal}
+                className="flex items-center space-x-1 bg-gradient-to-r from-blue-950 to-indigo-950 hover:from-blue-900 hover:to-indigo-900 text-blue-300 hover:text-white px-2 py-0.5 rounded border border-blue-700/80 text-[10px] font-mono font-bold transition shadow-sm cursor-pointer group"
+                title="Cấu hình Telegram Bot tự động gửi cảnh báo"
+              >
+                <Send className="w-3 h-3 text-blue-400 group-hover:text-emerald-400 transition" />
+                <span>TELEGRAM BOT ✈️</span>
+              </button>
+            )}
+
+            {onLockApp && (
+              <button
+                onClick={onLockApp}
+                className="flex items-center space-x-1 bg-gradient-to-r from-red-950 to-slate-900 hover:from-red-900 hover:to-slate-800 text-red-300 hover:text-white px-2 py-0.5 rounded border border-red-800/80 text-[10px] font-mono font-bold transition shadow-sm cursor-pointer group"
+                title="Khóa màn hình Terminal lập tức (LockScreen)"
+              >
+                <Lock className="w-3 h-3 text-red-400 group-hover:text-amber-400 transition" />
+                <span>KHÓA MÀN HÌNH 🔒</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
