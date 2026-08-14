@@ -1,5 +1,5 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, CheckCircle, Flame, Layers, Plus, ShieldCheck, Zap } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, CheckCircle, ChevronLeft, ChevronRight, Flame, Layers, Plus, ShieldCheck, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
 import { getStoredAlerts, saveAlertsToStorage, getStoredNotifications, saveNotificationsToStorage, playAlertSound } from '../services/alertService';
@@ -30,6 +30,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TECHNICAL' | 'FUNDAMENTAL' | 'PATTERNS'>('OVERVIEW');
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // SSE FastConnect Live Stream State
   const [streamConnected, setStreamConnected] = useState(false);
@@ -205,32 +206,69 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     setAiAnalysisResult(null);
   }, [stock.symbol]);
 
+  // Ticker scroll ref & navigation
+  const tickerScrollRef = useRef<HTMLDivElement>(null);
+  const scrollTickers = (direction: 'left' | 'right') => {
+    if (tickerScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -250 : 250;
+      tickerScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-3 p-3 bg-[#050505] text-[#d1d5db] min-h-screen">
-      {/* Top Stock Selector Bar */}
-      <div className="flex items-center space-x-2 overflow-x-auto p-2 bg-[#0a0a0a] rounded-sm border border-gray-800 scrollbar-none">
-        <span className="text-[10px] font-mono font-bold text-blue-500 uppercase tracking-widest px-2">WATCHLIST TICKERS:</span>
-        {stocks.map((s) => {
-          const isSelected = s.symbol === stock.symbol;
-          const pos = s.changePercent >= 0;
-          return (
+      {/* Top Stock Selector Bar with Horizontal Scrollbar & Scroll Controls */}
+      <div className="relative bg-[#0a0a0a] rounded-sm border border-gray-800 p-1.5 shadow-md">
+        <div className="flex items-center">
+          {/* Label + Left Scroll Arrow */}
+          <div className="flex items-center space-x-1 shrink-0 pr-2 border-r border-gray-800/80 mr-2">
+            <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-wider whitespace-nowrap">
+              WATCHLIST TICKERS:
+            </span>
             <button
-              key={s.symbol}
-              onClick={() => onSelectStock(s.symbol)}
-              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-sm text-xs font-mono transition whitespace-nowrap border ${
-                isSelected
-                  ? 'bg-blue-900/30 text-white border-blue-500 font-bold'
-                  : 'bg-[#050505] text-gray-400 hover:bg-gray-800/60 border-gray-800'
-              }`}
+              onClick={() => scrollTickers('left')}
+              className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
+              title="Cuộn sang trái"
             >
-              <span className={isSelected ? 'text-blue-400 font-bold' : ''}>{s.symbol}</span>
-              <span className={pos ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
-                {pos ? '+' : ''}
-                {s.changePercent}%
-              </span>
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-          );
-        })}
+            <button
+              onClick={() => scrollTickers('right')}
+              className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
+              title="Cuộn sang phải"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Horizontal Scrollable Tickers List with sleek scrollbar */}
+          <div
+            ref={tickerScrollRef}
+            className="flex items-center space-x-2 custom-scrollbar-x overflow-x-auto pb-1.5 pt-0.5 w-full select-none"
+          >
+            {stocks.map((s) => {
+              const isSelected = s.symbol === stock.symbol;
+              const pos = s.changePercent >= 0;
+              return (
+                <button
+                  key={s.symbol}
+                  onClick={() => onSelectStock(s.symbol)}
+                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-sm text-xs font-mono transition whitespace-nowrap border shrink-0 cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-900/40 text-white border-blue-500 font-bold shadow-sm shadow-blue-500/20'
+                      : 'bg-[#050505] text-gray-300 hover:bg-gray-800/60 border-gray-800 hover:border-gray-700'
+                  }`}
+                >
+                  <span className={isSelected ? 'text-blue-400 font-bold' : 'text-gray-200'}>{s.symbol}</span>
+                  <span className={pos ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
+                    {pos ? '+' : ''}
+                    {s.changePercent}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Main Stock Header Card */}
@@ -345,13 +383,19 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
         </div>
       </div>
 
-      {/* Grid Layout: Left Chart (8 cols) / Right Orderbook & AI (4 cols) */}
+      {/* Grid Layout: Left Chart (8 cols or 12 cols in Focus Mode) / Right Orderbook & AI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Left Column: Interactive Chart + Indicator Tables */}
-        <div className="lg:col-span-8 flex flex-col space-y-3">
+        <div className={`${isFocusMode ? 'lg:col-span-12' : 'lg:col-span-8'} flex flex-col space-y-3 transition-all duration-300`}>
           {/* TradingView Candlestick Chart */}
-          <div className="h-[460px] bg-[#050505] rounded-sm border border-gray-800 overflow-hidden">
-            <StockChart symbol={stock.symbol} candles={candles} exchange={stock.exchange} />
+          <div className={`${isFocusMode ? 'h-[620px]' : 'h-[460px]'} bg-[#050505] rounded-sm border border-gray-800 overflow-hidden transition-all duration-300`}>
+            <StockChart
+              symbol={stock.symbol}
+              candles={candles}
+              exchange={stock.exchange}
+              isFocusMode={isFocusMode}
+              onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
+            />
           </div>
 
           {/* Sub Panels: Technical & Fundamental Indicators */}
@@ -507,14 +551,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Orderbook & AI Quantitative Verdict */}
-        <div className="lg:col-span-4 flex flex-col space-y-3">
-          {/* Order Book Depth & Ticks */}
-          <div className="bg-[#0a0a0a] rounded-sm p-3 border border-gray-800 shadow">
-            <h3 className="text-[10px] font-mono font-bold text-blue-500 uppercase tracking-widest flex items-center space-x-1.5 mb-2.5">
-              <Layers className="w-3.5 h-3.5 text-blue-400" />
-              <span>SỔ LỆNH & GIAO DỊCH KHỚP LỆNH</span>
-            </h3>
+        {/* Right Column: Orderbook & AI Quantitative Verdict (Hidden in Focus Mode or collapsed) */}
+        {!isFocusMode && (
+          <div className="lg:col-span-4 flex flex-col space-y-3">
+            {/* Order Book Depth & Ticks */}
+            <div className="bg-[#0a0a0a] rounded-sm p-3 border border-gray-800 shadow">
+              <h3 className="text-[10px] font-mono font-bold text-blue-500 uppercase tracking-widest flex items-center space-x-1.5 mb-2.5">
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                <span>SỔ LỆNH & GIAO DỊCH KHỚP LỆNH</span>
+              </h3>
 
             {/* Bid / Ask Progress Bars */}
             <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
@@ -633,7 +678,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Set Alert Modal Interface */}

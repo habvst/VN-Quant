@@ -286,6 +286,11 @@ export interface NewsItem {
   symbols: string[];
   sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'TÍCH CỰC' | 'TIÊU CỰC' | 'TRUNG TÍNH';
   impactScore: number; // 1 - 5
+  sentimentScore?: number; // -100 to +100
+  priceImpactForecast?: string; // e.g. "+2.5% ~ +4.0%" or "-1.5% ~ -3.0%"
+  impactDuration?: string; // e.g. "1-3 phiên"
+  impactDegree?: 'MẠNH' | 'TRUNG BÌNH' | 'NHẸ';
+  aiReasoning?: string;
 }
 
 export interface StockNewsSentiment {

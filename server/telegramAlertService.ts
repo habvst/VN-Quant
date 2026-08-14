@@ -89,19 +89,30 @@ export function formatTelegramAlertMessage(alert: StockAlert, stock: StockData, 
   const tvExchange = ['HNX', 'UPCOM'].includes((stock.exchange || '').toUpperCase()) ? stock.exchange.toUpperCase() : 'HOSE';
   const tvUrl = `https://www.tradingview.com/chart/?symbol=${tvExchange}:${stock.symbol}`;
 
-  return `🚨 <b>VIETSTOCK QUANT - CẢNH BÁO TÍN HIỆU CỔ PHIẾU</b> 🚨
+  // Custom visual badge based on trigger type
+  let badgeHeader = '🚨 <b>VIETSTOCK QUANT - CẢNH BÁO TÍN HIỆU</b>';
+  if (alert.triggerType === 'VOLUME_SURGE') {
+    badgeHeader = '🔥 <b>VIETSTOCK QUANT - ĐỘT BIẾN KHỐI LƯỢNG (>200% MA20)</b>';
+  } else if (alert.triggerType === 'STOP_LOSS_TAKE_PROFIT') {
+    badgeHeader = '🛑 <b>VIETSTOCK QUANT - CẢNH BÁO STOP-LOSS / TAKE-PROFIT</b>';
+  } else if (alert.triggerType === 'BREAKOUT_LEVEL') {
+    badgeHeader = '🚀 <b>VIETSTOCK QUANT - BỨT PHÁ KỸ THUẬT BREAKOUT</b>';
+  }
+
+  return `${badgeHeader}
 ---------------------------------------------
 📌 <b>Mã CP:</b> #${stock.symbol} (${stock.name})
 🏢 <b>Sàn:</b> ${stock.exchange} | <b>Ngành:</b> ${stock.sector}
 🎯 <b>Tín hiệu:</b> ${condLabel}
 💲 <b>Giá hiện tại:</b> <b>${stock.price.toFixed(2)} VNĐ</b> (${changeSign}${stock.changePercent.toFixed(2)}%)
+📊 <b>Khối lượng khớp:</b> ${stock.volume.toLocaleString('vi-VN')} CP (GT: ${stock.value} tỷ)
 📈 <b>Chỉ báo Kỹ thuật:</b>
    • RSI (14): <b>${stock.technical.rsi14.toFixed(1)}</b>
    • MA20: <b>${stock.technical.ma20.toFixed(2)}</b> | MA50: <b>${stock.technical.ma50.toFixed(2)}</b>
    • Kháng cự: ${stock.technical.resistanceLevel} | Hỗ trợ: ${stock.technical.supportLevel}
-📣 <b>Nội dung cảnh báo:</b> ${triggerResult.message}
+📣 <b>Chi tiết phân tích:</b> ${triggerResult.message}
 ${alert.note ? `📝 <b>Ghi chú cá nhân:</b> <i>${alert.note}</i>\n` : ''}
-⏰ <b>Thời gian cập nhật:</b> ${timeStr}
+⏰ <b>Thời gian:</b> ${timeStr}
 ---------------------------------------------
 🔗 <a href="${tvUrl}">Xem biểu đồ trực tiếp trên TradingView ↗</a>`;
 }
@@ -137,6 +148,22 @@ export async function runCronMarketSyncAndCheckAlerts() {
 
     const stock = stocks.find((s) => s.symbol === alert.symbol) || (await getOrFetchStockBySymbol(alert.symbol));
     if (!stock) continue;
+
+    // Check user-configured Telegram smart filters
+    if (cfg.enabled) {
+      if (cfg.filterVolumeSurgeOnly && alert.triggerType !== 'VOLUME_SURGE') {
+        continue;
+      }
+      if (cfg.filterStopLossTakeProfitOnly && alert.triggerType !== 'STOP_LOSS_TAKE_PROFIT') {
+        continue;
+      }
+      if (cfg.filterBreakoutOnly && alert.triggerType !== 'BREAKOUT_LEVEL' && alert.triggerType !== 'MA_CROSSOVER') {
+        continue;
+      }
+      if (cfg.minPriceChangePercent && Math.abs(stock.changePercent) < cfg.minPriceChangePercent) {
+        continue;
+      }
+    }
 
     const evalResult = checkAlertTrigger(alert, stock);
 

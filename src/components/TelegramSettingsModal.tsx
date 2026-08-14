@@ -10,6 +10,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const [filterVolumeSurgeOnly, setFilterVolumeSurgeOnly] = useState(false);
+  const [filterStopLossTakeProfitOnly, setFilterStopLossTakeProfitOnly] = useState(false);
+  const [filterBreakoutOnly, setFilterBreakoutOnly] = useState(false);
+  const [minPriceChangePercent, setMinPriceChangePercent] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -22,6 +26,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
         setBotToken(data.botToken || '');
         setChatId(data.chatId || '');
         setEnabled(data.enabled !== false);
+        setFilterVolumeSurgeOnly(!!data.filterVolumeSurgeOnly);
+        setFilterStopLossTakeProfitOnly(!!data.filterStopLossTakeProfitOnly);
+        setFilterBreakoutOnly(!!data.filterBreakoutOnly);
+        setMinPriceChangePercent(data.minPriceChangePercent || 0);
       })
       .catch((err) => console.error('Failed to load telegram config:', err));
   }, [isOpen]);
@@ -37,11 +45,19 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
       const res = await fetch('/api/telegram/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botToken, chatId, enabled }),
+        body: JSON.stringify({ 
+          botToken, 
+          chatId, 
+          enabled,
+          filterVolumeSurgeOnly,
+          filterStopLossTakeProfitOnly,
+          filterBreakoutOnly,
+          minPriceChangePercent,
+        }),
       });
       const data = await res.json();
       if (data.status === 'success') {
-        setStatusMsg({ type: 'success', text: '✅ Đã lưu cấu hình Telegram Bot thành công!' });
+        setStatusMsg({ type: 'success', text: '✅ Đã lưu cấu hình & bộ lọc Telegram Bot thành công!' });
       } else {
         setStatusMsg({ type: 'error', text: '❌ Lỗi khi lưu cấu hình Telegram Bot' });
       }
@@ -61,7 +77,15 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
       await fetch('/api/telegram/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botToken, chatId, enabled }),
+        body: JSON.stringify({ 
+          botToken, 
+          chatId, 
+          enabled,
+          filterVolumeSurgeOnly,
+          filterStopLossTakeProfitOnly,
+          filterBreakoutOnly,
+          minPriceChangePercent,
+        }),
       });
 
       const res = await fetch('/api/telegram/test', {
@@ -165,6 +189,77 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                 onChange={(e) => setEnabled(e.target.checked)}
                 className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
               />
+            </div>
+
+            {/* Smart Filters Configuration (Đề xuất #4: Bộ lọc thông minh Telegram) */}
+            <div className="bg-[#050811] p-3 rounded border border-blue-500/30 space-y-2.5">
+              <div className="flex items-center space-x-1.5 text-blue-400 font-bold text-xs uppercase">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Bộ Lọc Cảnh Báo Telegram Thông Minh (Smart Filter):</span>
+              </div>
+              <p className="text-[10px] text-gray-400">
+                Chỉ gửi tin nhắn tới Telegram khi thỏa mãn các điều kiện lọc chuyên sâu sau:
+              </p>
+
+              <div className="space-y-2 pt-1">
+                <label className="flex items-center space-x-2.5 cursor-pointer bg-[#050505] p-2 rounded border border-gray-800 hover:border-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={filterVolumeSurgeOnly}
+                    onChange={(e) => setFilterVolumeSurgeOnly(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-amber-500 rounded"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-amber-400">🔥 Đột biến khối lượng giao dịch</span>
+                    <span className="text-[10px] text-gray-400 block">Chỉ gửi khi Volume vượt {'>'} 200% so với đường MA20 phiên (Dòng tiền lớn)</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 cursor-pointer bg-[#050505] p-2 rounded border border-gray-800 hover:border-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={filterStopLossTakeProfitOnly}
+                    onChange={(e) => setFilterStopLossTakeProfitOnly(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-rose-500 rounded"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-rose-400">🛑 Ngưỡng Cắt Lỗ (Stop-Loss) & Chốt Lời</span>
+                    <span className="text-[10px] text-gray-400 block">Chỉ gửi khi chạm ngưỡng bảo vệ vốn hoặc mục tiêu chốt lãi / Trailing Stop ATR</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 cursor-pointer bg-[#050505] p-2 rounded border border-gray-800 hover:border-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={filterBreakoutOnly}
+                    onChange={(e) => setFilterBreakoutOnly(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-emerald-500 rounded"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-emerald-400">🚀 Bứt phá Kỹ thuật & Golden Cross</span>
+                    <span className="text-[10px] text-gray-400 block">Chỉ gửi tín hiệu Breakout kháng cự hoặc MA20 cắt lên MA50</span>
+                  </div>
+                </label>
+
+                <div className="bg-[#050505] p-2 rounded border border-gray-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-gray-300">Biến động tối thiểu trong phiên (%):</span>
+                    <span className="text-[10px] text-gray-500 block">Bỏ qua các mã chỉ dao động biên độ nhỏ</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="15"
+                      step="0.5"
+                      value={minPriceChangePercent}
+                      onChange={(e) => setMinPriceChangePercent(parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-[#000] border border-gray-700 rounded px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-blue-500"
+                    />
+                    <span className="text-gray-400 text-xs">%</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

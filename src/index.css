@@ -1,1 +1,46 @@
 @import "tailwindcss";
+
+/* Custom Sleek Scrollbar for Terminal Data and Horizontal Watchlists */
+.custom-scrollbar-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #111827;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar {
+  height: 6px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  background: #090d16;
+  border-radius: 4px;
+  border: 1px solid #1e293b;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border-radius: 4px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa;
+}
+
+/* Global Dark Theme Terminal Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}

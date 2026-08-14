@@ -1,7 +1,8 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, DollarSign, History, MinusCircle, Plus, RefreshCw, ShieldAlert, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-react';
-import React, { useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, DollarSign, Grid, History, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { PortfolioPosition, StockData } from '../types';
-import { calculatePortfolioMetrics } from '../utils/riskEngine';
+import { BetaTimeframe, calculateCorrelationMatrix, calculatePortfolioMetrics, getSectorConcentrationAnalysis } from '../utils/riskEngine';
+import { MetricTooltip } from './MetricTooltip';
 
 interface PortfolioViewProps {
   stocks: StockData[];
@@ -87,6 +88,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   // Settlement Filter State (T+2.5 Cycle)
   const [settlementFilter, setSettlementFilter] = useState<'ALL' | 'SETTLED' | 'PENDING'>('ALL');
 
+  // Beta Timeframe State (3M, 6M 126-session, 1Y 252-session)
+  const [betaTimeframe, setBetaTimeframe] = useState<BetaTimeframe>('6M');
+
+  // Right Column View Tab State
+  const [portfolioTab, setPortfolioTab] = useState<'POSITIONS' | 'CORRELATION' | 'SECTORS'>('POSITIONS');
+
+  // Correlation Matrix View Mode (Sectors vs Portfolio Stocks)
+  const [corrMatrixMode, setCorrMatrixMode] = useState<'SECTOR' | 'STOCKS'>('SECTOR');
+
   // Interactive Kelly Criterion Position Sizer States
   const [kellyWinRate, setKellyWinRate] = useState<number>(58); // %
   const [kellyPayoff, setKellyPayoff] = useState<number>(1.8); // Win/Loss Ratio
@@ -127,7 +137,28 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   // Total Realized PnL Sum
   const totalRealizedPnL = realizedTrades.reduce((sum, t) => sum + t.realizedPnL, 0);
 
-  const portfolioSummary = calculatePortfolioMetrics(positions, stockMap, capital, cashBalance, totalRealizedPnL);
+  const portfolioSummary = calculatePortfolioMetrics(
+    positions,
+    stockMap,
+    capital,
+    cashBalance,
+    totalRealizedPnL,
+    betaTimeframe
+  );
+
+  // Sector Concentration Alert Engine ("Dồn trứng vào một giỏ")
+  const sectorConcentration = getSectorConcentrationAnalysis(
+    positions,
+    stockMap,
+    portfolioSummary.currentValue
+  );
+
+  // Correlation Matrix Computation
+  const correlationItems: string[] = corrMatrixMode === 'SECTOR'
+    ? ['Ngân hàng', 'Bất động sản', 'Chứng khoán', 'Thép', 'Công nghệ', 'Bán lẻ', 'Năng lượng', 'Dược phẩm']
+    : (positions.length > 0 ? Array.from(new Set(positions.map((p) => p.symbol))) : ['HPG', 'SSI', 'FPT', 'VHM', 'VCB', 'MWG']);
+
+  const correlationData = calculateCorrelationMatrix(correlationItems, corrMatrixMode, stockMap);
 
   // Handle Buy Position
   const handleAddPosition = (e: React.FormEvent) => {
@@ -302,7 +333,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 font-mono text-xs">
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">TỔNG GIÁ TRỊ NAV</span>
+          <MetricTooltip
+            title="TỔNG GIÁ TRỊ TÀI SẢN RÒNG (NAV)"
+            formula="NAV = Tiền mặt + Tổng giá trị thị trường cổ phiếu nắm giữ"
+            description="Tổng quy mô danh mục đầu tư hiện tại sau khi đã cộng trừ biến động giá real-time."
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">TỔNG GIÁ TRỊ NAV</span>
+          </MetricTooltip>
           <span className="text-white font-black text-base">{(portfolioSummary.nav ?? 0).toLocaleString('vi-VN')}</span>
           <span className="text-gray-400 text-[10px] block truncate" title={`Tiền mặt: ${(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')} VNĐ | Cổ phiếu: ${(portfolioSummary.currentValue ?? 0).toLocaleString('vi-VN')} VNĐ`}>
             Tiền: {(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')}
@@ -310,7 +347,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">TỔNG LÃI / LỖ (PNL)</span>
+          <MetricTooltip
+            title="TỔNG LÃI / LỖ (PNL)"
+            formula="PnL = (NAV - Vốn Gốc) + Tổng Lãi Lỗ Đã Chốt"
+            description="Bao gồm cả Lãi Lỗ Chưa Thực Hiện (Unrealized) của danh mục mở và Lãi Lỗ Đã Chốt (Realized) từ lịch sử bán."
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">TỔNG LÃI / LỖ (PNL)</span>
+          </MetricTooltip>
           <span className={`font-black text-base ${portfolioSummary.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {portfolioSummary.totalPnL >= 0 ? '+' : ''}
             {(portfolioSummary.totalPnL ?? 0).toLocaleString('vi-VN')}
@@ -322,37 +365,99 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">SHARPE RATIO</span>
+          <MetricTooltip
+            title="SHARPE RATIO"
+            formula="Sharpe = (Rp - Rf) / σp"
+            description="Đo lường tỷ suất sinh lời vượt trội trên mỗi đơn vị rủi ro biến động tổng thể của danh mục."
+            benchmark="> 1.0 (Tốt) | > 2.0 (Xuất sắc)"
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">SHARPE RATIO</span>
+          </MetricTooltip>
           <span className="text-blue-400 font-black text-base">{portfolioSummary.sharpeRatio}</span>
           <span className="text-emerald-400 text-[10px] block font-semibold">Tối ưu rủi ro tổng</span>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">SORTINO RATIO</span>
+          <MetricTooltip
+            title="SORTINO RATIO"
+            formula="Sortino = (Rp - Rf) / σd (Downside Deviation)"
+            description="Tập trung đo lường rủi ro thua lỗ thực tế (Downside Volatility), không phạt danh mục khi có biến động tăng mạnh."
+            benchmark="> 1.5 (An toàn cao)"
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">SORTINO RATIO</span>
+          </MetricTooltip>
           <span className="text-indigo-400 font-black text-base">{portfolioSummary.sortinoRatio}</span>
           <span className="text-indigo-300 text-[10px] block font-semibold">Rủi ro Downside</span>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">MAX DRAWDOWN (MDD)</span>
+          <MetricTooltip
+            title="MAXIMUM DRAWDOWN (MDD)"
+            formula="MDD = (Peak - Trough) / Peak"
+            description="Mức sụt giảm tối đa từ đỉnh tài sản cao nhất xuống đáy thấp nhất trong quá khứ."
+            benchmark="< 15% (Kiểm soát tốt)"
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">MAX DRAWDOWN (MDD)</span>
+          </MetricTooltip>
           <span className="text-red-400 font-black text-base">-{portfolioSummary.maxDrawdown}%</span>
           <span className="text-red-300 text-[10px] block font-semibold">Sụt giảm tối đa</span>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">VALUE AT RISK (VaR 95%)</span>
+          <MetricTooltip
+            title="VALUE AT RISK (VaR 95% - 1 NGÀY)"
+            formula="VaR = NAV × Z(95%) × σp × √1"
+            description="Mức lỗ tối đa mà danh mục có thể phải chịu trong 1 phiên giao dịch với độ tin cậy thống kê 95%."
+            benchmark="Càng thấp càng an toàn"
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">VALUE AT RISK (VaR 95%)</span>
+          </MetricTooltip>
           <span className="text-amber-400 font-bold text-sm">-{(portfolioSummary.var95 ?? 0).toLocaleString('vi-VN')}</span>
           <span className="text-gray-500 text-[10px] block">Thua lỗ ngày tối đa</span>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">PORTFOLIO BETA</span>
+          <div className="flex items-center justify-between">
+            <MetricTooltip
+              title="PORTFOLIO BETA (HỆ SỐ BETA)"
+              formula="Beta = Cov(Rp, Rm) / Var(Rm)"
+              description="Độ nhạy của danh mục so với VN-Index. Beta > 1: biến động mạnh hơn thị trường; Beta < 1: phòng thủ."
+              benchmark="0.8 - 1.2 (Cân bằng)"
+            >
+              <span className="text-gray-500 text-[10px] uppercase block">PORTFOLIO BETA</span>
+            </MetricTooltip>
+            {/* Timeframe pill selector */}
+            <div className="flex items-center bg-[#050505] p-0.5 rounded border border-gray-800 text-[9px]">
+              {(['3M', '6M', '1Y'] as BetaTimeframe[]).map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => setBetaTimeframe(tf)}
+                  className={`px-1 py-0.5 rounded font-bold transition ${
+                    betaTimeframe === tf ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                  title={tf === '3M' ? '3 Tháng gần nhất' : tf === '6M' ? '6 Tháng (126 phiên chuẩn)' : '1 Năm (252 phiên)'}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          </div>
           <span className="text-blue-400 font-black text-base">{portfolioSummary.beta}</span>
-          <span className="text-gray-500 text-[10px] block">vs VN-Index</span>
+          <span className="text-gray-500 text-[10px] block">
+            {betaTimeframe === '3M' ? 'Khung 3 Tháng' : betaTimeframe === '6M' ? 'Khung 6M (126 phiên)' : 'Khung 1Y (252 phiên)'}
+          </span>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
-          <span className="text-gray-500 text-[10px] uppercase block">ĐIỂM RỦI RO QUANT</span>
+          <MetricTooltip
+            title="ĐIỂM ĐÁNH GIÁ RỦI RO QUANT"
+            formula="Score = f(VaR, MDD, Beta, Phân Bổ Ngành)"
+            description="Thang điểm từ 0 (siêu an toàn) đến 100 (cực kỳ rủi ro) được lượng hóa bởi thuật toán Quant."
+            benchmark="< 60 (Mức trung tính an toàn)"
+          >
+            <span className="text-gray-500 text-[10px] uppercase block">ĐIỂM RỦI RO QUANT</span>
+          </MetricTooltip>
           <span className="text-amber-400 font-black text-base">{portfolioSummary.riskScore} / 100</span>
           <span className="text-emerald-400 text-[10px] block">Đa dạng hóa: {portfolioSummary.diversificationScore}</span>
         </div>
@@ -679,8 +784,38 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
           </div>
         </div>
 
-        {/* Right Column: Positions Table & Realized History */}
+        {/* Right Column: Positions Table, Correlation Matrix & Sector Analysis */}
         <div className="lg:col-span-8 space-y-4">
+          {/* Sector Concentration Alert Banner ("Dồn trứng vào một giỏ") */}
+          {sectorConcentration.hasWarning && (
+            <div
+              className={`rounded-sm p-3.5 text-xs font-mono shadow-2xl space-y-2 border-2 ${
+                sectorConcentration.severity === 'DANGER'
+                  ? 'bg-red-950/90 border-red-600/80 text-red-200'
+                  : 'bg-amber-950/90 border-amber-600/80 text-amber-200'
+              }`}
+            >
+              <div className="flex items-center space-x-2 font-bold">
+                <AlertTriangle
+                  className={`w-5 h-5 animate-pulse ${
+                    sectorConcentration.severity === 'DANGER' ? 'text-red-400' : 'text-amber-400'
+                  }`}
+                />
+                <span className="text-sm font-black uppercase">{sectorConcentration.title}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed opacity-95">
+                {sectorConcentration.description}
+              </p>
+              <div className="bg-black/70 border border-gray-800 p-2 rounded text-[11px] flex items-start space-x-2">
+                <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-blue-300">Đề xuất Quant: </strong>
+                  <span className="text-gray-300">{sectorConcentration.recommendation}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* T+2.5 Trapped Stock Risk Warning Banner */}
           {(() => {
             const trappedLosing = portfolioSummary.positions.filter(
@@ -710,16 +845,52 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
             );
           })()}
 
-          <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
-            <div className="p-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-bold text-xs text-white uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-400" />
-                <span>DANH MỤC VỊ THẾ ĐANG SỞ HỮU ({portfolioSummary.positions.length})</span>
-              </h3>
+          {/* Navigation Tabs for Right Column */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0a0a0a] p-2 rounded-sm border border-gray-800">
+            <div className="flex items-center space-x-1.5 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setPortfolioTab('POSITIONS')}
+                className={`px-3 py-1.5 rounded-sm transition flex items-center space-x-1.5 ${
+                  portfolioTab === 'POSITIONS'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-[#050505] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>VỊ THẾ & LỆNH BÁN ({portfolioSummary.positions.length})</span>
+              </button>
 
-              {/* T+2.5 Settlement Filter Tabs */}
+              <button
+                type="button"
+                onClick={() => setPortfolioTab('CORRELATION')}
+                className={`px-3 py-1.5 rounded-sm transition flex items-center space-x-1.5 ${
+                  portfolioTab === 'CORRELATION'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'bg-[#050505] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                <Grid className="w-3.5 h-3.5" />
+                <span>MA TRẬN TƯƠNG QUAN</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPortfolioTab('SECTORS')}
+                className={`px-3 py-1.5 rounded-sm transition flex items-center space-x-1.5 ${
+                  portfolioTab === 'SECTORS'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-[#050505] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                <PieChart className="w-3.5 h-3.5" />
+                <span>CƠ CẤU NGÀNH ({sectorConcentration.hasWarning ? '⚠️ Cảnh báo' : '✅ Chuẩn'})</span>
+              </button>
+            </div>
+
+            {portfolioTab === 'POSITIONS' && (
               <div className="flex items-center space-x-1 bg-[#050505] p-1 rounded border border-gray-800 text-[11px]">
-                <span className="text-gray-500 font-bold px-1 uppercase text-[10px]">LỌC T+2.5:</span>
+                <span className="text-gray-500 font-bold px-1 uppercase text-[10px]">LỌC:</span>
                 <button
                   type="button"
                   onClick={() => setSettlementFilter('ALL')}
@@ -736,7 +907,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                     settlementFilter === 'SETTLED' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Khả Dụng Bán (T+0) ({portfolioSummary.positions.filter((p) => p.settlementStatus === 'SETTLED' || (p.availableQuantity && p.availableQuantity > 0)).length})
+                  Khả Dụng ({portfolioSummary.positions.filter((p) => p.settlementStatus === 'SETTLED' || (p.availableQuantity && p.availableQuantity > 0)).length})
                 </button>
                 <button
                   type="button"
@@ -745,193 +916,434 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                     settlementFilter === 'PENDING' ? 'bg-amber-600 text-white font-bold' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Hàng Kẹp T+2.5 ({portfolioSummary.positions.filter((p) => p.settlementStatus !== 'SETTLED' || p.availableQuantity === 0).length})
+                  Kẹp T+2.5 ({portfolioSummary.positions.filter((p) => p.settlementStatus !== 'SETTLED' || p.availableQuantity === 0).length})
                 </button>
               </div>
-            </div>
+            )}
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs font-mono text-left min-w-[1000px]">
-                <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider whitespace-nowrap">
-                  <tr>
-                    <th className="p-3">Mã CP</th>
-                    <th className="p-3 text-center">Trạng Thái T+2.5</th>
-                    <th className="p-3 text-right">Giá Vốn</th>
-                    <th className="p-3 text-right">Giá Hiện Tại</th>
-                    <th className="p-3 text-right">Cắt Lỗ ATR (Dynamic)</th>
-                    <th className="p-3 text-right">Khả Dụng / Tổng CP</th>
-                    <th className="p-3 text-right">Giá Trị NAV (%)</th>
-                    <th className="p-3 text-center">Kelly Tối Ưu</th>
-                    <th className="p-3 text-right">Lãi / Lỗ (PnL)</th>
-                    <th className="p-3 text-center">Đề Xuất AI</th>
-                    <th className="p-3 text-center">Hành Động</th>
-                    <th className="p-3 text-center">Xóa</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {portfolioSummary.positions.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} className="p-8 text-center text-gray-400 font-mono space-y-2">
-                        <div className="w-12 h-12 rounded-full bg-blue-950/60 border border-blue-800/80 flex items-center justify-center mx-auto text-blue-400 mb-2">
-                          <BarChart3 className="w-6 h-6" />
-                        </div>
-                        <div className="font-bold text-white text-sm">DANH MỤC THỰC TẾ CHƯA CÓ VỊ THẾ</div>
-                        <p className="text-xs text-gray-400 max-w-md mx-auto">
-                          Đã dọn dẹp sạch dữ liệu mẫu. Hãy dùng nút <strong className="text-blue-400">"SỬA VỐN & TIỀN MẶT"</strong> ở góc trên để cài đặt Vốn Đầu Tư Thực Tế, sau đó nhập các lệnh mua/bán ở khung bên trái.
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    portfolioSummary.positions
-                      .filter((pos) => {
-                        if (settlementFilter === 'SETTLED') return pos.settlementStatus === 'SETTLED' || (pos.availableQuantity && pos.availableQuantity > 0);
-                        if (settlementFilter === 'PENDING') return pos.settlementStatus !== 'SETTLED' || pos.availableQuantity === 0;
-                        return true;
-                      })
-                      .map((pos) => {
-                        const isPos = pos.pnl >= 0;
-                        const isSettled = pos.settlementStatus === 'SETTLED' || (pos.availableQuantity !== undefined && pos.availableQuantity > 0);
-                        const isAtrBreached = pos.atrStopLossPrice && pos.currentPrice <= pos.atrStopLossPrice;
+          {/* TAB 1: POSITIONS TABLE */}
+          {portfolioTab === 'POSITIONS' && (
+            <>
+              <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-mono text-left min-w-[1000px]">
+                    <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider whitespace-nowrap">
+                      <tr>
+                        <th className="p-3">Mã CP</th>
+                        <th className="p-3 text-center">Trạng Thái T+2.5</th>
+                        <th className="p-3 text-right">Giá Vốn</th>
+                        <th className="p-3 text-right">Giá Hiện Tại</th>
+                        <th className="p-3 text-right">Cắt Lỗ ATR (Dynamic)</th>
+                        <th className="p-3 text-right">Khả Dụng / Tổng CP</th>
+                        <th className="p-3 text-right">Giá Trị NAV (%)</th>
+                        <th className="p-3 text-center">Kelly Tối Ưu</th>
+                        <th className="p-3 text-right">Lãi / Lỗ (PnL)</th>
+                        <th className="p-3 text-center">Đề Xuất AI</th>
+                        <th className="p-3 text-center">Hành Động</th>
+                        <th className="p-3 text-center">Xóa</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {portfolioSummary.positions.length === 0 ? (
+                        <tr>
+                          <td colSpan={12} className="p-8 text-center text-gray-400 font-mono space-y-2">
+                            <div className="w-12 h-12 rounded-full bg-blue-950/60 border border-blue-800/80 flex items-center justify-center mx-auto text-blue-400 mb-2">
+                              <BarChart3 className="w-6 h-6" />
+                            </div>
+                            <div className="font-bold text-white text-sm">DANH MỤC THỰC TẾ CHƯA CÓ VỊ THẾ</div>
+                            <p className="text-xs text-gray-400 max-w-md mx-auto">
+                              Đã dọn dẹp sạch dữ liệu mẫu. Hãy dùng nút <strong className="text-blue-400">"SỬA VỐN & TIỀN MẶT"</strong> ở góc trên để cài đặt Vốn Đầu Tư Thực Tế, sau đó nhập các lệnh mua/bán ở khung bên trái.
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        portfolioSummary.positions
+                          .filter((pos) => {
+                            if (settlementFilter === 'SETTLED') return pos.settlementStatus === 'SETTLED' || (pos.availableQuantity && pos.availableQuantity > 0);
+                            if (settlementFilter === 'PENDING') return pos.settlementStatus !== 'SETTLED' || pos.availableQuantity === 0;
+                            return true;
+                          })
+                          .map((pos) => {
+                            const isPos = pos.pnl >= 0;
+                            const isSettled = pos.settlementStatus === 'SETTLED' || (pos.availableQuantity !== undefined && pos.availableQuantity > 0);
+                            const isAtrBreached = pos.atrStopLossPrice && pos.currentPrice <= pos.atrStopLossPrice;
 
-                        return (
-                          <tr key={pos.id} className="hover:bg-gray-900/50 transition whitespace-nowrap">
-                            <td className="p-3 font-bold text-white">
-                              <button onClick={() => onSelectStock(pos.symbol)} className="hover:text-blue-400 transition">
-                                {pos.symbol}
-                              </button>
-                            </td>
-                            <td className="p-3 text-center">
-                              {isSettled ? (
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800 whitespace-nowrap" title="Đã qua T+2.5 - Có thể bán 100%">
-                                  🟢 Khả dụng (T+0)
-                                </span>
-                              ) : pos.settlementStatus === 'PENDING_T1' ? (
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700 animate-pulse whitespace-nowrap" title="Mới mua hôm nay - Chờ 11:30 T+2">
-                                  🟨 Hàng kẹp T+0
-                                </span>
-                              ) : (
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-orange-950 text-orange-300 border border-orange-700 animate-pulse whitespace-nowrap" title="Sẽ về tài khoản lúc 11:30 Sáng Mai">
-                                  🟧 Hàng kẹp T+1
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right text-gray-300">{pos.buyPrice}</td>
-                            <td className="p-3 text-right font-bold text-gray-100">{pos.currentPrice}</td>
-                            <td className="p-3 text-right">
-                              {pos.atrStopLossPrice ? (
-                                <div className="flex flex-col items-end">
-                                  <span className={`font-bold ${isAtrBreached ? 'text-red-400 underline animate-pulse' : 'text-gray-300'}`}>
-                                    {pos.atrStopLossPrice}
+                            return (
+                              <tr key={pos.id} className="hover:bg-gray-900/50 transition whitespace-nowrap">
+                                <td className="p-3 font-bold text-white">
+                                  <button onClick={() => onSelectStock(pos.symbol)} className="hover:text-blue-400 transition">
+                                    {pos.symbol}
+                                  </button>
+                                </td>
+                                <td className="p-3 text-center">
+                                  {isSettled ? (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800 whitespace-nowrap" title="Đã qua T+2.5 - Có thể bán 100%">
+                                      🟢 Khả dụng (T+0)
+                                    </span>
+                                  ) : pos.settlementStatus === 'PENDING_T1' ? (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700 animate-pulse whitespace-nowrap" title="Mới mua hôm nay - Chờ 11:30 T+2">
+                                      🟨 Hàng kẹp T+0
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-orange-950 text-orange-300 border border-orange-700 animate-pulse whitespace-nowrap" title="Sẽ về tài khoản lúc 11:30 Sáng Mai">
+                                      🟧 Hàng kẹp T+1
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right text-gray-300">{pos.buyPrice}</td>
+                                <td className="p-3 text-right font-bold text-gray-100">{pos.currentPrice}</td>
+                                <td className="p-3 text-right">
+                                  {pos.atrStopLossPrice ? (
+                                    <div className="flex flex-col items-end">
+                                      <span className={`font-bold ${isAtrBreached ? 'text-red-400 underline animate-pulse' : 'text-gray-300'}`}>
+                                        {pos.atrStopLossPrice}
+                                      </span>
+                                      <span className="text-[9px] text-gray-500">ATR: {pos.atr}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500">-</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right font-mono">
+                                  <span className={isSettled ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                                    {(pos.availableQuantity ?? 0).toLocaleString('vi-VN')}
                                   </span>
-                                  <span className="text-[9px] text-gray-500">ATR: {pos.atr}</span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right font-mono">
-                              <span className={isSettled ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                                {(pos.availableQuantity ?? 0).toLocaleString('vi-VN')}
-                              </span>
-                              <span className="text-gray-500"> / {(pos.quantity ?? 0).toLocaleString('vi-VN')}</span>
-                            </td>
-                            <td className="p-3 text-right text-gray-200">
-                              <div>{(pos.currentValue ?? 0).toLocaleString('vi-VN')}</div>
-                              <div className="text-[10px] text-blue-400 font-bold">{pos.weight}% NAV</div>
-                            </td>
-                            <td className="p-3 text-center">
-                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/80 whitespace-nowrap" title={`Số tiền Kelly khuyên dùng: ${(pos.kellyOptimalVnd ?? 0).toLocaleString('vi-VN')} VNĐ`}>
-                                {pos.kellyOptimalWeight}% NAV
-                              </span>
-                            </td>
-                            <td className={`p-3 text-right font-bold ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
-                              {isPos ? '+' : ''}
-                              {(pos.pnl ?? 0).toLocaleString('vi-VN')} ({isPos ? '+' : ''}
-                              {pos.pnlPercent}%)
-                            </td>
-                            <td className="p-3 text-center">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-sm text-[10px] font-bold border whitespace-nowrap ${
-                                  pos.aiRecommendation === 'CHỐT LỜI'
-                                    ? 'bg-blue-950/60 text-blue-400 border-blue-800'
-                                    : pos.aiRecommendation === 'CẮT LỖ'
-                                    ? 'bg-red-950 text-red-400 border-red-800'
-                                    : pos.aiRecommendation === 'MUA THÊM'
-                                    ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                                    : 'bg-[#050505] text-gray-300 border-gray-800'
-                                }`}
-                              >
-                                {pos.aiRecommendation}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center">
-                              <button
-                                onClick={() => openSellModal(pos)}
-                                className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/50 px-2.5 py-1 rounded text-[10px] font-bold inline-flex items-center justify-center gap-1 mx-auto transition whitespace-nowrap"
-                                title="Bán chốt lời hoặc cắt lỗ vị thế này"
-                              >
-                                <DollarSign className="w-3 h-3" />
-                                <span>BÁN CP</span>
-                              </button>
-                            </td>
-                            <td className="p-3 text-center">
-                              <button onClick={() => handleRemovePosition(pos.id)} className="text-red-400 hover:text-red-300 p-1">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                  <span className="text-gray-500"> / {(pos.quantity ?? 0).toLocaleString('vi-VN')}</span>
+                                </td>
+                                <td className="p-3 text-right text-gray-200">
+                                  <div>{(pos.currentValue ?? 0).toLocaleString('vi-VN')}</div>
+                                  <div className="text-[10px] text-blue-400 font-bold">{pos.weight}% NAV</div>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/80 whitespace-nowrap" title={`Số tiền Kelly khuyên dùng: ${(pos.kellyOptimalVnd ?? 0).toLocaleString('vi-VN')} VNĐ`}>
+                                    {pos.kellyOptimalWeight}% NAV
+                                  </span>
+                                </td>
+                                <td className={`p-3 text-right font-bold ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {isPos ? '+' : ''}
+                                  {(pos.pnl ?? 0).toLocaleString('vi-VN')} ({isPos ? '+' : ''}
+                                  {pos.pnlPercent}%)
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded-sm text-[10px] font-bold border whitespace-nowrap ${
+                                      pos.aiRecommendation === 'CHỐT LỜI'
+                                        ? 'bg-blue-950/60 text-blue-400 border-blue-800'
+                                        : pos.aiRecommendation === 'CẮT LỖ'
+                                        ? 'bg-red-950 text-red-400 border-red-800'
+                                        : pos.aiRecommendation === 'MUA THÊM'
+                                        ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                                        : 'bg-[#050505] text-gray-300 border-gray-800'
+                                    }`}
+                                  >
+                                    {pos.aiRecommendation}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    onClick={() => openSellModal(pos)}
+                                    className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/50 px-2.5 py-1 rounded text-[10px] font-bold inline-flex items-center justify-center gap-1 mx-auto transition whitespace-nowrap"
+                                    title="Bán chốt lời hoặc cắt lỗ vị thế này"
+                                  >
+                                    <DollarSign className="w-3 h-3" />
+                                    <span>BÁN CP</span>
+                                  </button>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button onClick={() => handleRemovePosition(pos.id)} className="text-red-400 hover:text-red-300 p-1">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Realized Sales Log Table */}
+              {realizedTrades.length > 0 && (
+                <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
+                  <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+                    <h3 className="font-bold text-xs text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                      <History className="w-4 h-4 text-amber-400" />
+                      <span>LỊCH SỬ GIAO DỊCH ĐÃ BÁN / CHỐT LỜI ({realizedTrades.length})</span>
+                    </h3>
+                    <span className={`text-xs font-bold ${totalRealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      Tổng Lãi/Lỗ Đã Thực Hiện: {totalRealizedPnL >= 0 ? '+' : ''}{totalRealizedPnL.toLocaleString('vi-VN')} VNĐ
+                    </span>
+                  </div>
+
+                  <table className="w-full text-xs font-mono text-left">
+                    <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="p-3">Ngày Bán</th>
+                        <th className="p-3">Mã CP</th>
+                        <th className="p-3 text-right">Giá Vốn</th>
+                        <th className="p-3 text-right">Giá Bán</th>
+                        <th className="p-3 text-right">Số Lượng</th>
+                        <th className="p-3 text-right">Thuế & Phí</th>
+                        <th className="p-3 text-right">Lãi / Lỗ Thực Hiện</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {realizedTrades.map((t) => {
+                        const isWin = t.realizedPnL >= 0;
+                        return (
+                          <tr key={t.id} className="hover:bg-gray-900/40">
+                            <td className="p-3 text-gray-400">{t.sellDate}</td>
+                            <td className="p-3 font-bold text-white">{t.symbol}</td>
+                            <td className="p-3 text-right text-gray-300">{t.buyPrice}</td>
+                            <td className="p-3 text-right font-bold text-amber-300">{t.sellPrice}</td>
+                            <td className="p-3 text-right text-gray-300">{t.quantity.toLocaleString('vi-VN')}</td>
+                            <td className="p-3 text-right text-gray-400">-{t.taxAndFee.toLocaleString('vi-VN')}</td>
+                            <td className={`p-3 text-right font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {isWin ? '+' : ''}{t.realizedPnL.toLocaleString('vi-VN')} ({isWin ? '+' : ''}{t.realizedPnLPercent}%)
                             </td>
                           </tr>
                         );
-                      })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Realized Sales Log Table */}
-          {realizedTrades.length > 0 && (
-            <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
-              <div className="p-3 border-b border-gray-800 flex items-center justify-between">
-                <h3 className="font-bold text-xs text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                  <History className="w-4 h-4 text-amber-400" />
-                  <span>LỊCH SỬ GIAO DỊCH ĐÃ BÁN / CHỐT LỜI ({realizedTrades.length})</span>
-                </h3>
-                <span className={`text-xs font-bold ${totalRealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  Tổng Lãi/Lỗ Đã Thực Hiện: {totalRealizedPnL >= 0 ? '+' : ''}{totalRealizedPnL.toLocaleString('vi-VN')} VNĐ
-                </span>
+          {/* TAB 2: INTERACTIVE CORRELATION MATRIX (HEATMAP) */}
+          {portfolioTab === 'CORRELATION' && (
+            <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 p-4 space-y-4 shadow-xl font-mono">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-3">
+                <div>
+                  <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                    <Grid className="w-4 h-4 text-indigo-400" />
+                    <span>MA TRẬN TƯƠNG QUAN LỢI NHUẬN (CORRELATION MATRIX)</span>
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    Hệ số tương quan <code className="text-indigo-300 font-bold">r ∈ [-1, 1]</code> đo lường mức độ đồng pha giá giữa các tài sản.
+                  </p>
+                </div>
+
+                <div className="flex items-center bg-[#050505] p-1 rounded border border-gray-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCorrMatrixMode('SECTOR')}
+                    className={`px-3 py-1 rounded font-bold transition ${
+                      corrMatrixMode === 'SECTOR' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Ma Trận Ngành (VN-Index)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorrMatrixMode('STOCKS')}
+                    className={`px-3 py-1 rounded font-bold transition ${
+                      corrMatrixMode === 'STOCKS' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Cổ Phiếu Danh Mục ({positions.length > 0 ? positions.length : 'Top CP'})
+                  </button>
+                </div>
               </div>
 
-              <table className="w-full text-xs font-mono text-left">
-                <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="p-3">Ngày Bán</th>
-                    <th className="p-3">Mã CP</th>
-                    <th className="p-3 text-right">Giá Vốn</th>
-                    <th className="p-3 text-right">Giá Bán</th>
-                    <th className="p-3 text-right">Số Lượng</th>
-                    <th className="p-3 text-right">Thuế & Phí</th>
-                    <th className="p-3 text-right">Lãi / Lỗ Thực Hiện</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {realizedTrades.map((t) => {
-                    const isWin = t.realizedPnL >= 0;
-                    return (
-                      <tr key={t.id} className="hover:bg-gray-900/40">
-                        <td className="p-3 text-gray-400">{t.sellDate}</td>
-                        <td className="p-3 font-bold text-white">{t.symbol}</td>
-                        <td className="p-3 text-right text-gray-300">{t.buyPrice}</td>
-                        <td className="p-3 text-right font-bold text-amber-300">{t.sellPrice}</td>
-                        <td className="p-3 text-right text-gray-300">{t.quantity.toLocaleString('vi-VN')}</td>
-                        <td className="p-3 text-right text-gray-400">-{t.taxAndFee.toLocaleString('vi-VN')}</td>
-                        <td className={`p-3 text-right font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isWin ? '+' : ''}{t.realizedPnL.toLocaleString('vi-VN')} ({isWin ? '+' : ''}{t.realizedPnLPercent}%)
+              {/* Correlation Summary Analytics Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="bg-[#050505] p-3 rounded border border-red-900/50 space-y-1">
+                  <span className="text-[10px] text-red-400 font-bold uppercase block">🔥 Cặp Đồng Pha Cao Nhất (Rủi ro dồn cục)</span>
+                  <div className="text-white font-bold text-sm">
+                    {correlationData.highestPair.a} ↔ {correlationData.highestPair.b}
+                  </div>
+                  <div className="text-red-400 font-black text-base">r = +{correlationData.highestPair.r}</div>
+                  <p className="text-[10px] text-gray-400">
+                    Khi thị trường có biến cố lớn, 2 tài sản này thường giảm mạnh cùng lúc.
+                  </p>
+                </div>
+
+                <div className="bg-[#050505] p-3 rounded border border-emerald-900/50 space-y-1">
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase block">🛡️ Cặp Phân Tán Tốt Nhất (Phòng vệ Hedging)</span>
+                  <div className="text-white font-bold text-sm">
+                    {correlationData.lowestPair.a} ↔ {correlationData.lowestPair.b}
+                  </div>
+                  <div className="text-emerald-400 font-black text-base">r = +{correlationData.lowestPair.r}</div>
+                  <p className="text-[10px] text-gray-400">
+                    Độ tương quan thấp giúp giảm đáng kể Maximum Drawdown cho NAV.
+                  </p>
+                </div>
+
+                <div className="bg-[#050505] p-3 rounded border border-blue-900/50 space-y-1">
+                  <span className="text-[10px] text-blue-400 font-bold uppercase block">📊 Tương Quan Bình Quân Nhóm</span>
+                  <div className="text-white font-bold text-sm">Toàn Bộ Ma Trận</div>
+                  <div className="text-blue-400 font-black text-base">r = +{correlationData.averageCorrelation}</div>
+                  <p className="text-[10px] text-gray-400">
+                    Mức {correlationData.averageCorrelation > 0.6 ? 'Tập trung cao (>0.6)' : 'Cân bằng & phân tán tốt (≤0.6)'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Heatmap Matrix Table */}
+              <div className="overflow-x-auto border border-gray-800 rounded bg-[#050505] p-2">
+                <table className="w-full text-xs text-center border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="p-2 text-left text-gray-500 font-bold text-[10px] border-b border-gray-800">
+                        {corrMatrixMode === 'SECTOR' ? 'NGÀNH' : 'MÃ CP'}
+                      </th>
+                      {correlationData.labels.map((lbl) => (
+                        <th key={lbl} className="p-2 font-bold text-gray-300 text-[10px] border-b border-gray-800 truncate max-w-[90px]">
+                          {lbl}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {correlationData.labels.map((rowLabel, i) => (
+                      <tr key={rowLabel} className="border-b border-gray-800/60">
+                        <td className="p-2 text-left font-bold text-white text-[11px] bg-[#080808] border-r border-gray-800 truncate max-w-[120px]">
+                          {rowLabel}
                         </td>
+                        {correlationData.matrix[i].map((val, j) => {
+                          const isDiag = i === j;
+                          // Heatmap Color Determination
+                          let bgClass = 'bg-gray-900/60 text-gray-300';
+                          if (isDiag) {
+                            bgClass = 'bg-blue-950/80 text-blue-300 font-black border border-blue-800/40';
+                          } else if (val >= 0.75) {
+                            bgClass = 'bg-red-950/90 text-red-300 font-bold border border-red-800/40';
+                          } else if (val >= 0.55) {
+                            bgClass = 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/40';
+                          } else if (val >= 0.35) {
+                            bgClass = 'bg-slate-900/90 text-blue-300 font-medium border border-blue-900/30';
+                          } else {
+                            bgClass = 'bg-emerald-950/90 text-emerald-300 font-bold border border-emerald-800/40';
+                          }
+
+                          return (
+                            <td key={j} className="p-1">
+                              <div
+                                className={`py-1.5 px-2 rounded text-[11px] font-mono transition transform hover:scale-105 ${bgClass}`}
+                                title={`${rowLabel} vs ${correlationData.labels[j]}: r = ${val}`}
+                              >
+                                {val.toFixed(2)}
+                              </div>
+                            </td>
+                          );
+                        })}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Color Scale Legend */}
+              <div className="flex flex-wrap items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-800">
+                <span className="font-bold text-gray-300">Chú giải bảng nhiệt (Correlation Scale):</span>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-red-950 border border-red-800 rounded"></span>
+                    <span>r ≥ 0.75 (Đồng pha cao)</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-amber-950 border border-amber-800 rounded"></span>
+                    <span>0.55 - 0.74 (Tương quan vừa)</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-slate-900 border border-blue-900 rounded"></span>
+                    <span>0.35 - 0.54 (Tương quan thấp)</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-emerald-950 border border-emerald-800 rounded"></span>
+                    <span>r &lt; 0.35 (Phòng thủ / Phân tán cao)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SECTOR BREAKDOWN & CONCENTRATION ANALYSIS */}
+          {portfolioTab === 'SECTORS' && (
+            <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 p-4 space-y-4 shadow-xl font-mono">
+              <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div>
+                  <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                    <PieChart className="w-4 h-4 text-emerald-400" />
+                    <span>CƠ CẤU PHÂN BỔ & ĐÁNH GIÁ TẬP TRUNG NGÀNH</span>
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    Quy tắc quản trị rủi ro Quant: Giới hạn tối đa <strong className="text-amber-300">30-35% NAV</strong> cho một ngành đơn lẻ.
+                  </p>
+                </div>
+
+                <div className={`px-2.5 py-1 rounded text-xs font-bold border ${
+                  sectorConcentration.severity === 'DANGER'
+                    ? 'bg-red-950 text-red-400 border-red-800'
+                    : sectorConcentration.severity === 'WARNING'
+                    ? 'bg-amber-950 text-amber-400 border-amber-800'
+                    : 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                }`}>
+                  {sectorConcentration.severity === 'DANGER'
+                    ? '🚨 NGUY CƠ TẬP TRUNG CAO'
+                    : sectorConcentration.severity === 'WARNING'
+                    ? '⚠️ CẢNH BÁO TẬP TRUNG'
+                    : '✅ PHÂN BỔ CÂN ĐỐI'}
+                </div>
+              </div>
+
+              {/* Concentration Detailed Analysis Box */}
+              <div className="bg-[#050505] p-3.5 rounded border border-gray-800 space-y-2 text-xs">
+                <div className="font-bold text-white text-sm">{sectorConcentration.title}</div>
+                <p className="text-gray-300 text-[11px] leading-relaxed">{sectorConcentration.description}</p>
+                <div className="bg-black/60 border border-blue-900/50 p-2.5 rounded text-[11px]">
+                  <span className="text-blue-400 font-bold">💡 Khuyến nghị tối ưu danh mục: </span>
+                  <span className="text-gray-200">{sectorConcentration.recommendation}</span>
+                </div>
+              </div>
+
+              {/* Sector Progress Bars Breakdown */}
+              <div className="space-y-3 pt-2">
+                <h4 className="font-bold text-xs text-gray-300 uppercase tracking-wider">
+                  TỶ TRỌNG CÁC NGÀNH NẮM GIỮ ({sectorConcentration.concentratedSectors.length} Ngành)
+                </h4>
+
+                {sectorConcentration.concentratedSectors.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500">Chưa có vị thế nắm giữ trong danh mục.</div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {sectorConcentration.concentratedSectors.map((sec) => {
+                      const isHigh = sec.weight >= 40;
+                      const isWarning = sec.weight >= 30;
+
+                      return (
+                        <div key={sec.sector} className="space-y-1 bg-[#050505] p-2.5 rounded border border-gray-800/80">
+                          <div className="flex justify-between items-center text-xs font-bold">
+                            <span className="text-white flex items-center space-x-2">
+                              <span>{sec.sector}</span>
+                              <span className="text-[10px] text-gray-500 font-normal">({sec.count} mã CP)</span>
+                            </span>
+                            <span className={isHigh ? 'text-red-400 font-black text-sm' : isWarning ? 'text-amber-400' : 'text-emerald-400'}>
+                              {sec.weight}% NAV {isHigh ? '🚨 (Quá cao)' : isWarning ? '⚠️ (Cần chú ý)' : '✅'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-900 h-2 rounded overflow-hidden border border-gray-800">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                isHigh
+                                  ? 'bg-gradient-to-r from-red-600 to-red-400'
+                                  : isWarning
+                                  ? 'bg-gradient-to-r from-amber-600 to-amber-400'
+                                  : 'bg-gradient-to-r from-blue-600 to-emerald-400'
+                              }`}
+                              style={{ width: `${Math.min(100, sec.weight)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

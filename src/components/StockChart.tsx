@@ -1,5 +1,6 @@
 import { CandlestickSeries, ColorType, createChart, HistogramSeries, IChartApi, ISeriesApi, LineSeries } from 'lightweight-charts';
 import React, { useEffect, useRef, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { Candle } from '../types';
 import { computeAdjustedCandles } from '../utils/technicalEngine';
 
@@ -7,6 +8,8 @@ interface StockChartProps {
   symbol: string;
   candles: Candle[];
   exchange?: string;
+  isFocusMode?: boolean;
+  onToggleFocusMode?: () => void;
 }
 
 const getTradingViewExchange = (sym: string, ex?: string) => {
@@ -115,7 +118,13 @@ function buildFormattedCandles(
   return Array.from(map.values()).sort((a, b) => a.time - b.time);
 }
 
-export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchange }) => {
+export const StockChart: React.FC<StockChartProps> = ({
+  symbol,
+  candles,
+  exchange,
+  isFocusMode,
+  onToggleFocusMode,
+}) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<any>(null);
@@ -130,6 +139,27 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
 
   const tvExchange = getTradingViewExchange(symbol, exchange);
   const tradingViewUrl = `https://www.tradingview.com/chart/?symbol=${tvExchange}:${symbol}`;
+
+  // Keyboard Shortcuts for Timeframe switching (1 for 1D, 2 for 1H, 3 for 15M, 4 for 5M)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      if (e.key === '1') setTimeframe('1D');
+      else if (e.key === '2') setTimeframe('1H');
+      else if (e.key === '3') setTimeframe('15M');
+      else if (e.key === '4') setTimeframe('5M');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!chartContainerRef.current || candles.length === 0) return;
@@ -360,6 +390,30 @@ export const StockChart: React.FC<StockChartProps> = ({ symbol, candles, exchang
           >
             MA50
           </button>
+
+          {onToggleFocusMode && (
+            <button
+              onClick={onToggleFocusMode}
+              className={`px-2.5 py-0.5 rounded text-[11px] font-bold border transition flex items-center space-x-1 cursor-pointer ${
+                isFocusMode
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-600/30'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white hover:border-slate-500'
+              }`}
+              title={isFocusMode ? 'Thoát chế độ Focus Toàn Màn Hình' : 'Chế độ Focus Toàn Màn Hình (Tối ưu soi chart)'}
+            >
+              {isFocusMode ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-white" />
+                  <span>Thu Gọn</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Focus Mode</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

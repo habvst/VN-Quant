@@ -1,5 +1,6 @@
-import { Eye, EyeOff, KeyRound, Lock, Shield, ShieldAlert, ShieldCheck, Sparkles, Unlock, AlertTriangle, Clock } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Lock, Shield, ShieldAlert, ShieldCheck, Sparkles, Unlock, AlertTriangle, Clock, Sliders, Check } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { verifyPassword, saveNewPassword, getAutoLockTimeout, setAutoLockTimeout } from '../utils/security';
 
 interface LockScreenProps {
   isLocked: boolean;
@@ -10,12 +11,13 @@ const MAX_FAILED_ATTEMPTS = 5;
 
 export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked }) => {
   const [password, setPassword] = useState<string>('');
-  const [storedPassword, setStoredPassword] = useState<string>(() => {
-    return localStorage.getItem('vnquant_lock_password') || '1234';
-  });
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [shake, setShake] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+
+  // Auto-lock inactivity state
+  const [autoLockMinutes, setAutoLockMinutesState] = useState<number>(() => getAutoLockTimeout());
 
   // Brute-force Protection States (Persisted in localStorage)
   const [failedAttempts, setFailedAttempts] = useState<number>(() => {
@@ -32,6 +34,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
 
   // Settings modal inside lock screen or when unlocked
   const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
+  const [isSettingAutoLock, setIsSettingAutoLock] = useState<boolean>(false);
   const [oldPassInput, setOldPassInput] = useState<string>('');
   const [newPassInput, setNewPassInput] = useState<string>('');
   const [confirmPassInput, setConfirmPassInput] = useState<string>('');
@@ -68,7 +71,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleUnlock = (e?: React.FormEvent) => {
+  const handleUnlock = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     // Block unlock attempt if currently locked out by brute-force protection
@@ -84,50 +87,60 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
       return;
     }
 
-    if (password === storedPassword) {
-      // Success: Reset brute-force counters
-      setIsLocked(false);
-      localStorage.setItem('vnquant_is_locked', 'false');
-      setPassword('');
-      setErrorMsg('');
-      setFailedAttempts(0);
-      setLockoutUntil(0);
-      localStorage.removeItem('vnquant_lock_failed_attempts');
-      localStorage.removeItem('vnquant_lockout_until');
-    } else {
-      // Failed attempt
-      const newAttempts = failedAttempts + 1;
-      setFailedAttempts(newAttempts);
-      localStorage.setItem('vnquant_lock_failed_attempts', String(newAttempts));
+    setIsVerifying(true);
+    try {
+      const isValid = await verifyPassword(password);
 
-      if (newAttempts % MAX_FAILED_ATTEMPTS === 0) {
-        // Trigger lockout
-        // Progressive lockout duration: 5 attempts = 30s, 10 attempts = 60s, 15+ attempts = 300s
-        let durationSec = 30;
-        if (newAttempts >= 15) {
-          durationSec = 300;
-        } else if (newAttempts >= 10) {
-          durationSec = 60;
+      if (isValid) {
+        // Success: Reset brute-force counters
+        setIsLocked(false);
+        localStorage.setItem('vnquant_is_locked', 'false');
+        setPassword('');
+        setErrorMsg('');
+        setFailedAttempts(0);
+        setLockoutUntil(0);
+        localStorage.removeItem('vnquant_lock_failed_attempts');
+        localStorage.removeItem('vnquant_lockout_until');
+      } else {
+        // Failed attempt
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+        localStorage.setItem('vnquant_lock_failed_attempts', String(newAttempts));
+
+        if (newAttempts % MAX_FAILED_ATTEMPTS === 0) {
+          // Progressive lockout duration: 5 attempts = 30s, 10 attempts = 60s, 15+ attempts = 300s
+          let durationSec = 30;
+          if (newAttempts >= 15) {
+            durationSec = 300;
+          } else if (newAttempts >= 10) {
+            durationSec = 60;
+          }
+
+          const lockoutTime = Date.now() + durationSec * 1000;
+          setLockoutUntil(lockoutTime);
+          localStorage.setItem('vnquant_lockout_until', String(lockoutTime));
+          setLockoutRemaining(durationSec);
+
+          setErrorMsg(`CƠ CHẾ CHỐNG DÒ MẬT KHẨU KÍCH HOẠT! Nhập sai ${newAttempts} lần liên tiếp. Khóa thử lại trong ${durationSec}s.`);
+        } else {
+          const remaining = MAX_FAILED_ATTEMPTS - (newAttempts % MAX_FAILED_ATTEMPTS);
+          setErrorMsg(`Mật khẩu không chính xác! Cảnh báo: Còn ${remaining} lần thử trước khi bị tạm khóa.`);
         }
 
-        const lockoutTime = Date.now() + durationSec * 1000;
-        setLockoutUntil(lockoutTime);
-        localStorage.setItem('vnquant_lockout_until', String(lockoutTime));
-        setLockoutRemaining(durationSec);
-
-        setErrorMsg(`CƠ CHẾ CHỐNG DÒ MẬT KHẨU KÍCH HOẠT! Nhập sai ${newAttempts} lần liên tiếp. Khóa thử lại trong ${durationSec}s.`);
-      } else {
-        const remainingAttempts = MAX_FAILED_ATTEMPTS - (newAttempts % MAX_FAILED_ATTEMPTS);
-        setErrorMsg(`Mật khẩu không chính xác! Cảnh báo: Còn ${remainingAttempts} lần thử trước khi bị tạm khóa.`);
+        triggerShake();
       }
-
-      triggerShake();
+    } catch (err) {
+      console.error('Password verification error:', err);
+      setErrorMsg('Lỗi xác thực mật khẩu. Vui lòng thử lại!');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (oldPassInput !== storedPassword) {
+    const isOldValid = await verifyPassword(oldPassInput);
+    if (!isOldValid) {
       alert('Mật khẩu hiện tại không đúng!');
       return;
     }
@@ -140,13 +153,20 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
       return;
     }
 
-    localStorage.setItem('vnquant_lock_password', newPassInput);
-    setStoredPassword(newPassInput);
+    await saveNewPassword(newPassInput);
     setOldPassInput('');
     setNewPassInput('');
     setConfirmPassInput('');
     setIsChangingPassword(false);
-    setChangeSuccessMsg('Đã cập nhật mật khẩu mới thành công!');
+    setChangeSuccessMsg('Đã băm SHA-256 và cập nhật mật khẩu mới an toàn!');
+    setTimeout(() => setChangeSuccessMsg(''), 4000);
+  };
+
+  const handleUpdateAutoLock = (mins: number) => {
+    setAutoLockTimeout(mins);
+    setAutoLockMinutesState(mins);
+    setIsSettingAutoLock(false);
+    setChangeSuccessMsg(mins === 0 ? 'Đã tắt tính năng tự động khóa khi rảnh' : `Tự động khóa sau ${mins} phút không tương tác`);
     setTimeout(() => setChangeSuccessMsg(''), 4000);
   };
 
@@ -396,17 +416,85 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
           </form>
 
           {/* Footer Actions */}
-          <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
-            <button
-              onClick={() => setIsChangingPassword(true)}
-              className="text-blue-400 hover:underline flex items-center space-x-1"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Đổi Mật Khẩu Khóa</span>
-            </button>
-            <span className="text-gray-500">Cơ chế: Brute-Force Protected</span>
+          <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-gray-400">
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={() => setIsChangingPassword(true)}
+                className="text-blue-400 hover:text-blue-300 flex items-center space-x-1 cursor-pointer transition"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Đổi Mật Khẩu</span>
+              </button>
+              <span className="text-gray-700">|</span>
+              <button
+                type="button"
+                onClick={() => setIsSettingAutoLock(true)}
+                className="text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 cursor-pointer transition"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Tự khóa: {autoLockMinutes === 0 ? 'Tắt' : `${autoLockMinutes}p`}</span>
+              </button>
+            </div>
+            <span className="text-[10px] text-emerald-400/80 font-mono bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+              SHA-256 + Salt
+            </span>
           </div>
         </div>
+
+        {/* Auto-Lock Inactivity Configuration Modal */}
+        {isSettingAutoLock && (
+          <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[#0a0f1d] border-2 border-indigo-500/80 rounded-xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                <h3 className="text-sm font-black text-white flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  <span>CẤU HÌNH TỰ ĐỘNG KHÓA KHI RẢNH</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsSettingAutoLock(false)}
+                  className="text-gray-400 hover:text-white font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Tự động khóa màn hình và bảo vệ dữ liệu khi không phát hiện thao tác chuột hoặc bàn phím:
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {[
+                  { label: '5 Phút', val: 5 },
+                  { label: '10 Phút (Chuẩn)', val: 10 },
+                  { label: '15 Phút', val: 15 },
+                  { label: '30 Phút', val: 30 },
+                  { label: 'Tắt tự động khóa', val: 0 },
+                ].map((opt) => {
+                  const isSelected = autoLockMinutes === opt.val;
+                  return (
+                    <button
+                      key={opt.val}
+                      type="button"
+                      onClick={() => handleUpdateAutoLock(opt.val)}
+                      className={`p-3 rounded-lg border text-xs font-bold flex items-center justify-between transition cursor-pointer ${
+                        opt.val === 0 ? 'col-span-2' : ''
+                      } ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/30'
+                          : 'bg-slate-900/80 hover:bg-slate-800 text-gray-300 border-slate-700'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {isSelected && <Check className="w-4 h-4 text-white" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Change Password Modal inside LockScreen */}
         {isChangingPassword && (
@@ -415,11 +503,12 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
               <div className="flex items-center justify-between border-b border-gray-800 pb-3">
                 <h3 className="text-sm font-black text-white flex items-center space-x-2">
                   <KeyRound className="w-4 h-4 text-blue-400" />
-                  <span>ĐỔI MẬT KHẨU KHÓA MÀN HÌNH</span>
+                  <span>ĐỔI MẬT KHẨU BẢO MẬT (SHA-256)</span>
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setIsChangingPassword(false)}
-                  className="text-gray-400 hover:text-white font-bold"
+                  className="text-gray-400 hover:text-white font-bold cursor-pointer"
                 >
                   ✕
                 </button>
@@ -460,14 +549,14 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isLocked, setIsLocked })
                 <div className="pt-2 flex items-center space-x-2">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs uppercase"
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs uppercase cursor-pointer"
                   >
-                    Cập Nhật Mật Khẩu
+                    Mã Hóa & Lưu Mật Khẩu
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsChangingPassword(false)}
-                    className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs"
+                    className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs cursor-pointer"
                   >
                     Hủy
                   </button>

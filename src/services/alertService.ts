@@ -1,5 +1,16 @@
 import { StockData } from '../types';
-import { AlertTriggerType, MACrossoverCondition, MockNotification, NotificationChannel, PriceCondition, RSICondition, StockAlert } from '../types/alert';
+import {
+  AlertTriggerType,
+  BreakoutCondition,
+  MACrossoverCondition,
+  MockNotification,
+  NotificationChannel,
+  PriceCondition,
+  RSICondition,
+  StockAlert,
+  StopLossTakeProfitCondition,
+  VolumeCondition,
+} from '../types/alert';
 
 const STORAGE_KEY_ALERTS = 'vietstock_terminal_alerts_v1';
 const STORAGE_KEY_NOTIFS = 'vietstock_terminal_notifications_v1';
@@ -124,7 +135,7 @@ export const saveNotificationsToStorage = (notifications: MockNotification[]) =>
 
 export const formatConditionLabel = (
   triggerType: AlertTriggerType,
-  condition: PriceCondition | MACrossoverCondition | RSICondition,
+  condition: PriceCondition | MACrossoverCondition | RSICondition | VolumeCondition | StopLossTakeProfitCondition | BreakoutCondition,
   targetValue: number
 ): string => {
   if (triggerType === 'PRICE_THRESHOLD') {
@@ -139,6 +150,41 @@ export const formatConditionLabel = (
         return `Giá giảm <= -${targetValue}% trong phiên`;
       default:
         return `Chỉ số giá = ${targetValue}`;
+    }
+  }
+
+  if (triggerType === 'VOLUME_SURGE') {
+    switch (condition) {
+      case 'VOL_SURGE_200_MA20':
+        return `Đột biến khối lượng > 200% trung bình MA20 phiên`;
+      case 'VOL_SURGE_CUSTOM':
+        return `Đột biến khối lượng >= ${targetValue}% trung bình MA20`;
+      default:
+        return 'Đột biến khối lượng giao dịch';
+    }
+  }
+
+  if (triggerType === 'STOP_LOSS_TAKE_PROFIT') {
+    switch (condition) {
+      case 'TRIGGER_STOP_LOSS':
+        return `Chạm ngưỡng CẮT LỖ (Stop-Loss <= ${targetValue.toFixed(2)} VNĐ)`;
+      case 'TRIGGER_TAKE_PROFIT':
+        return `Chạm ngưỡng CHỐT LỜI (Take-Profit >= ${targetValue.toFixed(2)} VNĐ)`;
+      case 'TRAILING_STOP_ATR':
+        return `Vi phạm ngưỡng Trailing Stop theo ATR động`;
+      default:
+        return 'Ngưỡng Chốt lời / Cắt lỗ';
+    }
+  }
+
+  if (triggerType === 'BREAKOUT_LEVEL') {
+    switch (condition) {
+      case 'BREAKOUT_RESISTANCE':
+        return `Bứt phá vượt kháng cự (${targetValue.toFixed(2)} VNĐ)`;
+      case 'BREAKDOWN_SUPPORT':
+        return `Thủng hỗ trợ kỹ thuật (${targetValue.toFixed(2)} VNĐ)`;
+      default:
+        return 'Bứt phá kỹ thuật';
     }
   }
 
@@ -219,6 +265,65 @@ export const checkAlertTrigger = (
   const rsi = stock.technical.rsi14;
   const ma20 = stock.technical.ma20;
   const ma50 = stock.technical.ma50;
+
+  if (alert.triggerType === 'VOLUME_SURGE') {
+    // Check volume surge compared to estimated 20-session average volume
+    const estimatedMa20Vol = stock.volume > 0 ? (stock.technical.ma20 ? stock.volume / (stock.price / stock.technical.ma20) : stock.volume * 0.6) : 1000000;
+    const volSurgeRatio = stock.volume > 0 && estimatedMa20Vol > 0 ? (stock.volume / estimatedMa20Vol) * 100 : 100;
+    const thresholdPct = alert.condition === 'VOL_SURGE_200_MA20' ? 200 : alert.targetValue || 200;
+
+    if (volSurgeRatio >= thresholdPct || (stock.volume > 2000000 && stock.changePercent > 2.5)) {
+      return {
+        isTriggered: true,
+        message: `🔥 ĐỘT BIẾN KHỐI LƯỢNG: ${stock.symbol} khớp ${stock.volume.toLocaleString('vi-VN')} CP (${volSurgeRatio.toFixed(0)}% so với MA20 vol). Dòng tiền cá mập nhập cuộc!`,
+        severity: 'SUCCESS',
+      };
+    }
+  }
+
+  if (alert.triggerType === 'STOP_LOSS_TAKE_PROFIT') {
+    if (alert.condition === 'TRIGGER_STOP_LOSS' && currentPrice <= alert.targetValue) {
+      return {
+        isTriggered: true,
+        message: `🛑 CẢNH BÁO CẮT LỖ: Giá ${stock.symbol} (${currentPrice.toFixed(2)}) đã CHẠM HOẶC XUYÊN THỦNG NGƯỠNG CẮT LỖ ${alert.targetValue.toFixed(2)} VNĐ. Đề xuất thoát hàng bảo toàn vốn!`,
+        severity: 'DANGER',
+      };
+    }
+    if (alert.condition === 'TRIGGER_TAKE_PROFIT' && currentPrice >= alert.targetValue) {
+      return {
+        isTriggered: true,
+        message: `🎯 CẢNH BÁO CHỐT LỜI: Giá ${stock.symbol} (${currentPrice.toFixed(2)}) đã ĐẠT MỤC TIÊU CHỐT LỜI ${alert.targetValue.toFixed(2)} VNĐ. Khuyên thực hiện hóa lợi nhuận!`,
+        severity: 'SUCCESS',
+      };
+    }
+    if (alert.condition === 'TRAILING_STOP_ATR') {
+      const atrTrailingPrice = currentPrice - (1.8 * (stock.technical.atr14 || currentPrice * 0.025));
+      if (currentPrice <= atrTrailingPrice) {
+        return {
+          isTriggered: true,
+          message: `⚠️ VI PHẠM TRAILING STOP ATR: Giá ${stock.symbol} (${currentPrice.toFixed(2)}) thủng mốc bảo vệ ${atrTrailingPrice.toFixed(2)} VNĐ.`,
+          severity: 'WARNING',
+        };
+      }
+    }
+  }
+
+  if (alert.triggerType === 'BREAKOUT_LEVEL') {
+    if (alert.condition === 'BREAKOUT_RESISTANCE' && currentPrice >= (alert.targetValue || stock.technical.resistanceLevel)) {
+      return {
+        isTriggered: true,
+        message: `🚀 BỨT PHÁ KHÁNG CỰ: ${stock.symbol} (${currentPrice.toFixed(2)}) vừa vượt đỉnh kháng cự ${alert.targetValue || stock.technical.resistanceLevel} VNĐ với đà tăng mạnh!`,
+        severity: 'SUCCESS',
+      };
+    }
+    if (alert.condition === 'BREAKDOWN_SUPPORT' && currentPrice <= (alert.targetValue || stock.technical.supportLevel)) {
+      return {
+        isTriggered: true,
+        message: `🔻 THỦNG HỖ TRỢ: ${stock.symbol} (${currentPrice.toFixed(2)}) bị bán thủng mốc hỗ trợ ${alert.targetValue || stock.technical.supportLevel} VNĐ. Rủi ro bước vào nhịp giảm sâu.`,
+        severity: 'DANGER',
+      };
+    }
+  }
 
   if (alert.triggerType === 'PRICE_THRESHOLD') {
     if (alert.condition === 'ABOVE_PRICE' && currentPrice >= alert.targetValue) {

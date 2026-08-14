@@ -6,6 +6,10 @@ export interface TelegramConfig {
   botToken: string;
   chatId: string;
   enabled: boolean;
+  filterVolumeSurgeOnly?: boolean; // Chỉ gửi khi khối lượng > 200% MA20
+  filterStopLossTakeProfitOnly?: boolean; // Chỉ gửi khi chạm Stop-loss / Take-profit
+  filterBreakoutOnly?: boolean; // Chỉ gửi khi có Breakout / Golden Cross
+  minPriceChangePercent?: number; // Chỉ gửi khi biến động >= %
 }
 
 export interface TriggerHistoryItem {
