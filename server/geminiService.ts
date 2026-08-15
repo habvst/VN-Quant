@@ -19,8 +19,8 @@ export function getGenAI(): GoogleGenAI | null {
   return genAIClient;
 }
 
-// Candidate models - prioritize gemini-2.5-flash and gemini-2.5-flash-lite to prevent token exhaustion
-const CANDIDATE_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+// Candidate models - prioritize gemini-3.7-flash and gemini-3.1-flash-lite
+const CANDIDATE_MODELS = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash'];
 
 export interface GenerateGeminiOptions {
   contents: string | any;

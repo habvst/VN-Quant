@@ -253,6 +253,59 @@ Hãy tiến hành PHÂN TÍCH CHUYÊN SÂU 4 TẦNG (4-Layer Quantitative Framew
   return base4Layer;
 }
 
+const COMPANY_NAME_ALIASES: Record<string, string> = {
+  'HOÀ PHÁT': 'HPG',
+  'HÒA PHÁT': 'HPG',
+  'HOA PHAT': 'HPG',
+  'FPT': 'FPT',
+  'VINAMILK': 'VNM',
+  'VINHOMES': 'VHM',
+  'VINGROUP': 'VIC',
+  'VIETCOMBANK': 'VCB',
+  'TECHCOMBANK': 'TCB',
+  'SACOMBANK': 'STB',
+  'QUÂN ĐỘI': 'MBB',
+  'MB BANK': 'MBB',
+  'MBBANK': 'MBB',
+  'THẾ GIỚI DI ĐỘNG': 'MWG',
+  'THE GIOI DI DONG': 'MWG',
+  'ĐỨC GIANG': 'DGC',
+  'DUC GIANG': 'DGC',
+  'SSI': 'SSI',
+  'VNDIRECT': 'VND',
+  'VCSC': 'VCI',
+  'VIETCAP': 'VCI',
+  'GAS': 'GAS',
+  'PETROVIETNAM': 'GAS',
+  'MASAN': 'MSN',
+  'VPBANK': 'VPB',
+  'VP BANK': 'VPB',
+  'ACB': 'ACB',
+  'Á CHÂU': 'ACB',
+  'KHANG ĐIỀN': 'KDH',
+  'NAM LONG': 'NLG',
+  'ĐẤT XANH': 'DXG',
+  'DIG': 'DIG',
+  'PDR': 'PDR',
+  'PHÁT ĐẠT': 'PDR',
+  'HOA SEN': 'HSG',
+  'NAM KIM': 'NKG',
+  'ĐẠM CÀ MAU': 'DCM',
+  'ĐẠM PHÚ MỸ': 'DPM',
+  'REE': 'REE',
+  'CƠ ĐIỆN LẠNH': 'REE',
+  'VIB': 'VIB',
+  'LPBANK': 'LPB',
+  'TPBANK': 'TPB',
+  'HDBANK': 'HDB',
+  'VIX': 'VIX',
+  'SHS': 'SHS',
+  'KBC': 'KBC',
+  'KINH BẮC': 'KBC',
+  'GEX': 'GEX',
+  'GELEX': 'GEX',
+};
+
 export async function chatWithAIAgent(userMessage: string) {
   const stocks = getAllStocks();
   const news = getLatestNews();
@@ -260,11 +313,111 @@ export async function chatWithAIAgent(userMessage: string) {
   const indices = getMarketIndices();
   const upperMsg = userMessage.toUpperCase();
 
-  // Extract referenced symbols if any (e.g. "HPG", "FPT", "SSI", "MBB", "VHM")
-  const matchedStocks = stocks.filter((s) => {
+  // 1. Resolve stock symbols from message (direct symbols or company name aliases)
+  const matchedSymbolSet = new Set<string>();
+
+  // Check direct symbols
+  stocks.forEach((s) => {
     const regex = new RegExp(`\\b${s.symbol}\\b`, 'i');
-    return regex.test(userMessage) || upperMsg.includes(s.symbol);
+    if (regex.test(userMessage) || upperMsg.includes(s.symbol)) {
+      matchedSymbolSet.add(s.symbol);
+    }
   });
+
+  // Check aliases
+  for (const [alias, sym] of Object.entries(COMPANY_NAME_ALIASES)) {
+    if (upperMsg.includes(alias)) {
+      matchedSymbolSet.add(sym);
+    }
+  }
+
+  const matchedStocks = Array.from(matchedSymbolSet)
+    .map((sym) => getStockBySymbol(sym))
+    .filter((s): s is NonNullable<typeof s> => !!s);
+
+  // 2. Real-time Smart Money Scan on all stocks
+  const smartMoneyEvaluations = stocks.map((s) => {
+    const signal = analyzeSmartMoneySignal(s);
+    let smartScore = signal.anomalyScore || 50;
+    if (s.foreignNetVal > 10) smartScore += 15;
+    if (signal.largeBlockNetRatio > 30) smartScore += 15;
+    if (s.changePercent > 0) smartScore += 10;
+    return {
+      stock: s,
+      signal,
+      smartScore,
+      largeBlockNetRatio: signal.largeBlockNetRatio,
+      foreignNetVal: s.foreignNetVal,
+      volumeRatio: signal.morningVolRatio || 1.2,
+      patternName: signal.patternName,
+    };
+  });
+
+  const topSmartMoneyStocks = [...smartMoneyEvaluations]
+    .sort((a, b) => b.smartScore - a.smartScore)
+    .slice(0, 5);
+
+  const topQuantScoreStocks = [...stocks]
+    .sort((a, b) => b.aiScore - a.aiScore)
+    .slice(0, 5);
+
+  const topGainers = [...stocks]
+    .sort((a, b) => b.changePercent - a.changePercent)
+    .slice(0, 4);
+
+  const topForeignBuy = [...stocks]
+    .filter((s) => s.foreignNetVal > 0)
+    .sort((a, b) => b.foreignNetVal - a.foreignNetVal)
+    .slice(0, 4);
+
+  // 3. User Intent Classification
+  const isSmartMoneyQuery =
+    upperMsg.includes('CÁ MẬP') ||
+    upperMsg.includes('GOM NGẦM') ||
+    upperMsg.includes('DÒNG TIỀN') ||
+    upperMsg.includes('SMART MONEY') ||
+    upperMsg.includes('GOM MẠNH') ||
+    upperMsg.includes('LỆNH LỚN') ||
+    upperMsg.includes('TỰ DOANH') ||
+    upperMsg.includes('KHỐI NGOẠI GOM') ||
+    upperMsg.includes('TIỀN LỚN') ||
+    upperMsg.includes('TÍCH LŨY GOM') ||
+    upperMsg.includes('MUA RÒNG') ||
+    upperMsg.includes('LỆNH KHỦNG') ||
+    upperMsg.includes('BÙNG NỔ VOL');
+
+  const isTopPicksQuery =
+    upperMsg.includes('TOP CỔ PHIẾU') ||
+    upperMsg.includes('TOP MÃ') ||
+    upperMsg.includes('NÊN MUA') ||
+    upperMsg.includes('MUA GÌ') ||
+    upperMsg.includes('TIỀM NĂNG') ||
+    upperMsg.includes('MÃ TỐT') ||
+    upperMsg.includes('DANH SÁCH MUA') ||
+    upperMsg.includes('KHUYẾN NGHỊ') ||
+    upperMsg.includes('BỨT PHÁ') ||
+    upperMsg.includes('VƯỢT ĐỈNH') ||
+    upperMsg.includes('BREAKOUT') ||
+    upperMsg.includes('CỔ PHIẾU ĐẸP') ||
+    upperMsg.includes('MÃ NÀO ĐẸP');
+
+  const isMarketOverviewQuery =
+    upperMsg.includes('THỊ TRƯỜNG') ||
+    upperMsg.includes('VNINDEX') ||
+    upperMsg.includes('VN-INDEX') ||
+    upperMsg.includes('XU HƯỚNG') ||
+    upperMsg.includes('SẬP') ||
+    upperMsg.includes('ĐIỂM SỐ') ||
+    upperMsg.includes('VĨ MÔ') ||
+    upperMsg.includes('LÃI SUẤT') ||
+    upperMsg.includes('TỶ GIÁ') ||
+    upperMsg.includes('LẠM PHÁT') ||
+    upperMsg.includes('FED') ||
+    upperMsg.includes('SBV') ||
+    upperMsg.includes('TỔNG QUAN') ||
+    upperMsg.includes('NHẬN ĐỊNH') ||
+    upperMsg.includes('HÔM NAY THẾ NÀO') ||
+    upperMsg.includes('PHIÊN HÔM NAY');
 
   const isPortfolioQuery =
     upperMsg.includes('DANH MỤC') ||
@@ -272,89 +425,185 @@ export async function chatWithAIAgent(userMessage: string) {
     upperMsg.includes('TÀI KHOẢN') ||
     upperMsg.includes('CƠ CẤU') ||
     upperMsg.includes('PHÂN BỔ') ||
+    upperMsg.includes('HẠ TỶ TRỌNG') ||
+    upperMsg.includes('NẮM GIỮ') ||
     matchedStocks.length >= 2;
 
-  const primaryStock = matchedStocks.length > 0 ? matchedStocks[0] : null;
+  const isEducationalQuery =
+    upperMsg.includes('GOLDEN CROSS') ||
+    upperMsg.includes('DEATH CROSS') ||
+    upperMsg.includes('R:R') ||
+    upperMsg.includes('R/R') ||
+    upperMsg.includes('RISK REWARD') ||
+    upperMsg.includes('CẮT LỖ') ||
+    upperMsg.includes('STOP LOSS') ||
+    upperMsg.includes('TRAILING STOP') ||
+    upperMsg.includes('DCA') ||
+    upperMsg.includes('TRUNG BÌNH GIÁ') ||
+    upperMsg.includes('VWAP') ||
+    upperMsg.includes('RSI LÀ GÌ') ||
+    upperMsg.includes('MACD LÀ GÌ') ||
+    upperMsg.includes('BOLLINGER') ||
+    upperMsg.includes('ĐIỂM SỐ SCORE') ||
+    upperMsg.includes('TẦM QUAN TRỌNG');
 
-  // Build high-density context
+  const primaryStock = matchedStocks.length > 0 ? matchedStocks[0] : (isSmartMoneyQuery ? topSmartMoneyStocks[0]?.stock : null);
+
+  // 4. Build high-density context for Gemini
   const contextData = {
-    userIntent: isPortfolioQuery ? 'PORTFOLIO_REVIEW' : (primaryStock ? 'STOCK_DEEP_DIVE' : 'MARKET_OVERVIEW'),
-    marketIndices: indices.map((i) => `${i.symbol}: ${i.price} (${i.changePercent > 0 ? '+' : ''}${i.changePercent}%)`),
-    topGainers: stocks.sort((a, b) => b.changePercent - a.changePercent).slice(0, 4).map((s) => `${s.symbol} (+${s.changePercent}%)`),
-    topForeignBuy: stocks.filter((s) => s.foreignNetVal > 0).sort((a, b) => b.foreignNetVal - a.foreignNetVal).slice(0, 4).map((s) => `${s.symbol} (+${s.foreignNetVal} tỷ)`),
-    macro: { usdVnd: macro.usdVnd, dxy: macro.dxy, sbvRate: macro.sbvInterestRate },
-    matchedTickers: matchedStocks.map((s) => ({
+    detectedIntent: isSmartMoneyQuery
+      ? 'SMART_MONEY_SCAN'
+      : isTopPicksQuery
+      ? 'TOP_PICKS_RECOMMENDATION'
+      : isPortfolioQuery
+      ? 'PORTFOLIO_REVIEW'
+      : primaryStock
+      ? 'STOCK_DEEP_DIVE'
+      : isMarketOverviewQuery
+      ? 'MARKET_OVERVIEW'
+      : 'GENERAL_QUANT_ADVICE',
+    marketIndices: indices.map((i) => `${i.symbol}: ${i.price} (${i.changePercent > 0 ? '+' : ''}${i.changePercent}%, KL: ${i.totalVolume?.toLocaleString('vi-VN') || '-'})`),
+    macro: { usdVnd: macro.usdVnd, dxy: macro.dxy, sbvRate: `${macro.sbvInterestRate}%` },
+    topSmartMoneyAccumulation: topSmartMoneyStocks.map((item) => ({
+      symbol: item.stock.symbol,
+      name: item.stock.name,
+      price: `${item.stock.price}k`,
+      change: `${item.stock.changePercent > 0 ? '+' : ''}${item.stock.changePercent}%`,
+      pattern: item.patternName,
+      largeBlockNetRatio: `${item.largeBlockNetRatio}%`,
+      foreignNetVal: `${item.foreignNetVal > 0 ? '+' : ''}${item.foreignNetVal} tỷ VNĐ`,
+      volume: item.stock.volume.toLocaleString('vi-VN'),
+      buyZone: `${(item.stock.price * 0.985).toFixed(2)} - ${item.stock.price.toFixed(2)}k`,
+      targetTP1: `${item.stock.aiTargetPrice || (item.stock.price * 1.12).toFixed(2)}k`,
+      stopLoss: `${item.stock.aiStopLoss || (item.stock.price * 0.94).toFixed(2)}k`,
+      verdict: item.stock.aiVerdict,
+      quantScore: item.stock.aiScore,
+    })),
+    topQuantScoreStocks: topQuantScoreStocks.map((s) => ({
       symbol: s.symbol,
       name: s.name,
-      exchange: s.exchange,
-      sector: s.sector,
+      score: s.aiScore,
+      verdict: s.aiVerdict,
       price: s.price,
       changePercent: s.changePercent,
-      volume: s.volume,
-      foreignNetVal: s.foreignNetVal,
       pe: s.fundamental.pe,
-      industryPe: s.fundamental.industryAvgPE,
       roe: s.fundamental.roe,
-      profitGrowthYoY: s.fundamental.profitGrowthYoY,
-      debtToEquity: s.fundamental.debtToEquity,
-      rsi: s.technical.rsi14,
-      ma20: s.technical.ma20,
-      ma50: s.technical.ma50,
-      support: s.technical.supportLevel,
-      resistance: s.technical.resistanceLevel,
-      verdict: s.aiVerdict,
-      score: s.aiScore,
-      target: s.aiTargetPrice,
-      stop: s.aiStopLoss,
     })),
+    topGainers: topGainers.map((s) => `${s.symbol} (+${s.changePercent}%, Giá ${s.price}k)`),
+    topForeignBuy: topForeignBuy.map((s) => `${s.symbol} (+${s.foreignNetVal} tỷ, Giá ${s.price}k)`),
+    matchedTickers: matchedStocks.map((s) => {
+      const q4 = computeQuant4LayerData(s);
+      return {
+        symbol: s.symbol,
+        name: s.name,
+        exchange: s.exchange,
+        sector: s.sector,
+        price: s.price,
+        changePercent: s.changePercent,
+        volume: s.volume,
+        foreignNetVal: s.foreignNetVal,
+        pe: s.fundamental.pe,
+        industryPe: s.fundamental.industryAvgPE,
+        roe: s.fundamental.roe,
+        profitGrowthYoY: s.fundamental.profitGrowthYoY,
+        debtToEquity: s.fundamental.debtToEquity,
+        rsi: s.technical.rsi14,
+        ma20: s.technical.ma20,
+        ma50: s.technical.ma50,
+        support: s.technical.supportLevel,
+        resistance: s.technical.resistanceLevel,
+        verdict: s.aiVerdict,
+        score: s.aiScore,
+        target: q4.targetPrice,
+        target2: q4.targetPrice2,
+        stop: q4.stopLoss,
+        buyZone: q4.buyZone,
+        riskReward: q4.riskRewardRatio,
+        maxAllocation: q4.maxAllocationPercent,
+      };
+    }),
   };
 
   const ai = getGenAI();
 
-  const systemInstruction = `Bạn là Trưởng Ban Phân Tích Định Lượng & Cố Vấn Đầu Tư AI Cao Cấp (Chief Quant Strategist) tại VN-Quant Terminal.
-Nhiệm vụ của bạn là đưa ra tư vấn đầu tư theo đúng "MÔ HÌNH 4 TẦNG ĐỊNH LƯỢNG (4-Tier Quant Framework)" với tính chuẩn xác, khách quan và chuyên nghiệp tối đa:
+  const systemInstruction = `Bạn là Trưởng Ban Phân Tích Định Lượng & Giám Đốc Đầu Tư AI Cao Cấp (Chief Quant Strategist & CIO) tại VN-Quant Terminal.
+Phong cách của bạn: Vô cùng sắc sảo, thông minh, trả lời TRỰC DIỆN VÀ ĐÚNG TRỌNG TÂM câu hỏi của người dùng, không né tránh, không đưa ra các câu trả lời chung chung sách vở vô hồn. Mọi phân tích đều dựa trên SỐ LIỆU ĐỊNH LƯỢNG THỰC TẾ, CỤ THỂ, CHÍNH XÁC.
 
-=== QUY TẮC CẤU TRÚC 4 TẦNG BẮT BUỘC KHI PHÂN TÍCH CỔ PHIẾU ===
-Khi người dùng hỏi về 1 hoặc nhiều mã cổ phiếu cụ thể, bạn BẮT BUỘC trình bày câu trả lời theo 4 phần rõ ràng:
+=== QUY TẮC PHẢN HỒI THEO TỪNG NHÓM CÂU HỎI ===
 
-1️⃣ 🏢 **TẦNG 1: NỀN TẢNG CƠ BẢN & ĐỊNH GIÁ (Fundamental & Valuation)**
-- Đánh giá chất lượng BCTC: ROE, ROA, Nợ/VCSH, Tăng trưởng Doanh thu & Lợi nhuận YoY.
-- So sánh định giá P/E, P/B với trung bình ngành (Đắt, Rẻ hay Hợp lý).
-- Nêu rõ động lực tăng trưởng cốt lõi (Catalysts) & Rủi ro doanh nghiệp.
+1. KHI NGƯỜI DÙNG HỎI VỀ "DÒNG TIỀN CÁ MẬP / GOM NGẦM / TOP CỔ PHIẾU":
+- Trả lời ngay danh sách Top 3-5 cổ phiếu có tín hiệu gom ngầm mạnh nhất được trích xuất từ dữ liệu thời gian thực được cấp bên dưới (topSmartMoneyAccumulation).
+- Với mỗi mã, nêu rõ: (1) Mức giá & % thay đổi, (2) Dấu hiệu cá mập (Tỷ lệ lệnh gom lớn %, Giá trị khối ngoại ròng, Mẫu hình gom dòng tiền), (3) Vùng mua an toàn (Buy Zone), (4) Mục tiêu chốt lời TP1 / TP2 kèm % kỳ vọng, (5) Ngưỡng cắt lỗ kỷ luật SL, (6) Tỷ lệ R:R và tỷ trọng giải ngân khuyến nghị.
+- Đưa ra kết luận hành động dứt khoát cho phiên giao dịch hiện tại.
 
-2️⃣ 📈 **TẦNG 2: PHÂN TÍCH KỸ THUẬT & HÀNH HỌC GIÁ (Technical & Price Action)**
-- Cấu trúc xu hướng (Uptrend / Downtrend / Sideway) so với MA20, MA50, MA200.
-- Xung lượng RSI(14) (quá mua/quá bán/phân kỳ), MACD Histogram, Bollinger Bands.
-- Vùng Hỗ trợ then chốt (Key Support) & Kháng cự kỹ thuật (Key Resistance).
+2. KHI NGƯỜI DÙNG HỎI VỀ 1 MÃ CỔ PHIẾU CỤ THỂ:
+- Trình bày đầy đủ chuẩn mực "KHUNG ĐỊNH LƯỢNG 4 TẦNG (4-Tier Quant Framework)":
+  * 1️⃣ 🏢 **TẦNG 1: NỀN TẢNG CƠ BẢN & ĐỊNH GIÁ**: P/E vs Ngành, ROE, tăng trưởng DT & LN YoY, sức khỏe tài chính Nợ/VCSH.
+  * 2️⃣ 📈 **TẦNG 2: PHÂN TÍCH KỸ THUẬT & HÀNH ĐỘNG GIÁ**: Trend so với MA20/50/200, RSI(14), MACD, Vùng Hỗ trợ then chốt & Kháng cự kỹ thuật.
+  * 3️⃣ 🐋 **TẦNG 3: DẤU CHÂN CÁ MẬP & DÒNG TIỀN LỚN**: Khối ngoại mua/bán ròng, tỷ lệ lệnh lô lớn, thanh khoản đột biến, nhận diện gom hàng/bẫy giá.
+  * 4️⃣ 🎯 **TẦNG 4: KẾ HOẠCH GIAO DỊCH & QUẢN TRỊ RỦI RO**: Khuyến nghị [MUA MẠNH / MUA TÍCH LŨY / THEO DÕI / BÁN HẠ TỶ TRỌNG / BÁN CẮT LỖ], Vùng Mua (Buy Zone), Mục tiêu (TP1, TP2), Cắt lỗ (SL), Tỷ lệ R:R, % NAV tối đa, chiến lược đi lệnh 2 bước (50% vùng gom, 50% khi vượt cản).
 
-3️⃣ 🐋 **TẦNG 3: DẤU CHÂN CÁ MẬP & DÒNG TIỀN LỚN (Smart Money & Order Flow)**
-- Hành vi Khối ngoại (Mua/bán ròng), Tự doanh và Tỷ lệ lệnh lô lớn (>50k CP).
-- Đột biến thanh khoản (Volume surge) so với trung bình 20 phiên.
-- Nhận diện tín hiệu gom ngầm, bẫy giá (Bull/Bear Trap) hoặc phân kỳ dòng tiền.
+3. KHI NGƯỜI DÙNG HỎI VỀ "DANH MỤC / PORTFOLIO / CƠ CẤU":
+- Đánh giá sức khỏe tổng thể danh mục, hệ số Beta, rủi ro tập trung ngành (Sector Concentration).
+- Đánh giá từng vị thế cổ phiếu trong danh mục theo chuẩn 4 tầng.
+- Đưa ra lộ trình Tái cơ cấu (Rebalancing) cụ thể: Mã nào nên gia tăng/giữ chặt, mã nào nên hạ tỷ trọng hoặc cắt lỗ dứt khoát, tỷ lệ Tiền mặt / Cổ phiếu khuyến nghị.
 
-4️⃣ 🎯 **TẦNG 4: KẾ HOẠCH GIAO DỊCH & QUẢN TRỊ RỦI RO (Action Plan & Risk-Reward)**
-- Khuyến nghị dứt khoát: **[MUA MẠNH]** / **[MUA TÍCH LŨY]** / **[THEO DÕI]** / **[BÁN HẠ TỶ TRỌNG]** / **[BÁN CẮT LỖ]**.
-- **Vùng Mua Tối Ưu (Buy Zone)**: Khoảng giá gom an toàn (nghìn VNĐ).
-- **Mục Tiêu Chốt Lời (Take Profit TP1, TP2)** kèm kỳ vọng % Lợi nhuận.
-- **Ngưỡng Cắt Lỗ Cứng (Stop Loss)** kèm mức rủi ro tối đa %.
-- **Tỷ lệ Lợi Nhuận / Rủi Ro (R:R Ratio)** (ví dụ: 1 : 3.2).
-- **Quy Tắc Quản Trị Vị Thế**: Tỷ trọng giải ngân tối đa khuyến nghị trên tổng NAV (ví dụ: Max 15-20% NAV) và cách giải ngân từng phần (50% vùng gom, 50% khi vượt cản).
+4. KHI NGƯỜI DÙNG HỎI VỀ "THỊ TRƯỜNG / VN-INDEX / VĨ MÔ":
+- Cung cấp bức tranh toàn cảnh VN-Index, VN30, HNX, UPCOM kèm thanh khoản thực tế.
+- Phân tích tương quan Vĩ mô: Tỷ giá USD/VND, Lãi suất điều hành SBV, xu hướng dòng tiền khối ngoại.
+- Nhận định nhóm ngành dẫn dắt (Leader sectors) và kịch bản vận động (Hỗ trợ cứng - Kháng cự mục tiêu).
+- Khuyến nghị chiến lược phân bổ vốn tổng thể.
 
-=== NẾU NGƯỜI DÙNG HỎI VỀ DANH MỤC (PORTFOLIO) ===
-- Phân tích tương quan & rủi ro "dồn trứng một giỏ" (Sector Concentration).
-- Đánh giá hệ số Beta và độ biến động của danh mục.
-- Đưa ra khuyến nghị Tái cơ cấu (Rebalancing): mã nào nên giữ/gia tăng, mã nào nên hạ tỷ trọng/cắt lỗ để tối ưu hóa tỷ lệ Sharpe.
+5. KHI NGƯỜI DÙNG HỎI VỀ THUẬT NGỮ / KỸ THUẬT GIAO DỊCH (Golden Cross, Death Cross, R:R, Cắt lỗ, Score, ...):
+- Giải thích bản chất cốt lõi một cách gãy gọn, dễ hiểu, kết hợp dẫn chứng thực tế trên thị trường chứng khoán Việt Nam (chu kỳ T+2.5, biên độ sàn HOSE 7% / HNX 10%).
 
-=== PHONG CÁCH TRÌNH BÀY ===
-- Sử dụng tiếng Việt chuyên gia tài chính, ngôn từ dứt khoát, số liệu thực tế chính xác, dùng biểu tượng trực quan (1️⃣ 2️⃣ 3️⃣ 4️⃣, 🏢, 📈, 🐋, 🎯).
-- Không cam kết lợi nhuận tuyệt đối, luôn đề cao quản trị rủi ro cắt lỗ kỷ luật.
-
-DỮ LIỆU THỊ TRƯỜNG THỜI GIAN THỰC ĐƯỢC CẤP:
+=== DỮ LIỆU THỊ TRƯỜNG THỜI GIAN THỰC ĐƯỢC NẠP: ===
 ${JSON.stringify(contextData, null, 2)}`;
 
-  // Deterministic Fallback if AI Key is not available
-  if (!ai) {
-    if (primaryStock) {
+  // Deterministic Fallback Logic if AI Key is missing or Gemini fails
+  const buildDeterministicResponse = () => {
+    // Scenario 1: Smart Money / Gom Ngầm Query
+    if (isSmartMoneyQuery || isTopPicksQuery) {
+      const topPick = topSmartMoneyStocks[0]?.stock || stocks[0];
+      const q4Top = computeQuant4LayerData(topPick);
+
+      let text = `### 🐋 TOP CỔ PHIẾU CÓ DÒNG TIỀN CÁ MẬP GOM NGẦM & BỨT PHÁ (REAL-TIME QUANT SCAN)
+Hệ thống VN-Quant Sentinel vừa quét toàn bộ thị trường và nhận diện **Top 5 cổ phiếu có dấu chân dòng tiền tổ chức (Smart Money Accumulation)** mạnh nhất phiên hôm nay:
+
+---
+
+`;
+
+      topSmartMoneyStocks.forEach((item, idx) => {
+        const s = item.stock;
+        const q = computeQuant4LayerData(s);
+        const isPos = s.changePercent >= 0;
+        text += `#### ${idx + 1}. **${s.symbol}** — ${s.name} (${s.exchange} | Ngành: ${s.sector})
+* **Thị giá & Khối lượng:** **${s.price}k VNĐ** (${isPos ? '+' : ''}${s.changePercent}%) | Khớp lệnh: **${s.volume.toLocaleString('vi-VN')} CP**
+* **Dấu ấn Cá mập:** **${item.patternName}** | Lệnh mua chủ động lô lớn: **${item.largeBlockNetRatio}%** | Khối ngoại ròng: **${s.foreignNetVal > 0 ? `+${s.foreignNetVal}` : s.foreignNetVal} tỷ VNĐ**
+* **Tín hiệu Kỹ thuật:** RSI(14) **${s.technical.rsi14}** | Xu hướng: **${q.layer2_technical.trend}** | Hỗ trợ: **${s.technical.supportLevel}k**, Cản: **${s.technical.resistanceLevel}k**
+* **Chiến lược Thực chiến:**
+  - 🎯 **Vùng Mua Gom:** **${q.buyZone}**
+  - 📈 **Mục Tiêu TP1:** **${q.targetPrice}k VNĐ** (+${(((q.targetPrice - s.price) / s.price) * 100).toFixed(1)}%) | **TP2:** **${q.targetPrice2}k VNĐ** (+${(((q.targetPrice2! - s.price) / s.price) * 100).toFixed(1)}%)
+  - 🛑 **Cắt Lỗ (SL):** **${q.stopLoss}k VNĐ** (-${(((s.price - q.stopLoss) / s.price) * 100).toFixed(1)}%) | Tỷ lệ R:R: **${q.riskRewardRatio}**
+  - ⚖️ **Khuyến nghị:** **${s.aiVerdict}** (Điểm Quant: **${s.aiScore}/100** | Tỷ trọng Max **${q.maxAllocationPercent}% NAV**)
+
+`;
+      });
+
+      text += `---
+💡 **Lời khuyên Chiến lược từ Trưởng ban Quant:**
+- Nhóm dẫn dắt dòng tiền thông minh hiện tập trung mạnh ở các mã đầu ngành có nền tảng cơ bản vững chắc (ROE > 15%, P/E hợp lý).
+- **Quy tắc giải ngân 2 bước:** Giải ngân trước 40-50% tại vùng gom tích lũy, gia tăng 50% còn lại khi cổ phiếu bứt phá đỉnh kháng cự kèm thanh khoản bùng nổ >130% TB20.`;
+
+      return {
+        text,
+        dataCard: q4Top,
+      };
+    }
+
+    // Scenario 2: Single Stock 4-Tier Deep Dive
+    if (primaryStock && !isPortfolioQuery) {
       const q4 = computeQuant4LayerData(primaryStock);
       const isPos = primaryStock.changePercent >= 0;
       return {
@@ -377,7 +626,7 @@ ${JSON.stringify(contextData, null, 2)}`;
 * **Vùng kháng cự mục tiêu:** **${primaryStock.technical.resistanceLevel}k VNĐ** (Cản kỹ thuật ngắn hạn).
 
 #### 3️⃣ 🐋 TẦNG 3: DẤU CHÂN CÁ MẬP & DÒNG TIỀN LỚN (Smart Money & Order Flow)
-* **Hành vi Khối ngoại:** Mua ròng ròng **${primaryStock.foreignNetVal > 0 ? `+${primaryStock.foreignNetVal}` : primaryStock.foreignNetVal} tỷ VNĐ** trên sàn ${primaryStock.exchange}.
+* **Hành vi Khối ngoại:** Mua ròng **${primaryStock.foreignNetVal > 0 ? `+${primaryStock.foreignNetVal}` : primaryStock.foreignNetVal} tỷ VNĐ** trên sàn ${primaryStock.exchange}.
 * **Thanh khoản & Khối lượng:** Khối lượng khớp **${primaryStock.volume.toLocaleString('vi-VN')} CP** (${q4.layer3_smartMoney.volumeStatus}).
 * **Dòng tiền chủ động:** **${q4.layer3_smartMoney.moneyFlowVerdict}**, ${q4.layer3_smartMoney.bigOrderActivity}.
 
@@ -393,17 +642,18 @@ ${JSON.stringify(contextData, null, 2)}`;
       };
     }
 
+    // Scenario 3: Portfolio Review
     if (isPortfolioQuery) {
       const topSymbols = matchedStocks.length > 0 ? matchedStocks.map((s) => s.symbol) : ['HPG', 'SSI', 'FPT'];
       return {
         text: `### 🛡️ BÁO CÁO ĐÁNH GIÁ & TỐI ƯU HÓA DANH MỤC ĐẦU TƯ QUANT
-**Danh mục rà soát:** ${topSymbols.join(', ')} | **Độ an toàn Quant:** **85/100**
+**Danh mục rà soát:** ${topSymbols.join(', ')} | **Độ an toàn Quant:** **86/100**
 
 ---
 
 #### 1️⃣ Phân Tích Cấu Trúc Ngành & Rủi Ro Tập Trung:
 - **Tập trung vốn:** Danh mục đang phân bổ giữa các nhóm trụ cột (**${topSymbols.join(', ')}**). Tránh dồn quá 40% NAV vào một nhóm ngành đơn lẻ.
-- **Hệ số Beta danh mục:** Ước tính **~1.12** (Độ nhạy cao hơn VN-Index 12%, sinh lời vượt trội khi thị trường vào sóng tăng).
+- **Hệ số Beta danh mục:** Ước tính **~1.10** (Độ nhạy cao hơn VN-Index 10%, sinh lời vượt trội khi thị trường vào sóng tăng).
 
 #### 2️⃣ Đánh Giá Từng Vị Thế Theo Chuẩn 4 Tầng:
 ${topSymbols
@@ -425,8 +675,8 @@ ${topSymbols
             symbols: topSymbols,
             overallHealth: 'DANH MỤC TĂNG TRƯỞNG MẠNH',
             riskScore: 32,
-            beta: 1.12,
-            maxConcentrationSector: 'Ngân hàng / Thép',
+            beta: 1.10,
+            maxConcentrationSector: matchedStocks[0]?.sector || 'Ngân hàng / Thép',
             rebalanceAdvice: [
               'Duy trì tỷ trọng cổ phiếu 70% và tiền mặt 30%',
               'Chốt lời từng phần 30% khi các mã chạm kháng cự đỉnh cũ',
@@ -437,23 +687,61 @@ ${topSymbols
       };
     }
 
-    return {
-      text: `### 🌐 TỔNG QUAN XUNG LƯỢNG THỊ TRƯỜNG VIỆT NAM (VN-INDEX)
-* **Chỉ số VN-INDEX:** Đang giao dịch tại **1.248,65 điểm (+0.68%)**, thanh khoản toàn thị trường duy trì tích cực.
-* **Dòng tiền Cá mập (Smart Money):** Khối ngoại mua ròng tập trung ở **FPT, HPG, STB, DGC**.
-* **Nhóm ngành dẫn dắt:** Công nghệ viễn thông (+2.8%), Ngân hàng (+1.4%), Thép (+1.2%).
-* **Chiến lược khuyến nghị:** Tiếp tục nắm giữ các cổ phiếu cơ bản tốt có dòng tiền tổ chức bảo trợ.
+    // Scenario 4: Educational Query
+    if (isEducationalQuery) {
+      if (upperMsg.includes('GOLDEN CROSS')) {
+        return {
+          text: `### 📈 GIẢI THÍCH CHUYÊN SÂU: GIAO CẮT VÀNG (GOLDEN CROSS) TRONG ĐẦU TƯ QUANT
 
-💡 **Gợi ý tra cứu:** Bạn có thể hỏi bất kỳ mã cổ phiếu nào (ví dụ: *"Phân tích HPG"*, *"Nên mua FPT không?"*, *"Đánh giá danh mục HPG, SSI, MBB"*) để nhận báo cáo định lượng 4 tầng chi tiết!`,
+#### 1. Định nghĩa & Bản chất Cốt lõi:
+**Golden Cross (Giao cắt vàng)** là một trong những tín hiệu kỹ thuật tăng giá (Bullish Signal) kinh điển và uy tín nhất. Nó xảy ra khi một **đường trung bình động ngắn hạn (thường là MA20 hoặc MA50)** cắt LÊN TRÊN một **đường trung bình động dài hạn (thường là MA50 hoặc MA200)**.
+
+* **Cặp MA kinh điển:** MA50 cắt lên MA200 $\\rightarrow$ Xác nhận chu kỳ Uptrend dài hạn của cổ phiếu hoặc chỉ số VN-Index.
+* **Cặp MA ngắn hạn:** MA20 cắt lên MA50 $\\rightarrow$ Tín hiệu mở vị thế mua theo sóng trung hạn (Swing Trading).
+
+---
+
+#### 2. Ý nghĩa Thực chiến & Dòng tiền:
+* **Tâm lý thị trường đảo chiều:** Cho thấy giá trung bình của người mua gần đây (50 ngày) đang cao hơn giá trung bình của người cầm hàng dài hạn (200 ngày). Áp lực bán cắt lỗ đã cạn kiệt, phe Mua hoàn toàn làm chủ cuộc chơi.
+* **Tổ chức tham chiến:** Các quỹ đầu tư lớn (Foreign Funds, ETFs, Quỹ mở) thường sử dụng Golden Cross làm điều kiện giải ngân hàng trăm tỷ VNĐ.
+
+---
+
+#### 3. Bộ Lọc Quant 3 Bước để Tránh Bẫy "Golden Cross Giả" (Bull Trap):
+1. **Thanh khoản (Volume Confirmation):** Tại phiên giao cắt, khối lượng giao dịch phải bùng nổ **>130% - 150% so với trung bình 20 phiên**.
+2. **Góc dốc đường MA:** Đường MA dài hạn (MA200) phải đang đi ngang hoặc hướng lên. Nếu MA200 đang dốc xuống mạnh, tín hiệu dễ bị nhiễu.
+3. **Quản trị R:R:** Đặt Stop Loss ngay dưới đáy nến breakout hoặc dưới đường MA50 (khoảng -5% đến -7%).`,
+        };
+      }
+    }
+
+    // Scenario 5: Market Overview
+    const vnIndex = indices.find((i) => i.symbol === 'VNINDEX') || indices[0];
+    return {
+      text: `### 🌐 BÁO CÁO NHẬN ĐỊNH THỊ TRƯỜNG VIỆT NAM (VN-INDEX) & CHIẾN LƯỢC QUANT
+* **Chỉ số VN-INDEX:** Đang giao dịch tại **${vnIndex?.price || '1.248,65'} điểm** (${(vnIndex?.changePercent ?? 0) >= 0 ? '+' : ''}${vnIndex?.changePercent ?? '+0.68'}%), khối lượng duy trì ở mức tích cực.
+* **Dòng tiền Cá mập (Smart Money):** Khối ngoại mua ròng tập trung ở các mã trụ: **${topForeignBuy.slice(0, 3).join(', ')}**.
+* **Nhóm ngành dẫn dắt:** Công nghệ (${topGainers[0] || 'FPT'}), Thép (${topGainers[1] || 'HPG'}), Ngân hàng.
+* **Bối cảnh Vĩ mô:** Tỷ giá USD/VND: **${macro.usdVnd}** | Lãi suất điều hành: **${macro.sbvInterestRate}%** (Môi trường tiền tệ hỗ trợ dòng vốn đầu tư).
+
+🎯 **Chiến lược Hành động:**
+* **Tỷ trọng khuyến nghị:** Duy trì **70% Cổ phiếu / 30% Tiền mặt**.
+* **Trọng tâm danh mục:** Ưu tiên các cổ phiếu có Điểm Quant AI $\\ge 80$, định giá P/E thấp hơn ngành và có tín hiệu cá mập gom ngầm.`,
     };
+  };
+
+  // If Gemini API is not configured, directly return deterministic expert analysis
+  if (!ai) {
+    return buildDeterministicResponse();
   }
 
+  // Attempt Gemini inference
   const geminiRes = await callGeminiSafe({
     contents: userMessage,
     systemInstruction,
   });
 
-  if (geminiRes && geminiRes.text) {
+  if (geminiRes && geminiRes.text && geminiRes.text.trim().length > 30) {
     let cardData: any = undefined;
     if (primaryStock) {
       cardData = computeQuant4LayerData(primaryStock);
@@ -472,6 +760,8 @@ ${topSymbols
           ],
         },
       };
+    } else if (isSmartMoneyQuery && topSmartMoneyStocks.length > 0) {
+      cardData = computeQuant4LayerData(topSmartMoneyStocks[0].stock);
     }
 
     return {
@@ -480,25 +770,8 @@ ${topSymbols
     };
   }
 
-  // Graceful fallback if Gemini is experiencing high demand or offline
-  if (primaryStock) {
-    const q4 = computeQuant4LayerData(primaryStock);
-    return {
-      text: `### 📊 BÁO CÁO PHÂN TÍCH ĐỊNH LƯỢNG 4 TẦNG: ${primaryStock.symbol} (${primaryStock.name})
-**Thị giá hiện tại:** **${primaryStock.price}k VNĐ** (${primaryStock.changePercent >= 0 ? '+' : ''}${primaryStock.changePercent}%)
-
-1️⃣ 🏢 **TẦNG 1 (CƠ BẢN):** P/E **${primaryStock.fundamental.pe}x** vs Ngành **${primaryStock.fundamental.industryAvgPE}x** (${q4.layer1_fundamental.valuationVerdict}). ROE **${primaryStock.fundamental.roe}%**, LN YoY **+${primaryStock.fundamental.profitGrowthYoY}%**.
-2️⃣ 📈 **TẦNG 2 (KỸ THUẬT):** ${q4.layer2_technical.trend}. RSI(14) **${primaryStock.technical.rsi14}**. Hỗ trợ: **${primaryStock.technical.supportLevel}k**, Kháng cự: **${primaryStock.technical.resistanceLevel}k**.
-3️⃣ 🐋 **TẦNG 3 (DÒNG TIỀN CÁ MẬP):** Khối ngoại ròng **${primaryStock.foreignNetVal} tỷ VNĐ**. ${q4.layer3_smartMoney.volumeStatus}.
-4️⃣ 🎯 **TẦNG 4 (KẾ HOẠCH GIAO DỊCH):** **${primaryStock.aiVerdict}** (Score: **${primaryStock.aiScore}/100**).
-* **Vùng Mua:** **${q4.buyZone}** | **Mục tiêu (TP1):** **${q4.targetPrice}k** | **Cắt lỗ (SL):** **${q4.stopLoss}k** | **R:R Ratio:** **${q4.riskRewardRatio}**.`,
-      dataCard: q4,
-    };
-  }
-
-  return {
-    text: 'Đang kết nối lại cụm máy chủ Quant AI. Bạn có thể hỏi phân tích chi tiết về bất kỳ mã CP nào (ví dụ: "Phân tích HPG", "Đánh giá FPT").',
-  };
+  // Fallback to high-intelligence deterministic engine if Gemini is rate-limited or fails
+  return buildDeterministicResponse();
 }
 
 // In-memory cache for news sentiment to prevent hitting Gemini API rate limits
