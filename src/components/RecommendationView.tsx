@@ -1,6 +1,7 @@
-import { AlertCircle, AlertTriangle, ArrowUpRight, Award, CheckCircle2, ChevronRight, Eye, Filter, Flame, Radar, RefreshCw, ShieldAlert, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowUpRight, Award, Bookmark, BookmarkCheck, BookmarkPlus, Check, CheckCircle2, ChevronRight, Eye, Filter, Flame, Plus, Radar, RefreshCw, ShieldAlert, Sparkles, TrendingUp, X, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { AIRecommendation, MarketType } from '../types';
+import { useWatchlist } from '../services/watchlistService';
 
 interface RecommendationViewProps {
   onSelectStock: (symbol: string) => void;
@@ -13,6 +14,33 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [selectedExchange, setSelectedExchange] = useState<string>('ALL');
   const [selectedSector, setSelectedSector] = useState<string>('ALL');
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
+
+  const { isWatching, toggle: toggleWatch } = useWatchlist();
+
+  const handleToggleWatchlist = (item: AIRecommendation) => {
+    const res = toggleWatch(item.symbol, {
+      targetPrice: item.targetPrice,
+      stopLoss: item.stopLoss,
+      note: `${item.category}: ${item.reasons?.[0] || 'Khuyến nghị AI'}`,
+    });
+
+    if (res.inWatchlist) {
+      setToastMessage({
+        type: 'success',
+        text: `⭐ Đã thêm ${item.symbol} vào Danh mục theo dõi & Kích hoạt Sentinel giám sát!`,
+      });
+    } else {
+      setToastMessage({
+        type: 'info',
+        text: `Đã hủy theo dõi mã ${item.symbol}.`,
+      });
+    }
+
+    setTimeout(() => {
+      setToastMessage((prev) => (prev?.text.includes(item.symbol) ? null : prev));
+    }, 3500);
+  };
 
   const fetchRecommendations = async () => {
     setLoading(true);
@@ -150,6 +178,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
             const isAccum = item.category === 'GOM_HÀNG_NGẦM';
             const isBurst = item.category === 'ĐỘT_BIẾN_PHIÊN_SÁNG';
             const isDiv = item.category === 'PHÂN_KỲ_DÒNG_TIỀN';
+            const isWatched = isWatching(item.symbol);
 
             return (
               <div
@@ -182,8 +211,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
                       </span>
                     </div>
 
-                    {/* Badge Category */}
-                    <div className="flex items-center space-x-1">
+                    {/* Badge Category & Quick Watchlist Bookmark */}
+                    <div className="flex items-center space-x-1.5">
                       {isTrap ? (
                         <span className="bg-red-950 text-red-400 border border-red-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-sm flex items-center space-x-1">
                           <AlertTriangle className="w-3 h-3 text-red-400" />
@@ -210,6 +239,19 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
                           <span className="text-xs font-mono font-bold text-blue-400">Score: {item.score}</span>
                         </div>
                       )}
+
+                      {/* Quick Watchlist Toggle Icon */}
+                      <button
+                        onClick={() => handleToggleWatchlist(item)}
+                        className={`p-1 rounded-sm border transition cursor-pointer ${
+                          isWatched
+                            ? 'bg-emerald-950/80 text-emerald-400 border-emerald-600 hover:bg-red-950/80 hover:text-red-300 hover:border-red-600'
+                            : 'bg-[#050505] text-gray-400 border-gray-800 hover:text-emerald-300 hover:border-emerald-700'
+                        }`}
+                        title={isWatched ? `Hủy theo dõi ${item.symbol}` : `Thêm ${item.symbol} vào danh mục theo dõi`}
+                      >
+                        {isWatched ? <BookmarkCheck className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -263,10 +305,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-3 border-t border-gray-800 flex items-center space-x-2 font-mono">
+                <div className="pt-3 border-t border-gray-800 flex flex-wrap items-center gap-2 font-mono">
+                  {/* Primary TradingView Button */}
                   <button
                     onClick={() => onSelectStock(item.symbol)}
-                    className={`flex-1 font-bold py-1.5 rounded-sm text-xs transition flex items-center justify-center space-x-1 text-white ${
+                    className={`flex-1 min-w-[130px] font-bold py-1.5 px-2 rounded-sm text-xs transition flex items-center justify-center space-x-1 text-white ${
                       isTrap ? 'bg-red-800 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-500'
                     }`}
                   >
@@ -274,13 +317,39 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
+                  {/* Add / Remove from Watchlist Button */}
+                  <button
+                    onClick={() => handleToggleWatchlist(item)}
+                    className={`py-1.5 px-2.5 rounded-sm text-xs font-bold font-mono border transition flex items-center space-x-1 whitespace-nowrap cursor-pointer ${
+                      isWatched
+                        ? 'bg-emerald-950/90 hover:bg-red-950/90 text-emerald-300 hover:text-red-300 border-emerald-600 hover:border-red-600 group/btn'
+                        : 'bg-[#042017] hover:bg-emerald-700 text-emerald-300 hover:text-white border-emerald-600/80 shadow'
+                    }`}
+                    title={isWatched ? `Bấm để hủy theo dõi ${item.symbol}` : `Thêm ${item.symbol} vào Danh mục theo dõi & Kích hoạt Sentinel`}
+                  >
+                    {isWatched ? (
+                      <>
+                        <BookmarkCheck className="w-3.5 h-3.5 text-emerald-400 group-hover/btn:hidden" />
+                        <span className="group-hover/btn:hidden">ĐÃ THEO DÕI</span>
+                        <X className="w-3.5 h-3.5 text-red-400 hidden group-hover/btn:inline" />
+                        <span className="hidden group-hover/btn:inline">BỎ THEO DÕI</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkPlus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>+ THEO DÕI</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* AI Smart Money Analysis Button */}
                   <button
                     onClick={() =>
                       onOpenAIChat(
                         `Phân tích chuyên sâu cổ phiếu ${item.symbol} theo dấu chân cá mập (Smart Money) và kiểm tra bẫy giá Bull/Bear Trap.`
                       )
                     }
-                    className="bg-[#050505] hover:bg-gray-800 text-gray-300 px-2.5 py-1.5 rounded-sm text-xs border border-gray-700 hover:border-cyan-500 transition flex items-center space-x-1"
+                    className="bg-[#050505] hover:bg-gray-800 text-gray-300 px-2.5 py-1.5 rounded-sm text-xs border border-gray-700 hover:border-cyan-500 transition flex items-center space-x-1 whitespace-nowrap"
                     title="Phân tích cá mập AI"
                   >
                     <Sparkles className="w-4 h-4 text-cyan-400" />
@@ -290,6 +359,32 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce duration-300">
+          <div
+            className={`px-4 py-2.5 rounded-sm border shadow-2xl font-mono text-xs flex items-center space-x-2 ${
+              toastMessage.type === 'success'
+                ? 'bg-emerald-950 text-emerald-200 border-emerald-500 shadow-emerald-950/60'
+                : 'bg-gray-900 text-gray-200 border-gray-700 shadow-black/80'
+            }`}
+          >
+            {toastMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-gray-400" />
+            )}
+            <span>{toastMessage.text}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="ml-2 text-gray-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

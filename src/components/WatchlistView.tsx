@@ -26,6 +26,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { StockData, StockNewsSentiment, WatchlistItem } from '../types';
+import { WATCHLIST_UPDATED_EVENT } from '../services/watchlistService';
 
 interface WatchlistViewProps {
   stocks: StockData[];
@@ -93,6 +94,30 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
         }
       })
       .catch((err) => console.error('Failed to load sentinel config:', err));
+  }, []);
+
+  // Listen to cross-component watchlist updates (e.g. from TerminalView or RecommendationView)
+  useEffect(() => {
+    const handleExternalUpdate = (e: any) => {
+      if (e.detail?.watchlist && Array.isArray(e.detail.watchlist)) {
+        setWatchlist(e.detail.watchlist);
+      } else {
+        const saved = localStorage.getItem('vnquant_watchlist');
+        if (saved) {
+          try {
+            setWatchlist(JSON.parse(saved));
+          } catch (err) {}
+        }
+      }
+    };
+
+    window.addEventListener(WATCHLIST_UPDATED_EVENT, handleExternalUpdate);
+    window.addEventListener('storage', handleExternalUpdate);
+
+    return () => {
+      window.removeEventListener(WATCHLIST_UPDATED_EVENT, handleExternalUpdate);
+      window.removeEventListener('storage', handleExternalUpdate);
+    };
   }, []);
 
   // Sync Watchlist with localStorage and backend server

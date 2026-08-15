@@ -1,8 +1,9 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, ShieldCheck, Sparkles, TrendingUp, X, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
 import { getStoredAlerts, saveAlertsToStorage, getStoredNotifications, saveNotificationsToStorage, playAlertSound } from '../services/alertService';
+import { useWatchlist } from '../services/watchlistService';
 import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
 import { AlertsDrawer } from './AlertsDrawer';
@@ -43,6 +44,49 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   const [isSetAlertModalOpen, setIsSetAlertModalOpen] = useState(false);
   const [isAlertsDrawerOpen, setIsAlertsDrawerOpen] = useState(false);
   const [activeToastNotif, setActiveToastNotif] = useState<MockNotification | null>(null);
+
+  // Watchlist State & Sentinel Integration
+  const { isWatching, toggle: toggleWatch } = useWatchlist();
+  const isWatched = isWatching(stock.symbol);
+
+  const handleToggleWatchlist = () => {
+    const res = toggleWatch(stock.symbol, {
+      targetPrice: stock.aiTargetPrice,
+      stopLoss: stock.aiStopLoss,
+      note: stock.aiReasoning ? stock.aiReasoning.slice(0, 50) + '...' : `Theo dõi ${stock.symbol}`,
+    });
+
+    if (res.inWatchlist) {
+      const confirmNotif: MockNotification = {
+        id: `notif-${Date.now()}`,
+        symbol: stock.symbol,
+        triggerType: 'PRICE_THRESHOLD',
+        title: `⭐ ĐÃ THÊM VÀO WATCHLIST: ${stock.symbol}`,
+        message: `Mã ${stock.symbol} đã được thêm vào Danh mục theo dõi và kích hoạt Sentinel giám sát tự động 24/7!`,
+        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        channel: 'IN_APP',
+        severity: 'SUCCESS',
+        read: false,
+      };
+      setNotifications((prev) => [confirmNotif, ...prev]);
+      setActiveToastNotif(confirmNotif);
+      playAlertSound();
+    } else {
+      const infoNotif: MockNotification = {
+        id: `notif-${Date.now()}`,
+        symbol: stock.symbol,
+        triggerType: 'PRICE_THRESHOLD',
+        title: `🗑️ ĐÃ XÓA KHỎI WATCHLIST: ${stock.symbol}`,
+        message: `Đã hủy theo dõi mã ${stock.symbol} khỏi danh mục.`,
+        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        channel: 'IN_APP',
+        severity: 'INFO',
+        read: false,
+      };
+      setNotifications((prev) => [infoNotif, ...prev]);
+      setActiveToastNotif(infoNotif);
+    }
+  };
 
   const isPositive = stock.change >= 0;
   const tech = stock.technical;
@@ -362,6 +406,35 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
           {/* Unified Action Button Bar */}
           <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+            {/* Add / Remove from Watchlist Button */}
+            <button
+              onClick={handleToggleWatchlist}
+              className={`px-3 py-2 font-bold rounded-sm text-xs border flex items-center space-x-1.5 transition whitespace-nowrap shadow cursor-pointer ${
+                isWatched
+                  ? 'bg-emerald-950/90 hover:bg-red-950/90 text-emerald-300 hover:text-red-300 border-emerald-600 hover:border-red-600 group'
+                  : 'bg-gradient-to-r from-emerald-950 via-[#062c22] to-emerald-950 hover:from-emerald-800 hover:to-teal-800 text-emerald-300 hover:text-white border-emerald-600/80 shadow-emerald-950/50'
+              }`}
+              title={
+                isWatched
+                  ? `Mã ${stock.symbol} đang trong Danh mục theo dõi. Bấm để hủy theo dõi.`
+                  : `Thêm ${stock.symbol} vào Danh mục theo dõi & Kích hoạt Sentinel giám sát tự động`
+              }
+            >
+              {isWatched ? (
+                <>
+                  <BookmarkCheck className="w-4 h-4 text-emerald-400 group-hover:hidden" />
+                  <span className="group-hover:hidden">ĐÃ THEO DÕI ({stock.symbol})</span>
+                  <X className="w-4 h-4 text-red-400 hidden group-hover:inline" />
+                  <span className="hidden group-hover:inline">HỦY THEO DÕI</span>
+                </>
+              ) : (
+                <>
+                  <BookmarkPlus className="w-4 h-4 text-emerald-400" />
+                  <span>+ THEO DÕI ({stock.symbol})</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={() => setIsSetAlertModalOpen(true)}
               className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-sm text-xs flex items-center space-x-1.5 shadow transition whitespace-nowrap"
