@@ -11,6 +11,9 @@ import {
   deleteServerAlertStore,
   saveStore,
   addTriggerHistoryItem,
+  isSignalInCooldown,
+  recordSignalSent,
+  clearSignalCooldown,
   TelegramConfig,
 } from './dataStore';
 
@@ -35,7 +38,18 @@ export function deleteServerAlert(id: string): boolean {
 }
 
 /**
- * Send a message via Telegram Bot API
+ * Escapes characters for Telegram HTML parse_mode
+ */
+export function escapeTelegramHtml(text: any): string {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Send a message via Telegram Bot API with automatic HTML validation and fallback
  */
 export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Markdown' = 'HTML'): Promise<{ success: boolean; error?: string }> {
   const cfg = getTelegramConfig();
@@ -46,15 +60,19 @@ export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Mar
     };
   }
 
+  // Clean botToken and chatId (handle accidental 'bot' prefix or whitespace)
+  const cleanToken = cfg.botToken.trim().replace(/^bot/i, '');
+  const cleanChatId = cfg.chatId.trim();
+
   try {
-    const url = `https://api.telegram.org/bot${cfg.botToken}/sendMessage`;
+    const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: cfg.chatId,
+        chat_id: cleanChatId,
         text,
         parse_mode: parseMode,
         disable_web_page_preview: false,
@@ -64,6 +82,27 @@ export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Mar
     const data: any = await response.json();
     if (!response.ok || !data.ok) {
       console.error('Telegram API error:', data);
+
+      // If Telegram failed due to HTML parse error (code 400), automatically fallback to plain text
+      if (data.error_code === 400 && parseMode === 'HTML') {
+        console.warn('[TELEGRAM] ⚠️ HTML parse failed, trying plain text fallback without HTML tags...');
+        const plainText = text.replace(/<[^>]*>/g, '');
+        const retryResponse = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: cleanChatId,
+            text: plainText,
+            disable_web_page_preview: false,
+          }),
+        });
+        const retryData: any = await retryResponse.json();
+        if (retryResponse.ok && retryData.ok) {
+          console.log('[TELEGRAM] ✅ Gửi tin nhắn thành công qua Plain-text fallback');
+          return { success: true };
+        }
+      }
+
       return {
         success: false,
         error: data.description || 'Lỗi gửi tin nhắn Telegram',
@@ -81,11 +120,11 @@ export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Mar
 }
 
 /**
- * Format a detailed, rich HTML alert for Telegram with 4-Tier Quant Matrix
+ * Format a detailed, rich HTML alert for Telegram with 4-Tier Quant Matrix (Tier P2: Custom Alert)
  */
 export function formatTelegramAlertMessage(alert: StockAlert, stock: StockData, triggerResult: { message: string; severity: string }): string {
   const timeStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const condLabel = formatConditionLabel(alert.triggerType, alert.condition, alert.targetValue);
+  const condLabel = escapeTelegramHtml(formatConditionLabel(alert.triggerType, alert.condition, alert.targetValue));
   const changeSign = stock.change >= 0 ? '+' : '';
   const tvExchange = ['HNX', 'UPCOM'].includes((stock.exchange || '').toUpperCase()) ? stock.exchange.toUpperCase() : 'HOSE';
   const tvUrl = `https://www.tradingview.com/chart/?symbol=${tvExchange}:${stock.symbol}`;
@@ -101,27 +140,30 @@ export function formatTelegramAlertMessage(alert: StockAlert, stock: StockData, 
   const rr = (Number(tp1Upside) / (Number(slDownside) || 1)).toFixed(1);
 
   // Custom visual badge based on trigger type
-  let badgeHeader = '🚨 <b>VIETSTOCK QUANT - CẢNH BÁO TÍN HIỆU 4 TẦNG</b>';
+  let badgeHeader = '🔔 <b>[P2 - CẢNH BÁO ĐÃ ĐẶT] TÍN HIỆU THEO YÊU CẦU</b>';
   if (alert.triggerType === 'VOLUME_SURGE') {
-    badgeHeader = '🔥 <b>VIETSTOCK QUANT - ĐỘT BIẾN KHỐI LƯỢNG (>200% MA20)</b>';
+    badgeHeader = '🔥 <b>[P2 - CẢNH BÁO ĐÃ ĐẶT] ĐỘT BIẾN KHỐI LƯỢNG (&gt;200% MA20)</b>';
   } else if (alert.triggerType === 'STOP_LOSS_TAKE_PROFIT') {
-    badgeHeader = '🛑 <b>VIETSTOCK QUANT - CẢNH BÁO STOP-LOSS / TAKE-PROFIT</b>';
+    badgeHeader = '🛑 <b>[P2 - CẢNH BÁO ĐÃ ĐẶT] CHẠM NGƯỠNG STOP-LOSS / TAKE-PROFIT</b>';
   } else if (alert.triggerType === 'BREAKOUT_LEVEL') {
-    badgeHeader = '🚀 <b>VIETSTOCK QUANT - BỨT PHÁ KỸ THUẬT BREAKOUT</b>';
+    badgeHeader = '🚀 <b>[P2 - CẢNH BÁO ĐÃ ĐẶT] BỨT PHÁ KỸ THUẬT BREAKOUT</b>';
   } else if (alert.triggerType === 'MA_CROSSOVER') {
-    badgeHeader = '✨ <b>VIETSTOCK QUANT - GIAO CẮT VÀNG GOLDEN CROSS (MA20/50)</b>';
+    badgeHeader = '✨ <b>[P2 - CẢNH BÁO ĐÃ ĐẶT] GIAO CẮT VÀNG GOLDEN CROSS (MA20/50)</b>';
   }
 
   const foreignStr = stock.foreignNetVal > 0 ? `+${stock.foreignNetVal} tỷ` : `${stock.foreignNetVal} tỷ`;
+  const safeStockName = escapeTelegramHtml(stock.name);
+  const safeMessage = escapeTelegramHtml(triggerResult.message);
+  const safeNote = alert.note ? escapeTelegramHtml(alert.note) : '';
 
   return `${badgeHeader}
 ━━━━━━━━━━━━━━━━━━━━━
-📌 <b>MÃ CP: #${stock.symbol}</b> (${stock.name})
-🏢 <b>Sàn:</b> ${stock.exchange} | <b>Ngành:</b> ${stock.sector}
+📌 <b>MÃ CP: #${stock.symbol}</b> (${safeStockName})
+🏢 <b>Sàn:</b> ${stock.exchange} | <b>Ngành:</b> ${escapeTelegramHtml(stock.sector)}
 🎯 <b>Tín hiệu kích hoạt:</b> <code>${condLabel}</code>
 💲 <b>Thị giá:</b> <b>${stock.price.toFixed(2)}k VNĐ</b> (${changeSign}${stock.changePercent.toFixed(2)}%)
 📊 <b>Thanh khoản:</b> ${stock.volume.toLocaleString('vi-VN')} CP (GT: ${stock.value} tỷ)
-🐋 <b>Khối ngoại:</b> ${foreignStr} | <b>Smart Money:</b> ${stock.smartMoney?.patternName || 'Tích lũy'}
+🐋 <b>Khối ngoại:</b> ${foreignStr} | <b>Smart Money:</b> ${escapeTelegramHtml(stock.smartMoney?.patternName || 'Tích lũy')}
 
 📈 <b>CHỈ BÁO KỸ THUẬT:</b>
 • RSI(14): <b>${stock.technical.rsi14.toFixed(1)}</b> | MACD: <b>${stock.technical.macd.histogram > 0 ? '+' : ''}${stock.technical.macd.histogram.toFixed(2)}</b>
@@ -134,8 +176,8 @@ export function formatTelegramAlertMessage(alert: StockAlert, stock: StockData, 
 • <b>Cắt lỗ SL:</b> <code>${sl}k</code> (-${slDownside}%) [Gãy MA20/Hỗ trợ]
 • <b>Tỷ lệ R:R:</b> <code>1 : ${rr}</code> | <b>Phân bổ:</b> <code>15 - 20% NAV</code>
 
-📣 <b>Phân tích AI:</b> ${triggerResult.message}
-${alert.note ? `📝 <b>Ghi chú:</b> <i>${alert.note}</i>\n` : ''}
+📣 <b>Phân tích AI:</b> ${safeMessage}
+${safeNote ? `📝 <b>Ghi chú người dùng:</b> <i>${safeNote}</i>\n` : ''}
 ⏰ <b>Thời gian:</b> ${timeStr}
 ━━━━━━━━━━━━━━━━━━━━━
 🔗 <a href="${tvUrl}">Mở biểu đồ trực tiếp trên TradingView ↗</a>`;
@@ -143,13 +185,13 @@ ${alert.note ? `📝 <b>Ghi chú:</b> <i>${alert.note}</i>\n` : ''}
 
 /**
  * Main 5-minute Cron Job Handler
- * 1. Refreshes live market data & news from internet
- * 2. Evaluates all active alerts
- * 3. Sends Telegram alerts if triggers are hit
+ * Evaluates:
+ * 1. P2 Custom Alerts with edge-triggering & deduplication
+ * 2. P1 Portfolio & P3 Watchlist Sentinel scan
  */
 export async function runCronMarketSyncAndCheckAlerts() {
   const startTime = Date.now();
-  console.log(`[CRON] 🚀 Bắt đầu chu kỳ cập nhật dữ liệu & kiểm tra cảnh báo 5 phút (${new Date().toISOString()})...`);
+  console.log(`[CRON] 🚀 Bắt đầu chu kỳ cập nhật dữ liệu & kiểm tra cảnh báo 4 tầng (${new Date().toISOString()})...`);
 
   // 1. Refresh news and stocks data
   const latestNews = await getLatestNewsAsync();
@@ -162,111 +204,117 @@ export async function runCronMarketSyncAndCheckAlerts() {
 
   const cfg = getTelegramConfig();
 
-  // 2. Evaluate active server alerts
-  const serverAlerts = getServerAlertsStore();
-  let stateChanged = false;
+  // 2. Evaluate active server alerts (Tier P2)
+  if (cfg.enableP2CustomAlerts !== false) {
+    const serverAlerts = getServerAlertsStore();
+    let stateChanged = false;
 
-  for (const alert of serverAlerts) {
-    if (!alert.isActive) continue;
-    alertsEvaluated++;
+    for (const alert of serverAlerts) {
+      if (!alert.isActive) continue;
+      alertsEvaluated++;
 
-    const stock = stocks.find((s) => s.symbol === alert.symbol) || (await getOrFetchStockBySymbol(alert.symbol));
-    if (!stock) continue;
+      const stock = stocks.find((s) => s.symbol === alert.symbol) || (await getOrFetchStockBySymbol(alert.symbol));
+      if (!stock) continue;
 
-    // Check user-configured Telegram smart filters
-    if (cfg.enabled) {
-      if (cfg.filterVolumeSurgeOnly && alert.triggerType !== 'VOLUME_SURGE') {
-        continue;
+      // Check user-configured Telegram smart filters
+      if (cfg.enabled) {
+        if (cfg.filterVolumeSurgeOnly && alert.triggerType !== 'VOLUME_SURGE') {
+          continue;
+        }
+        if (cfg.filterStopLossTakeProfitOnly && alert.triggerType !== 'STOP_LOSS_TAKE_PROFIT') {
+          continue;
+        }
+        if (cfg.filterBreakoutOnly && alert.triggerType !== 'BREAKOUT_LEVEL' && alert.triggerType !== 'MA_CROSSOVER') {
+          continue;
+        }
+        if (cfg.minPriceChangePercent && Math.abs(stock.changePercent) < cfg.minPriceChangePercent) {
+          continue;
+        }
       }
-      if (cfg.filterStopLossTakeProfitOnly && alert.triggerType !== 'STOP_LOSS_TAKE_PROFIT') {
-        continue;
-      }
-      if (cfg.filterBreakoutOnly && alert.triggerType !== 'BREAKOUT_LEVEL' && alert.triggerType !== 'MA_CROSSOVER') {
-        continue;
-      }
-      if (cfg.minPriceChangePercent && Math.abs(stock.changePercent) < cfg.minPriceChangePercent) {
-        continue;
-      }
-    }
 
-    const evalResult = checkAlertTrigger(alert, stock);
+      const evalResult = checkAlertTrigger(alert, stock);
 
-    if (evalResult.isTriggered) {
-      // Build unique signature for this specific trigger condition
-      const currentSignature = `${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}_${evalResult.message}`;
+      if (evalResult.isTriggered) {
+        // Unique signature for this specific trigger condition
+        const currentSignature = `${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}`;
+        const cooldownKey = `P2_${currentSignature}`;
 
-      // Deduplication check: Do NOT resend if this exact notification signature was already sent
-      if (alert.lastSentSignature === currentSignature) {
-        console.log(`[CRON] ⚠️ Bỏ qua gửi Telegram cho ${alert.symbol} (${alert.id}): Thông báo trùng lặp đã được gửi trước đó.`);
+        // Deduplication check: Single-shot / cooldown
+        if (alert.lastSentSignature === currentSignature || isSignalInCooldown(cooldownKey, 120)) {
+          console.log(`[CRON P2] ⚠️ Bỏ qua gửi Telegram cho ${alert.symbol} (${alert.id}): Thông báo trùng lặp đã được gửi trước đó.`);
+          triggerLog.push({
+            symbol: alert.symbol,
+            alertId: alert.id,
+            message: `${evalResult.message} [ĐÃ BỎ QUA - THÔNG BÁO LẶP]`,
+            telegramSuccess: false,
+          });
+          continue;
+        }
+
+        alertsTriggered++;
+        
+        let telegramSuccess = false;
+        if (cfg.enabled && cfg.botToken && cfg.chatId) {
+          const msg = formatTelegramAlertMessage(alert, stock, evalResult);
+          const res = await sendTelegramMessage(msg);
+          telegramSuccess = res.success;
+          if (res.success) {
+            telegramSentCount++;
+            alert.lastSentSignature = currentSignature;
+            alert.triggerCount = (alert.triggerCount || 0) + 1;
+            alert.lastTriggeredAt = new Date().toISOString();
+            recordSignalSent(cooldownKey, 'SENT');
+            stateChanged = true;
+          }
+        } else {
+          alert.lastSentSignature = currentSignature;
+          alert.triggerCount = (alert.triggerCount || 0) + 1;
+          alert.lastTriggeredAt = new Date().toISOString();
+          recordSignalSent(cooldownKey, 'LOGGED_NO_TELEGRAM');
+          stateChanged = true;
+        }
+
+        // Record to persistent trigger history
+        addTriggerHistoryItem({
+          symbol: alert.symbol,
+          alertId: alert.id,
+          tier: 'P2',
+          message: `[P2 ĐÃ ĐẶT] ${evalResult.message}`,
+          telegramSuccess,
+        });
+
         triggerLog.push({
           symbol: alert.symbol,
           alertId: alert.id,
-          message: `${evalResult.message} [ĐÃ BỎ QUA - THÔNG BÁO LẶP]`,
-          telegramSuccess: false,
+          message: evalResult.message,
+          telegramSuccess,
         });
-        continue;
-      }
-
-      alertsTriggered++;
-      
-      let telegramSuccess = false;
-      if (cfg.enabled && cfg.botToken && cfg.chatId) {
-        const msg = formatTelegramAlertMessage(alert, stock, evalResult);
-        const res = await sendTelegramMessage(msg);
-        telegramSuccess = res.success;
-        if (res.success) {
-          telegramSentCount++;
-          alert.lastSentSignature = currentSignature; // Record sent signature
-          alert.triggerCount = (alert.triggerCount || 0) + 1;
-          alert.lastTriggeredAt = new Date().toISOString();
+      } else {
+        // Condition no longer met: clear state so future triggers notify again
+        if (alert.lastSentSignature !== undefined) {
+          alert.lastSentSignature = undefined;
+          clearSignalCooldown(`P2_${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}`);
           stateChanged = true;
         }
-      } else {
-        // Record signature even if Telegram isn't configured so trigger state is tracked
-        alert.lastSentSignature = currentSignature;
-        alert.triggerCount = (alert.triggerCount || 0) + 1;
-        alert.lastTriggeredAt = new Date().toISOString();
-        stateChanged = true;
       }
+    }
 
-      // Record to persistent trigger history
-      addTriggerHistoryItem({
-        symbol: alert.symbol,
-        alertId: alert.id,
-        message: evalResult.message,
-        telegramSuccess,
-      });
-
-      triggerLog.push({
-        symbol: alert.symbol,
-        alertId: alert.id,
-        message: evalResult.message,
-        telegramSuccess,
-      });
-    } else {
-      // If condition is no longer met, reset lastSentSignature so future cross-overs will notify again
-      if (alert.lastSentSignature !== undefined) {
-        alert.lastSentSignature = undefined;
-        stateChanged = true;
-      }
+    if (stateChanged) {
+      saveStore();
     }
   }
 
-  if (stateChanged) {
-    saveStore();
-  }
-
-  // 3. Automated Watchlist Sentinel Technical Indicator Scan (RSI crossover, MA cross, etc.)
-  let watchlistSentinelReport: any = null;
+  // 3. Automated Multi-Tier Sentinel Scan (Tier P1 Portfolio, Tier P3 Watchlist, Tier P4 Market)
+  let multiTierReport: any = null;
   try {
-    watchlistSentinelReport = await runWatchlistSentinelScan();
-    telegramSentCount += watchlistSentinelReport.telegramMessagesSent || 0;
+    multiTierReport = await runWatchlistSentinelScan();
+    telegramSentCount += multiTierReport.telegramMessagesSent || 0;
   } catch (sentinelErr) {
-    console.error('[CRON WATCHLIST SENTINEL ERROR]:', sentinelErr);
+    console.error('[CRON MULTI-TIER SENTINEL ERROR]:', sentinelErr);
   }
 
   const durationMs = Date.now() - startTime;
-  console.log(`[CRON] ✅ Cập nhật xong trong ${durationMs}ms: ${stocks.length} cổ phiếu, ${latestNews.length} tin tức, ${alertsTriggered}/${alertsEvaluated} cảnh báo kích hoạt, ${telegramSentCount} tin Telegram đã gửi.`);
+  console.log(`[CRON] ✅ Cập nhật xong trong ${durationMs}ms: ${stocks.length} CP, ${alertsTriggered}/${alertsEvaluated} P2 kích hoạt, ${telegramSentCount} tin Telegram đã gửi.`);
 
   return {
     status: 'success',
@@ -277,11 +325,13 @@ export async function runCronMarketSyncAndCheckAlerts() {
       totalNewsFetched: latestNews.length,
       alertsEvaluated,
       alertsTriggered,
-      watchlistSentinelSignals: watchlistSentinelReport?.activeSignalsFound || 0,
+      tier1PortfolioChecked: multiTierReport?.tier1PortfolioChecked || 0,
+      tier3WatchlistChecked: multiTierReport?.tier3WatchlistChecked || 0,
+      watchlistSentinelSignals: multiTierReport?.activeSignalsFound || 0,
       telegramSentCount,
       telegramConfigured: Boolean(cfg.botToken && cfg.chatId),
     },
     triggeredAlerts: triggerLog,
-    watchlistSentinel: watchlistSentinelReport,
+    multiTierReport,
   };
 }

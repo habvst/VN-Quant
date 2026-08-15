@@ -103,9 +103,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [kellySymbol, setKellySymbol] = useState<string>('HPG');
   const [kellyPrice, setKellyPrice] = useState<string>('25.0');
 
-  // Sync state changes with localStorage
+  // Sync state changes with localStorage & Server Sentinel P1 Priority Engine
   useEffect(() => {
     localStorage.setItem('vnquant_portfolio_positions', JSON.stringify(positions));
+    // Auto sync to backend for Tier P1 Real Holding Sentinel alerts
+    fetch('/api/portfolio/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positions }),
+    }).catch((err) => console.warn('[PORTFOLIO SENTINEL SYNC ERROR]:', err));
   }, [positions]);
 
   useEffect(() => {

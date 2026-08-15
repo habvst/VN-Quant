@@ -31,12 +31,16 @@ import {
   updateWatchlistStore,
   getWatchlistSentinelConfigStore,
   updateWatchlistSentinelConfigStore,
+  getPortfolioPositionsStore,
+  updatePortfolioPositionsStore,
 } from './server/dataStore';
 import {
   runWatchlistSentinelScan,
   startWatchlistSentinelDaemon,
   evaluateWatchlistStockSignals,
   formatWatchlistTelegramAlert,
+  formatPortfolioTelegramAlert,
+  formatMarketOpportunityTelegramAlert,
 } from './server/watchlistSentinelService';
 
 async function startServer() {
@@ -72,7 +76,7 @@ async function startServer() {
     }
   });
 
-  // Telegram Config Endpoints
+  // Telegram Config Endpoints (Full 4-Tier & Smart Filters)
   app.get('/api/telegram/config', (req, res) => {
     const cfg = getTelegramConfig();
     // Mask bot token for security
@@ -82,26 +86,159 @@ async function startServer() {
       maskedToken,
       chatId: cfg.chatId,
       enabled: cfg.enabled,
+      enableP1Portfolio: cfg.enableP1Portfolio !== false,
+      enableP2CustomAlerts: cfg.enableP2CustomAlerts !== false,
+      enableP3Watchlist: cfg.enableP3Watchlist !== false,
+      enableP4MarketOpportunities: Boolean(cfg.enableP4MarketOpportunities),
+      filterVolumeSurgeOnly: Boolean(cfg.filterVolumeSurgeOnly),
+      filterStopLossTakeProfitOnly: Boolean(cfg.filterStopLossTakeProfitOnly),
+      filterBreakoutOnly: Boolean(cfg.filterBreakoutOnly),
+      minPriceChangePercent: cfg.minPriceChangePercent ?? 0,
+      cooldownMinutes: cfg.cooldownMinutes ?? 120,
       isConfigured: Boolean(cfg.botToken && cfg.chatId),
     });
   });
 
   app.post('/api/telegram/config', (req, res) => {
-    const { botToken, chatId, enabled } = req.body;
+    const {
+      botToken,
+      chatId,
+      enabled,
+      enableP1Portfolio,
+      enableP2CustomAlerts,
+      enableP3Watchlist,
+      enableP4MarketOpportunities,
+      filterVolumeSurgeOnly,
+      filterStopLossTakeProfitOnly,
+      filterBreakoutOnly,
+      minPriceChangePercent,
+      cooldownMinutes,
+    } = req.body;
+
     const updated = updateTelegramConfig({
       botToken: typeof botToken === 'string' ? botToken.trim() : undefined,
       chatId: typeof chatId === 'string' ? chatId.trim() : undefined,
       enabled: typeof enabled === 'boolean' ? enabled : undefined,
+      enableP1Portfolio: typeof enableP1Portfolio === 'boolean' ? enableP1Portfolio : undefined,
+      enableP2CustomAlerts: typeof enableP2CustomAlerts === 'boolean' ? enableP2CustomAlerts : undefined,
+      enableP3Watchlist: typeof enableP3Watchlist === 'boolean' ? enableP3Watchlist : undefined,
+      enableP4MarketOpportunities: typeof enableP4MarketOpportunities === 'boolean' ? enableP4MarketOpportunities : undefined,
+      filterVolumeSurgeOnly: typeof filterVolumeSurgeOnly === 'boolean' ? filterVolumeSurgeOnly : undefined,
+      filterStopLossTakeProfitOnly: typeof filterStopLossTakeProfitOnly === 'boolean' ? filterStopLossTakeProfitOnly : undefined,
+      filterBreakoutOnly: typeof filterBreakoutOnly === 'boolean' ? filterBreakoutOnly : undefined,
+      minPriceChangePercent: typeof minPriceChangePercent === 'number' ? minPriceChangePercent : undefined,
+      cooldownMinutes: typeof cooldownMinutes === 'number' ? cooldownMinutes : undefined,
     });
     res.json({ status: 'success', config: updated });
   });
 
-  // Send Test Message via Telegram Bot
+  // Send Test Message via Telegram Bot (General)
   app.post('/api/telegram/test', async (req, res) => {
     const { message } = req.body;
     const testText = message || `🧪 <b>VIETSTOCK QUANT - THỬ NGHIỆM TELEGRAM BOT</b> 🤖\n---------------------------------------------\n✅ Kết nối giữa Server Vietstock Quant và Telegram Chat thành công!\n⏰ Thời gian: ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`;
     const result = await sendTelegramMessage(testText);
     res.json(result);
+  });
+
+  // Send Test Message for Specific Priority Tier (P1, P2, P3, P4)
+  app.post('/api/telegram/test-tier', async (req, res) => {
+    try {
+      const { tier, symbol } = req.body;
+      const targetSymbol = (symbol || (tier === 'P1' ? 'HPG' : tier === 'P2' ? 'SSI' : tier === 'P4' ? 'FPT' : 'VCB')).toUpperCase();
+      const stock = (await getOrFetchStockBySymbol(targetSymbol)) || getAllStocks()[0];
+
+      if (!stock) {
+        return res.status(404).json({ status: 'error', message: `Stock ${targetSymbol} not found` });
+      }
+
+      let formattedHtml = '';
+      if (tier === 'P1') {
+        const samplePos = {
+          symbol: stock.symbol,
+          buyPrice: Number((stock.price * 1.08).toFixed(2)),
+          quantity: 2500,
+          stopLossPrice: Number((stock.price * 1.01).toFixed(2)),
+          targetPrice: Number((stock.price * 1.25).toFixed(2)),
+        };
+        const sampleSignal = {
+          symbol: stock.symbol,
+          tier: 'P1' as const,
+          type: 'PORTFOLIO_STOP_LOSS' as const,
+          headerBadge: '🚨 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CẢNH BÁO VI PHẠM CẮT LỖ KHẨN CẤP!</b>',
+          indicatorName: `Chạm ngưỡng Cắt Lỗ: Thị giá ${stock.price.toFixed(2)}k &le; Ngưỡng SL ${samplePos.stopLossPrice}k (Lỗ: -7.4%)`,
+          description: `Cổ phiếu #${stock.symbol} trong danh mục thực tế của bạn đã vi phạm ngưỡng cắt lỗ bảo toàn vốn. Khối lượng nắm giữ: 2,500 CP.`,
+          severity: 'DANGER' as const,
+          recommendation: `KÍCH HOẠT LỆNH BÁN CẮT LỖ NGAY để bảo vệ tổng NAV. Tuyệt đối không gồng lỗ hoặc bắt đáy trung bình giá xuống!`,
+          signature: `TEST_P1_${stock.symbol}`,
+        };
+        formattedHtml = formatPortfolioTelegramAlert(samplePos, stock, sampleSignal);
+      } else if (tier === 'P4') {
+        const sampleSignal = {
+          symbol: stock.symbol,
+          tier: 'P4' as const,
+          type: 'MARKET_OPPORTUNITY' as const,
+          headerBadge: '💡 <b>[P4 - CƠ HỘI THỊ TRƯỜNG] AI SMART MONEY TOP PICK</b>',
+          indicatorName: `Quant Score: 92/100 | Smart Money: Gom hàng mạnh mẽ`,
+          description: `Mã CP #${stock.symbol} bùng nổ điểm định lượng 92/100 kèm dòng tiền cá mập vào ròng đột biến. Xác suất sinh lời vượt trội VN-Index.`,
+          severity: 'SUCCESS' as const,
+          recommendation: `Đề xuất thêm vào Watchlist hoặc giải ngân thăm dò 15-20% NAV.`,
+          signature: `TEST_P4_${stock.symbol}`,
+        };
+        formattedHtml = formatMarketOpportunityTelegramAlert(stock, sampleSignal);
+      } else {
+        // Tier P3 or default
+        const sampleSignal = {
+          symbol: stock.symbol,
+          tier: 'P3' as const,
+          type: 'RSI_CROSSOVER' as const,
+          headerBadge: '✨ <b>[P3 - DANH MỤC QUAN TÂM] RSI ĐẢO CHIỀU TẠO ĐÁY (BULLISH REVERSAL)</b>',
+          indicatorName: `RSI(14) = ${stock.technical.rsi14.toFixed(1)} (Bứt phá cắt lên mốc Quá Bán 30)`,
+          description: `RSI(14) vừa bứt phá cắt lên trên mốc 30 kèm xung lực hồi phục (+${stock.changePercent.toFixed(2)}%). Đây là điểm đảo chiều tạo đáy chuẩn theo trường phái Phân tích Kỹ thuật Quant.`,
+          severity: 'SUCCESS' as const,
+          recommendation: `Mở vị thế mua gom thăm dò 40% NAV quanh vùng giá hiện tại. Đặt mục tiêu TP1 (+12%) và quản trị rủi ro cắt lỗ nếu gãy đáy ngắn hạn.`,
+          signature: `TEST_P3_${stock.symbol}`,
+        };
+        formattedHtml = formatWatchlistTelegramAlert(stock, sampleSignal);
+      }
+
+      const sendRes = await sendTelegramMessage(formattedHtml);
+      res.json({
+        status: 'success',
+        tier,
+        symbol: stock.symbol,
+        telegramResult: sendRes,
+        previewMessage: formattedHtml,
+      });
+    } catch (err: any) {
+      console.error('[TEST TIER ALERT ERROR]:', err);
+      res.status(500).json({ status: 'error', message: err.message });
+    }
+  });
+
+  // Portfolio Positions Server Endpoints (For P1 Sentinel Integration)
+  app.get('/api/portfolio/positions', (req, res) => {
+    res.json(getPortfolioPositionsStore());
+  });
+
+  app.post('/api/portfolio/sync', (req, res) => {
+    const { positions } = req.body;
+    if (Array.isArray(positions)) {
+      const sanitized = positions.map((p) => ({
+        symbol: String(p.symbol || '').toUpperCase(),
+        buyPrice: Number(p.buyPrice || p.avgPrice || p.price || 0),
+        quantity: Number(p.quantity || p.shares || 100),
+        stopLossPrice: p.stopLossPrice ? Number(p.stopLossPrice) : undefined,
+        targetPrice: p.targetPrice ? Number(p.targetPrice) : undefined,
+        trailingStopPercent: p.trailingStopPercent ? Number(p.trailingStopPercent) : undefined,
+        tradeDate: p.tradeDate || new Date().toISOString(),
+      })).filter((p) => p.symbol.length > 0 && p.buyPrice > 0);
+
+      const updated = updatePortfolioPositionsStore(sanitized);
+      console.log(`[PORTFOLIO SYNC] 💼 Đã đồng bộ ${updated.length} vị thế nắm giữ lên Server Sentinel.`);
+      res.json({ status: 'success', count: updated.length, positions: updated });
+    } else {
+      res.status(400).json({ status: 'error', message: 'positions array is required' });
+    }
   });
 
   // Server-side Active Alerts Endpoints
@@ -172,8 +309,9 @@ async function startServer() {
       // Generate a representative indicator signal for testing
       const sampleSignal = {
         symbol: stock.symbol,
+        tier: 'P3' as const,
         type: 'RSI_CROSSOVER' as const,
-        headerBadge: '✨ <b>VIETSTOCK QUANT - CẢNH BÁO WATCHLIST: TÍN HIỆU RSI ĐẢO CHIỀU TĂNG</b>',
+        headerBadge: '✨ <b>[P3 - DANH MỤC QUAN TÂM] RSI ĐẢO CHIỀU TẠO ĐÁY (BULLISH REVERSAL)</b>',
         indicatorName: `RSI(14) = ${stock.technical.rsi14.toFixed(1)} (Cắt lên vùng Quá Bán 30)`,
         description: `RSI(14) vừa bứt phá cắt lên trên mốc 30 kèm xung lực giá hồi phục (+${stock.changePercent.toFixed(2)}%). Đây là điểm đảo chiều tạo đáy chuẩn theo trường phái Phân tích Kỹ thuật Quant.`,
         severity: 'SUCCESS' as const,
