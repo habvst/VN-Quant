@@ -12,6 +12,18 @@ export interface TelegramConfig {
   minPriceChangePercent?: number; // Chỉ gửi khi biến động >= %
 }
 
+export interface WatchlistSentinelConfig {
+  enabled: boolean;
+  autoScanIntervalSeconds: number;
+  monitorRsi: boolean;
+  monitorMa: boolean;
+  monitorMacd: boolean;
+  monitorVolumeSurge: boolean;
+  monitorBreakout: boolean;
+  rsiOversoldThreshold: number;
+  rsiOverboughtThreshold: number;
+}
+
 export interface TriggerHistoryItem {
   id: string;
   symbol: string;
@@ -23,6 +35,8 @@ export interface TriggerHistoryItem {
 
 export interface AppDataStore {
   telegramConfig: TelegramConfig;
+  watchlistSentinelConfig: WatchlistSentinelConfig;
+  watchlistSignatures: Record<string, string>;
   serverAlerts: StockAlert[];
   watchlistSymbols: string[];
   triggerHistory: TriggerHistoryItem[];
@@ -36,6 +50,18 @@ const DEFAULT_STORE: AppDataStore = {
     chatId: process.env.TELEGRAM_CHAT_ID || '',
     enabled: true,
   },
+  watchlistSentinelConfig: {
+    enabled: true,
+    autoScanIntervalSeconds: 60,
+    monitorRsi: true,
+    monitorMa: true,
+    monitorMacd: true,
+    monitorVolumeSurge: true,
+    monitorBreakout: true,
+    rsiOversoldThreshold: 30,
+    rsiOverboughtThreshold: 70,
+  },
+  watchlistSignatures: {},
   serverAlerts: [
     {
       id: 'srv-alt-1',
@@ -129,6 +155,11 @@ function loadFromDisk(): AppDataStore {
           botToken: process.env.TELEGRAM_BOT_TOKEN || parsed.telegramConfig?.botToken || DEFAULT_STORE.telegramConfig.botToken,
           chatId: process.env.TELEGRAM_CHAT_ID || parsed.telegramConfig?.chatId || DEFAULT_STORE.telegramConfig.chatId,
         },
+        watchlistSentinelConfig: {
+          ...DEFAULT_STORE.watchlistSentinelConfig,
+          ...(parsed.watchlistSentinelConfig || {}),
+        },
+        watchlistSignatures: parsed.watchlistSignatures || {},
         serverAlerts: Array.isArray(parsed.serverAlerts) && parsed.serverAlerts.length > 0 ? parsed.serverAlerts : DEFAULT_STORE.serverAlerts,
         watchlistSymbols: Array.isArray(parsed.watchlistSymbols) && parsed.watchlistSymbols.length > 0 ? parsed.watchlistSymbols : DEFAULT_STORE.watchlistSymbols,
         triggerHistory: Array.isArray(parsed.triggerHistory) ? parsed.triggerHistory : DEFAULT_STORE.triggerHistory,
@@ -265,3 +296,37 @@ export function updateWatchlistStore(symbols: string[]): string[] {
   saveStore();
   return inMemoryStore.watchlistSymbols;
 }
+
+// 5. Watchlist Sentinel Accessors
+export function getWatchlistSentinelConfigStore(): WatchlistSentinelConfig {
+  return inMemoryStore.watchlistSentinelConfig || DEFAULT_STORE.watchlistSentinelConfig;
+}
+
+export function updateWatchlistSentinelConfigStore(config: Partial<WatchlistSentinelConfig>): WatchlistSentinelConfig {
+  inMemoryStore.watchlistSentinelConfig = {
+    ...getWatchlistSentinelConfigStore(),
+    ...config,
+  };
+  saveStore();
+  return inMemoryStore.watchlistSentinelConfig;
+}
+
+export function getWatchlistSignaturesStore(): Record<string, string> {
+  return inMemoryStore.watchlistSignatures || {};
+}
+
+export function setWatchlistSignatureStore(key: string, signature: string): void {
+  if (!inMemoryStore.watchlistSignatures) {
+    inMemoryStore.watchlistSignatures = {};
+  }
+  inMemoryStore.watchlistSignatures[key] = signature;
+  saveStore();
+}
+
+export function clearWatchlistSignatureStore(key: string): void {
+  if (inMemoryStore.watchlistSignatures && inMemoryStore.watchlistSignatures[key]) {
+    delete inMemoryStore.watchlistSignatures[key];
+    saveStore();
+  }
+}
+

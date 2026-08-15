@@ -447,12 +447,21 @@ export interface AIChatMessage {
     layer4_actionPlan?: {
       action: string;
       buyZone: string;
-      target1: number;
-      target2?: number;
-      stopLoss: number;
-      rrRatio: string;
-      maxAllocation: string;
-      strategyNote: string;
+      entry1?: string; // Vùng gom 1 (thăm dò 40-50%)
+      entry2?: string; // Vùng gia tăng khi bứt phá
+      target1: number; // Chốt lời 1
+      target1Upside?: string; // +% TP1
+      target2?: number; // Chốt lời 2
+      target2Upside?: string; // +% TP2
+      stopLoss: number; // Giá cắt lỗ
+      stopLossDownside?: string; // -% SL
+      stopLossCondition?: string; // Điều kiện vi phạm cắt lỗ
+      rrRatio: string; // Tỷ lệ R:R
+      maxAllocation: string; // Tỷ trọng phân bổ NAV (vd: 15-20% NAV)
+      timeframe?: string; // Thời gian nắm giữ (vd: 2-6 tuần)
+      strategyNote: string; // Chiến lược hành động tổng thể
+      entryRules?: string[]; // Điều kiện giải ngân chi tiết
+      exitRules?: string[]; // Nguyên tắc quản trị thoát lệnh
     };
     portfolioInsights?: {
       symbols: string[];

@@ -60,14 +60,28 @@ export function computeQuant4LayerData(stock: any) {
   const buyZoneLow = (stock.price * 0.985).toFixed(2);
   const buyZoneHigh = (stock.price * 1.005).toFixed(2);
   const buyZone = `${buyZoneLow} - ${buyZoneHigh}k`;
-  const tp1 = Number(stock.aiTargetPrice || (stock.price * 1.15).toFixed(2));
+  const tp1 = Number(stock.aiTargetPrice || (stock.price * 1.12).toFixed(2));
   const tp2 = Number((tp1 * 1.08).toFixed(2));
   const sl = Number(stock.aiStopLoss || (stock.price * 0.94).toFixed(2));
   const potentialUpside = (((tp1 - stock.price) / stock.price) * 100).toFixed(1);
+  const potentialUpside2 = (((tp2 - stock.price) / stock.price) * 100).toFixed(1);
   const maxDownside = (((stock.price - sl) / stock.price) * 100).toFixed(1);
   const rr = (Number(potentialUpside) / (Number(maxDownside) || 1)).toFixed(1);
   const rrRatio = `1 : ${rr}`;
   const maxAllocation = stock.aiScore >= 85 ? '15 - 20% Tổng NAV' : (stock.aiScore >= 70 ? '10 - 15% Tổng NAV' : '5 - 8% Thăm dò');
+  const timeframe = 'Ngắn - Trung hạn (2 - 6 tuần)';
+
+  const entryRules = [
+    `Đợt 1 (40 - 50% vị thế): Giải ngân thăm dò trong vùng tích lũy ${buyZoneLow} - ${stock.price.toFixed(2)}k.`,
+    `Đợt 2 (50% còn lại): Mua gia tăng khi xác nhận vượt kháng cự ${tech.resistanceLevel}k với thanh khoản bùng nổ >130% TB20.`,
+    `Tạm dừng mua nếu VN-Index chịu áp lực bán tháo diện rộng hoặc xuất hiện nến nhấn chìm giảm thủng ${tech.supportLevel}k.`,
+  ];
+
+  const exitRules = [
+    `Chốt lời TP1 (${tp1}k, +${potentialUpside}%): Bán chốt lời chủ động 50% vị thế, dời điểm dừng lỗ (Stop Loss) về giá vốn (Breakeven).`,
+    `Chốt lời TP2 (${tp2}k, +${potentialUpside2}%): Chốt lời nốt 50% còn lại hoặc giữ trailing stop theo đường MA10.`,
+    `Cắt lỗ dứt khoát (${sl}k, -${maxDownside}%): Thoát toàn bộ vị thế khi nến ngày đóng cửa dưới ${sl}k (gãy hỗ trợ ${tech.supportLevel}k). Tuyệt đối không trung bình giá xuống.`,
+  ];
 
   return {
     symbol: stock.symbol,
@@ -82,7 +96,7 @@ export function computeQuant4LayerData(stock: any) {
     buyZone,
     riskRewardRatio: rrRatio,
     maxAllocationPercent: stock.aiScore >= 85 ? 20 : 12,
-    timeframe: 'Ngắn - Trung hạn (2-8 tuần)',
+    timeframe,
     layer1_fundamental: {
       summary: `P/E đạt ${fund.pe}x (${valuationVerdict}), P/B ${fund.pb}x. ROE đạt ${fund.roe}%, tăng trưởng LN YoY +${fund.profitGrowthYoY}%. Nợ/VCSH ở mức an toàn (${fund.debtToEquity}x).`,
       pe: fund.pe,
@@ -109,12 +123,21 @@ export function computeQuant4LayerData(stock: any) {
     layer4_actionPlan: {
       action: stock.aiVerdict,
       buyZone,
+      entry1: `${buyZoneLow} - ${stock.price.toFixed(2)}k (Thăm dò 50%)`,
+      entry2: `Vượt ${tech.resistanceLevel}k kèm Vol lớn (Gia tăng 50%)`,
       target1: tp1,
+      target1Upside: `+${potentialUpside}%`,
       target2: tp2,
+      target2Upside: `+${potentialUpside2}%`,
       stopLoss: sl,
-      rrRatio,
+      stopLossDownside: `-${maxDownside}%`,
+      stopLossCondition: `Đóng nến gãy hỗ trợ ${tech.supportLevel}k hoặc thủng MA20 (${tech.ma20}k)`,
+      rrRatio: rrRatio,
       maxAllocation,
-      strategyNote: `Kỳ vọng tăng trưởng +${potentialUpside}%, rủi ro cắt lỗ -${maxDownside}%. Khuyến nghị giải ngân 2 đợt (50% vùng gom, 50% khi vượt cản ${tech.resistanceLevel}k kèm volume).`,
+      timeframe,
+      strategyNote: `Kỳ vọng tăng trưởng TP1 +${potentialUpside}%, TP2 +${potentialUpside2}%, rủi ro tối đa -${maxDownside}%. Khuyến nghị giải ngân 2 đợt theo kỷ luật quản trị vốn.`,
+      entryRules,
+      exitRules,
     },
   };
 }

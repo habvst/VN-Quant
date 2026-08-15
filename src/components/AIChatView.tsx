@@ -248,52 +248,139 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
                   </div>
 
                   {/* 4-Layer Detailed Breakdown Boxes */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                    {/* Layer 1: Cơ bản */}
-                    <div className="bg-[#050505] p-2 rounded-sm border border-gray-800 space-y-1">
-                      <div className="flex items-center space-x-1 text-blue-400 font-bold">
-                        <Building2 className="w-3 h-3" />
-                        <span>TẦNG 1: NỀN TẢNG CƠ BẢN</span>
+                  <div className="space-y-2 text-[10px]">
+                    {/* 3 Pillars Grid: Layer 1, 2, 3 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* Layer 1: Cơ bản */}
+                      <div className="bg-[#050505] p-2.5 rounded-sm border border-gray-800 space-y-1">
+                        <div className="flex items-center space-x-1 text-blue-400 font-bold">
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>1️⃣ CƠ BẢN & ĐỊNH GIÁ</span>
+                        </div>
+                        <p className="text-gray-300 line-clamp-3 leading-relaxed">
+                          {msg.dataCard.layer1_fundamental?.summary ||
+                            `P/E: ${msg.dataCard.layer1_fundamental?.pe || '-'}x, ROE: ${msg.dataCard.layer1_fundamental?.roe || '-'}%`}
+                        </p>
                       </div>
-                      <p className="text-gray-300 line-clamp-2">
-                        {msg.dataCard.layer1_fundamental?.summary ||
-                          `P/E: ${msg.dataCard.layer1_fundamental?.pe || '-'}x, ROE: ${msg.dataCard.layer1_fundamental?.roe || '-'}%`}
-                      </p>
+
+                      {/* Layer 2: Kỹ thuật */}
+                      <div className="bg-[#050505] p-2.5 rounded-sm border border-gray-800 space-y-1">
+                        <div className="flex items-center space-x-1 text-purple-400 font-bold">
+                          <TrendingUp className="w-3.5 h-3.5" />
+                          <span>2️⃣ KỸ THUẬT & XU HƯỚNG</span>
+                        </div>
+                        <p className="text-gray-300 line-clamp-3 leading-relaxed">
+                          {msg.dataCard.layer2_technical?.summary ||
+                            `RSI(14): ${msg.dataCard.layer2_technical?.rsi || '-'}, Xu hướng: ${msg.dataCard.layer2_technical?.trend || 'Tích lũy'}`}
+                        </p>
+                      </div>
+
+                      {/* Layer 3: Cá mập */}
+                      <div className="bg-[#050505] p-2.5 rounded-sm border border-gray-800 space-y-1">
+                        <div className="flex items-center space-x-1 text-cyan-400 font-bold">
+                          <Waves className="w-3.5 h-3.5" />
+                          <span>3️⃣ DÒNG TIỀN CÁ MẬP</span>
+                        </div>
+                        <p className="text-gray-300 line-clamp-3 leading-relaxed">
+                          {msg.dataCard.layer3_smartMoney?.summary ||
+                            `Khối ngoại: ${msg.dataCard.layer3_smartMoney?.foreignNetVal || 0} tỷ VNĐ`}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Layer 2: Kỹ thuật */}
-                    <div className="bg-[#050505] p-2 rounded-sm border border-gray-800 space-y-1">
-                      <div className="flex items-center space-x-1 text-purple-400 font-bold">
-                        <TrendingUp className="w-3 h-3" />
-                        <span>TẦNG 2: KỸ THUẬT & XU HƯỚNG</span>
+                    {/* Layer 4: Kế hoạch giao dịch & Quản trị rủi ro chuyên sâu */}
+                    <div className="bg-[#040d08] p-3 rounded-sm border border-emerald-900/80 shadow-md space-y-2">
+                      <div className="flex items-center justify-between border-b border-emerald-950 pb-1.5">
+                        <div className="flex items-center space-x-1.5 text-emerald-400 font-bold text-[11px]">
+                          <Crosshair className="w-4 h-4 text-emerald-400" />
+                          <span className="uppercase tracking-wide">4️⃣ TẦNG 4: KẾ HOẠCH GIAO DỊCH & QUẢN TRỊ RỦI RO (TRADE MATRIX)</span>
+                        </div>
+                        <span className="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-sm font-bold border border-emerald-800">
+                          {msg.dataCard.layer4_actionPlan?.action || msg.dataCard.verdict || 'MUA TÍCH LŨY'}
+                        </span>
                       </div>
-                      <p className="text-gray-300 line-clamp-2">
-                        {msg.dataCard.layer2_technical?.summary ||
-                          `RSI(14): ${msg.dataCard.layer2_technical?.rsi || '-'}, Xu hướng: ${msg.dataCard.layer2_technical?.trend || 'Tích lũy'}`}
-                      </p>
-                    </div>
 
-                    {/* Layer 3: Cá mập */}
-                    <div className="bg-[#050505] p-2 rounded-sm border border-gray-800 space-y-1">
-                      <div className="flex items-center space-x-1 text-cyan-400 font-bold">
-                        <Waves className="w-3 h-3" />
-                        <span>TẦNG 3: DÒNG TIỀN CÁ MẬP</span>
-                      </div>
-                      <p className="text-gray-300 line-clamp-2">
-                        {msg.dataCard.layer3_smartMoney?.summary ||
-                          `Khối ngoại: ${msg.dataCard.layer3_smartMoney?.foreignNetVal || 0} tỷ VNĐ`}
-                      </p>
-                    </div>
+                      {/* Trade Plan Specific Parameters Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                        <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                          <span className="text-gray-400 block text-[9px] font-semibold uppercase">🎯 VÙNG MUA ĐỀ XUẤT</span>
+                          <span className="text-cyan-300 font-bold text-xs">
+                            {msg.dataCard.layer4_actionPlan?.buyZone || msg.dataCard.buyZone || `${msg.dataCard.price || '-'}k`}
+                          </span>
+                          <span className="text-gray-500 block text-[8px] mt-0.5">Chia 2 đợt (50/50)</span>
+                        </div>
 
-                    {/* Layer 4: Kế hoạch */}
-                    <div className="bg-[#050505] p-2 rounded-sm border border-gray-800 space-y-1">
-                      <div className="flex items-center space-x-1 text-emerald-400 font-bold">
-                        <Crosshair className="w-3 h-3" />
-                        <span>TẦNG 4: KẾ HOẠCH GIAO DỊCH</span>
+                        <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                          <span className="text-gray-400 block text-[9px] font-semibold uppercase">📈 MỤC TIÊU (TP1 / TP2)</span>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-emerald-400 font-bold text-xs">
+                              {msg.dataCard.layer4_actionPlan?.target1 || msg.dataCard.targetPrice || '-'}k
+                            </span>
+                            {msg.dataCard.layer4_actionPlan?.target1Upside && (
+                              <span className="text-[9px] text-emerald-400 font-semibold">({msg.dataCard.layer4_actionPlan.target1Upside})</span>
+                            )}
+                          </div>
+                          <span className="text-gray-400 block text-[9px] mt-0.5">
+                            TP2: <strong className="text-emerald-300">{msg.dataCard.layer4_actionPlan?.target2 || msg.dataCard.targetPrice2 || '-'}k</strong>
+                          </span>
+                        </div>
+
+                        <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                          <span className="text-gray-400 block text-[9px] font-semibold uppercase">🛑 CẮT LỖ KỶ LUẬT (SL)</span>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-red-400 font-bold text-xs">
+                              {msg.dataCard.layer4_actionPlan?.stopLoss || msg.dataCard.stopLoss || '-'}k
+                            </span>
+                            {msg.dataCard.layer4_actionPlan?.stopLossDownside && (
+                              <span className="text-[9px] text-red-400 font-semibold">({msg.dataCard.layer4_actionPlan.stopLossDownside})</span>
+                            )}
+                          </div>
+                          <span className="text-red-400/80 block text-[8px] mt-0.5 truncate">Gãy nến MA20</span>
+                        </div>
+
+                        <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                          <span className="text-gray-400 block text-[9px] font-semibold uppercase">⚖️ R:R & PHÂN BỔ</span>
+                          <div className="text-amber-300 font-bold text-xs">
+                            R:R {msg.dataCard.layer4_actionPlan?.rrRatio || msg.dataCard.riskRewardRatio || '1 : 2.8'}
+                          </div>
+                          <span className="text-gray-300 block text-[9px] mt-0.5">
+                            NAV: <strong className="text-white">{msg.dataCard.layer4_actionPlan?.maxAllocation || `${msg.dataCard.maxAllocationPercent || 15}% NAV`}</strong>
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-gray-300 line-clamp-2">
-                        Tỷ lệ R:R: <strong className="text-white">{msg.dataCard.riskRewardRatio || '1:2.8'}</strong> • Phân bổ: <strong className="text-white">{msg.dataCard.maxAllocationPercent || 15}% NAV</strong>
-                      </p>
+
+                      {/* Action Rules & Notes */}
+                      <div className="bg-[#050505] p-2 rounded-sm border border-gray-800 space-y-1 text-[10px]">
+                        <div className="text-gray-200">
+                          <strong className="text-emerald-400">Chiến lược thực thi: </strong>
+                          {msg.dataCard.layer4_actionPlan?.strategyNote ||
+                            `Kỳ vọng lợi nhuận TP1/TP2 vượt trội so với rủi ro cắt lỗ. Giải ngân thăm dò 50% vùng gom và 50% khi bứt phá cản kèm khối lượng.`}
+                        </div>
+
+                        {msg.dataCard.layer4_actionPlan?.entryRules && msg.dataCard.layer4_actionPlan.entryRules.length > 0 && (
+                          <div className="pt-1 border-t border-gray-900 text-gray-300 space-y-0.5">
+                            <span className="text-cyan-400 font-semibold block text-[9px] uppercase">📌 Nguyên tắc vào lệnh:</span>
+                            {msg.dataCard.layer4_actionPlan.entryRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex items-start space-x-1 pl-1">
+                                <span className="text-cyan-400">•</span>
+                                <span>{rule}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {msg.dataCard.layer4_actionPlan?.exitRules && msg.dataCard.layer4_actionPlan.exitRules.length > 0 && (
+                          <div className="pt-1 border-t border-gray-900 text-gray-300 space-y-0.5">
+                            <span className="text-amber-400 font-semibold block text-[9px] uppercase">🛡️ Nguyên tắc chốt lời & thoát lệnh:</span>
+                            {msg.dataCard.layer4_actionPlan.exitRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex items-start space-x-1 pl-1">
+                                <span className="text-amber-400">•</span>
+                                <span>{rule}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

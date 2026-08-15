@@ -29,7 +29,15 @@ import {
   getTriggerHistoryStore,
   getWatchlistStore,
   updateWatchlistStore,
+  getWatchlistSentinelConfigStore,
+  updateWatchlistSentinelConfigStore,
 } from './server/dataStore';
+import {
+  runWatchlistSentinelScan,
+  startWatchlistSentinelDaemon,
+  evaluateWatchlistStockSignals,
+  formatWatchlistTelegramAlert,
+} from './server/watchlistSentinelService';
 
 async function startServer() {
   const app = express();
@@ -127,6 +135,64 @@ async function startServer() {
       res.json({ status: 'success', watchlist: updated });
     } else {
       res.status(400).json({ status: 'error', message: 'symbols array is required' });
+    }
+  });
+
+  // Watchlist Sentinel Automated Alert Monitor Endpoints
+  app.get('/api/watchlist/sentinel/config', (req, res) => {
+    res.json(getWatchlistSentinelConfigStore());
+  });
+
+  app.post('/api/watchlist/sentinel/config', (req, res) => {
+    const updated = updateWatchlistSentinelConfigStore(req.body);
+    res.json({ status: 'success', config: updated });
+  });
+
+  app.post('/api/watchlist/sentinel/scan', async (req, res) => {
+    try {
+      const forceSendAll = Boolean(req.body?.forceSendAll);
+      const report = await runWatchlistSentinelScan({ forceSendAll });
+      res.json({ status: 'success', report });
+    } catch (err: any) {
+      console.error('[SENTINEL SCAN ERROR]:', err);
+      res.status(500).json({ status: 'error', message: err.message });
+    }
+  });
+
+  app.post('/api/watchlist/sentinel/test-alert', async (req, res) => {
+    try {
+      const { symbol } = req.body;
+      const targetSymbol = (symbol || 'SSI').toUpperCase();
+      const stock = (await getOrFetchStockBySymbol(targetSymbol)) || getAllStocks()[0];
+
+      if (!stock) {
+        return res.status(404).json({ status: 'error', message: `Stock ${targetSymbol} not found` });
+      }
+
+      // Generate a representative indicator signal for testing
+      const sampleSignal = {
+        symbol: stock.symbol,
+        type: 'RSI_CROSSOVER' as const,
+        headerBadge: '✨ <b>VIETSTOCK QUANT - CẢNH BÁO WATCHLIST: TÍN HIỆU RSI ĐẢO CHIỀU TĂNG</b>',
+        indicatorName: `RSI(14) = ${stock.technical.rsi14.toFixed(1)} (Cắt lên vùng Quá Bán 30)`,
+        description: `RSI(14) vừa bứt phá cắt lên trên mốc 30 kèm xung lực giá hồi phục (+${stock.changePercent.toFixed(2)}%). Đây là điểm đảo chiều tạo đáy chuẩn theo trường phái Phân tích Kỹ thuật Quant.`,
+        severity: 'SUCCESS' as const,
+        recommendation: `Mở vị thế mua gom thăm dò 40% NAV quanh vùng giá hiện tại. Đặt mục tiêu TP1 (+12%) và quản trị rủi ro cắt lỗ nếu gãy đáy ngắn hạn.`,
+        signature: `TEST_RSI_CROSSOVER_${stock.symbol}_${Date.now()}`,
+      };
+
+      const formattedHtml = formatWatchlistTelegramAlert(stock, sampleSignal);
+      const sendRes = await sendTelegramMessage(formattedHtml);
+
+      res.json({
+        status: 'success',
+        symbol: stock.symbol,
+        telegramResult: sendRes,
+        previewMessage: formattedHtml,
+      });
+    } catch (err: any) {
+      console.error('[SENTINEL TEST ALERT ERROR]:', err);
+      res.status(500).json({ status: 'error', message: err.message });
     }
   });
 
@@ -418,6 +484,13 @@ spec:
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`VN-Quant Server running on http://localhost:${PORT}`);
+
+    // Auto-start Watchlist Sentinel Daemon for technical indicator monitoring
+    try {
+      startWatchlistSentinelDaemon();
+    } catch (daemonErr) {
+      console.error('[WATCHLIST SENTINEL DAEMON START ERROR]:', daemonErr);
+    }
 
     // Auto-start internal 5-minute background sync timer as server backup
     setInterval(() => {

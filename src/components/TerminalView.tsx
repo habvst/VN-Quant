@@ -671,7 +671,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                   {/* T1 */}
                   <div className="border-b border-gray-800/80 pb-1.5">
                     <span className="text-blue-400 font-bold text-[10px] uppercase block">1️⃣ TẦNG 1: NỀN TẢNG CƠ BẢN</span>
-                    <p className="text-gray-300 text-[10px]">
+                    <p className="text-gray-300 text-[10px] leading-relaxed break-words whitespace-normal">
                       {aiAnalysisResult?.layer1_fundamental?.summary ||
                         `P/E: ${fund.pe}x (Ngành ${fund.industryAvgPE}x), ROE: ${fund.roe}%, Tăng trưởng LN YoY: +${fund.profitGrowthYoY}%.`}
                     </p>
@@ -680,7 +680,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                   {/* T2 */}
                   <div className="border-b border-gray-800/80 pb-1.5">
                     <span className="text-purple-400 font-bold text-[10px] uppercase block">2️⃣ TẦNG 2: KỸ THUẬT & XU HƯỚNG</span>
-                    <p className="text-gray-300 text-[10px]">
+                    <p className="text-gray-300 text-[10px] leading-relaxed break-words whitespace-normal">
                       {aiAnalysisResult?.layer2_technical?.summary ||
                         `RSI(14): ${tech.rsi14}. Hỗ trợ: ${tech.supportLevel}k, Kháng cự: ${tech.resistanceLevel}k.`}
                     </p>
@@ -696,34 +696,82 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                         </span>
                       )}
                     </span>
-                    <p className="text-gray-300 text-[10px]">
+                    <p className="text-gray-300 text-[10px] leading-relaxed break-words whitespace-normal">
                       {aiAnalysisResult?.layer3_smartMoney?.summary ||
                         stock.smartMoney?.description ||
                         `Khối ngoại: ${stock.foreignNetVal > 0 ? `+${stock.foreignNetVal}` : stock.foreignNetVal} tỷ VNĐ. Khối lượng: ${(stock.volume ?? 0).toLocaleString('vi-VN')} CP.`}
                     </p>
                     {stock.smartMoney?.trapWarning && (
-                      <p className="text-red-400 text-[10px] font-bold mt-0.5">
+                      <p className="text-red-400 text-[10px] font-bold mt-0.5 break-words whitespace-normal">
                         ⚠️ {stock.smartMoney.trapWarning}
                       </p>
                     )}
                   </div>
 
                   {/* T4 */}
-                  <div>
-                    <span className="text-emerald-400 font-bold text-[10px] uppercase block">4️⃣ TẦNG 4: KẾ HOẠCH & QUẢN TRỊ RỦI RO</span>
-                    <p className="text-gray-300 text-[10px]">
+                  <div className="bg-[#030a05] p-2 rounded-sm border border-emerald-900/60 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 font-bold text-[10px] uppercase flex items-center space-x-1">
+                        <span>4️⃣ TẦNG 4: KẾ HOẠCH GIAO DỊCH & QUẢN TRỊ RỦI RO</span>
+                      </span>
+                      <span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded-sm font-bold border border-emerald-800">
+                        {aiAnalysisResult?.layer4_actionPlan?.action || stock.aiVerdict}
+                      </span>
+                    </div>
+
+                    {/* Quick Trade Specs */}
+                    <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono">
+                      <div className="bg-[#050505] p-1 rounded-sm border border-gray-800">
+                        <span className="text-gray-500 block">VÙNG MUA:</span>
+                        <span className="text-cyan-300 font-bold">
+                          {aiAnalysisResult?.layer4_actionPlan?.buyZone || `${(stock.price * 0.985).toFixed(2)} - ${(stock.price * 1.005).toFixed(2)}k`}
+                        </span>
+                      </div>
+                      <div className="bg-[#050505] p-1 rounded-sm border border-gray-800">
+                        <span className="text-gray-500 block">MỤC TIÊU (TP1/TP2):</span>
+                        <span className="text-emerald-400 font-bold">
+                          {aiAnalysisResult?.layer4_actionPlan?.target1 || stock.aiTargetPrice}k / {aiAnalysisResult?.layer4_actionPlan?.target2 || (Number(stock.aiTargetPrice) * 1.08).toFixed(2)}k
+                        </span>
+                      </div>
+                      <div className="bg-[#050505] p-1 rounded-sm border border-gray-800">
+                        <span className="text-gray-500 block">CẮT LỖ (SL):</span>
+                        <span className="text-red-400 font-bold">
+                          {aiAnalysisResult?.layer4_actionPlan?.stopLoss || stock.aiStopLoss}k ({aiAnalysisResult?.layer4_actionPlan?.stopLossDownside || '-6.0%'})
+                        </span>
+                      </div>
+                      <div className="bg-[#050505] p-1 rounded-sm border border-gray-800">
+                        <span className="text-gray-500 block">R:R & PHÂN BỔ:</span>
+                        <span className="text-amber-300 font-bold">
+                          {aiAnalysisResult?.layer4_actionPlan?.rrRatio || '1:2.8'} • {aiAnalysisResult?.layer4_actionPlan?.maxAllocation || '15-20% NAV'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-300 text-[10px] leading-relaxed break-words whitespace-normal">
                       {aiAnalysisResult?.layer4_actionPlan?.strategyNote ||
-                        `Tỷ lệ R:R dự kiến ${aiAnalysisResult?.riskRewardRatio || '1:2.8'}. Giải ngân khuyến nghị max 15-20% NAV.`}
+                        `Tỷ lệ R:R dự kiến ${aiAnalysisResult?.riskRewardRatio || '1:2.8'}. Giải ngân khuyến nghị max 15-20% NAV (50% vùng gom, 50% khi bứt phá).`}
                     </p>
+
+                    {aiAnalysisResult?.layer4_actionPlan?.entryRules && (
+                      <div className="text-[9px] text-gray-300 space-y-1 pt-1.5 border-t border-emerald-950/80">
+                        <span className="text-cyan-400 font-semibold block uppercase">Chiến lược đi lệnh:</span>
+                        {aiAnalysisResult.layer4_actionPlan.entryRules.map((r: string, idx: number) => (
+                          <div key={idx} className="flex items-start space-x-1 break-words whitespace-normal leading-normal">
+                            <span className="text-cyan-400 font-bold shrink-0">•</span>
+                            <span className="text-gray-300">{r}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {aiAnalysisResult?.catalysts && (
                   <div className="pt-2 border-t border-gray-800 text-[10px] space-y-1">
-                    <div>
+                    <div className="break-words whitespace-normal leading-relaxed">
                       <strong className="text-emerald-400">Động lực:</strong> {aiAnalysisResult.catalysts?.join('; ')}
                     </div>
-                    <div>
+                    <div className="break-words whitespace-normal leading-relaxed">
                       <strong className="text-red-400">Rủi ro:</strong> {aiAnalysisResult.risks?.join('; ')}
                     </div>
                   </div>
