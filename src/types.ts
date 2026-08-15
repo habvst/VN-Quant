@@ -135,6 +135,21 @@ export interface StockData {
   aiTargetPrice: number;
   aiStopLoss: number;
   aiReasoning: string;
+  smartMoney?: SmartMoneySignal;
+}
+
+export interface SmartMoneySignal {
+  patternType: 'ACCUMULATION_CLANDESTINE' | 'MORNING_VOLUME_BURST' | 'SMART_MONEY_DIVERGENCE' | 'BULL_TRAP' | 'BEAR_TRAP' | 'SHAKE_OUT' | 'NEUTRAL';
+  patternName: string;
+  anomalyScore: number; // 0 - 100
+  signalStrength: 'CỰC MẠNH' | 'MẠNH' | 'TRUNG BÌNH' | 'CẢNH BÁO CAO';
+  morningVolRatio: number; // Tỷ lệ volume phiên sáng so với TB 5 phiên (e.g. 2.4x)
+  largeBlockNetRatio: number; // % Lệnh cá mập khớp chủ động (>50k CP)
+  divergenceType?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'PRICE_VOL_DIV' | 'NONE';
+  description: string;
+  trapWarning?: string;
+  suggestedAction: string;
+  detectedAt: string;
 }
 
 export interface MarketIndex {
@@ -260,7 +275,11 @@ export interface AIRecommendation {
     | 'GOLDEN_CROSS' 
     | 'RSI_QUÁ_BÁN' 
     | 'DÒNG_TIỀN_MẠNH' 
-    | 'KHỐI_NGOẠI_MUA';
+    | 'KHỐI_NGOẠI_MUA'
+    | 'GOM_HÀNG_NGẦM'
+    | 'ĐỘT_BIẾN_PHIÊN_SÁNG'
+    | 'PHÂN_KỲ_DÒNG_TIỀN'
+    | 'CẢNH_BÁO_BẪY_GIÁ';
   price: number;
   changePercent: number;
   score: number;
@@ -275,6 +294,27 @@ export interface AIRecommendation {
   updatedAt: string;
 }
 
+export interface NewsAuthenticity {
+  score: number; // 0 - 100%
+  level: 'CHÍNH THỐNG' | 'ĐÃ XÁC THỰC' | 'CẦN KIỂM CHỨNG' | 'TIN ĐỒN TRUYỀN MIỆNG';
+  sourceCategory: 'CHÍNH THỨC_UBCK_DOANH_NGHIEP' | 'BÁO_CHÍ_TÀI_CHÍNH_LỚN' | 'BÁO_CÁO_CTCK' | 'MẠNG_XÃ_HỘI_DIỄN_ĐÀN';
+  credibilityAnalysis: string; // Phân tích độ xác thực nguồn phát hành
+  riskOfRumor: 'THẤP' | 'TRUNG BÌNH' | 'CAO' | 'RẤT CAO';
+}
+
+export interface PriceImpactForecast {
+  estimatedChange: string; // e.g. "+3.5% ~ +6.0%" or "-2.0% ~ -4.5%"
+  duration: '1-2 phiên' | '3-5 phiên' | 'Sóng ngắn 1-2 tuần';
+  degree: 'MẠNH' | 'TRUNG BÌNH' | 'NHẸ' | 'TỨC THÌ';
+  confidence: number; // 0 - 100%
+  trajectory: {
+    day1: string; // T+1: Phản ứng dòng tiền & khớp lệnh ban đầu
+    day2_3: string; // T+2 ~ T+3: Hấp thụ cung cầu T+2.5 hàng về
+    day4_5: string; // T+4 ~ T+5: Xu hướng định hình trung hạn
+  };
+  suggestedAction: string; // Khuyến nghị hành động tức thời
+}
+
 export interface NewsItem {
   id: string;
   title: string;
@@ -286,10 +326,13 @@ export interface NewsItem {
   symbols: string[];
   sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'TÍCH CỰC' | 'TIÊU CỰC' | 'TRUNG TÍNH';
   impactScore: number; // 1 - 5
-  sentimentScore?: number; // -100 to +100
+  sentimentScore: number; // -100 to +100
+  sentimentClass?: 'RẤT TÍCH CỰC' | 'TÍCH CỰC' | 'TRUNG TÍNH' | 'TIÊU CỰC' | 'RẤT TIÊU CỰC';
+  authenticity?: NewsAuthenticity;
+  priceImpact?: PriceImpactForecast;
   priceImpactForecast?: string; // e.g. "+2.5% ~ +4.0%" or "-1.5% ~ -3.0%"
   impactDuration?: string; // e.g. "1-3 phiên"
-  impactDegree?: 'MẠNH' | 'TRUNG BÌNH' | 'NHẸ';
+  impactDegree?: 'MẠNH' | 'TRUNG BÌNH' | 'NHẸ' | 'TỨC THÌ';
   aiReasoning?: string;
 }
 
@@ -297,11 +340,33 @@ export interface StockNewsSentiment {
   symbol: string;
   score: number; // -100 to +100
   label: 'TÍCH CỰC' | 'TIÊU CỰC' | 'TRUNG TÍNH';
+  sentimentClass?: 'RẤT TÍCH CỰC' | 'TÍCH CỰC' | 'TRUNG TÍNH' | 'TIÊU CỰC' | 'RẤT TIÊU CỰC';
   confidence: number; // 0 to 100
   headlineCount: number;
   summary: string;
   keyHighlights: string[];
-  recentHeadlines?: { title: string; url: string; time: string; source: string; sentiment: string }[];
+  recentHeadlines?: {
+    title: string;
+    url: string;
+    time: string;
+    source: string;
+    sentiment: string;
+    sentimentScore?: number;
+    authenticityLevel?: string;
+    impactForecast?: string;
+  }[];
+  authenticitySummary?: {
+    overallScore: number;
+    officialCount: number;
+    rumorCount: number;
+    verdict: string;
+  };
+  priceImpactSummary?: {
+    expected5DayChange: string;
+    impactLevel: 'MẠNH' | 'TRUNG BÌNH' | 'NHẸ' | 'TỨC THÌ';
+    primaryDriver: string;
+    recommendedAction: string;
+  };
   updatedAt?: string;
 }
 
@@ -344,10 +409,59 @@ export interface AIChatMessage {
   timestamp: string;
   dataCard?: {
     symbol?: string;
+    companyName?: string;
+    price?: number;
+    changePercent?: number;
     score?: number;
     verdict?: string;
     targetPrice?: number;
+    targetPrice2?: number;
     stopLoss?: number;
+    buyZone?: string;
+    riskRewardRatio?: string;
+    maxAllocationPercent?: number;
+    timeframe?: string;
+    layer1_fundamental?: {
+      summary: string;
+      pe: number;
+      industryPe: number;
+      roe: number;
+      profitGrowthYoY: number;
+      valuationVerdict: string;
+    };
+    layer2_technical?: {
+      summary: string;
+      trend: string;
+      rsi: number;
+      macd: string;
+      support: number;
+      resistance: number;
+    };
+    layer3_smartMoney?: {
+      summary: string;
+      foreignNetVal: number;
+      volumeStatus: string;
+      bigOrderActivity: string;
+      moneyFlowVerdict: string;
+    };
+    layer4_actionPlan?: {
+      action: string;
+      buyZone: string;
+      target1: number;
+      target2?: number;
+      stopLoss: number;
+      rrRatio: string;
+      maxAllocation: string;
+      strategyNote: string;
+    };
+    portfolioInsights?: {
+      symbols: string[];
+      overallHealth: string;
+      riskScore: number;
+      beta: number;
+      maxConcentrationSector: string;
+      rebalanceAdvice: string[];
+    };
     recommendations?: Partial<AIRecommendation>[];
   };
 }

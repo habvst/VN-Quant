@@ -1,5 +1,7 @@
 import { Candle, FundamentalData, MacroData, MarketIndex, MarketType, NewsItem, OrderBook, RealtimeAlert, SectorData, StockData, TradeTick } from '../src/types';
 import { computeTechnicalIndicators } from '../src/utils/technicalEngine';
+import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
+import { enrichNewsItemWithDeepScoring } from './newsSentimentEngine';
 
 // Seed raw stock universe info with realistic base prices
 interface RawStockSeed {
@@ -777,6 +779,7 @@ RAW_STOCKS.forEach((raw) => {
     aiStopLoss: raw.aiStop,
     aiReasoning: raw.aiReasoning,
   };
+  stockStore[raw.symbol].smartMoney = analyzeSmartMoneySignal(stockStore[raw.symbol]);
 });
 
 // Real-time Orderbook generator for active symbol
@@ -1060,7 +1063,7 @@ export async function fetchLiveNewsFromRSS(): Promise<NewsItem[]> {
           }
         }
 
-        items.push({
+        const rawItem: Partial<NewsItem> = {
           id: `news-live-${Math.random().toString(36).substring(2, 8)}`,
           title,
           source: feed.source,
@@ -1070,7 +1073,9 @@ export async function fetchLiveNewsFromRSS(): Promise<NewsItem[]> {
           symbols: matchedSymbols,
           sentiment,
           impactScore: sentiment === 'TRUNG TÍNH' ? 3 : 4,
-        });
+        };
+
+        items.push(enrichNewsItemWithDeepScoring(rawItem));
       }
     } catch (err) {
       console.error(`Error fetching RSS feed ${feed.url}:`, err);
@@ -1101,7 +1106,7 @@ export async function getLatestNewsAsync(): Promise<NewsItem[]> {
   if (cachedNews.length > 0) return cachedNews;
 
   // Fallback items with 100% valid Google Search links to prevent 404
-  cachedNews = [
+  const rawFallback: Partial<NewsItem>[] = [
     {
       id: 'news-1',
       title: 'Hòa Phát (HPG) tăng tốc mở rộng Dung Quất 2, sản lượng HRC dự kiến vượt 5.6 triệu tấn',
@@ -1169,6 +1174,8 @@ export async function getLatestNewsAsync(): Promise<NewsItem[]> {
       impactScore: 4,
     },
   ];
+
+  cachedNews = rawFallback.map((item) => enrichNewsItemWithDeepScoring(item));
   lastNewsFetchTime = NOW;
   return cachedNews;
 }
@@ -1180,7 +1187,7 @@ export function getLatestNews(): NewsItem[] {
   // Trigger async fetch in background
   getLatestNewsAsync();
 
-  return [
+  const rawFallback: Partial<NewsItem>[] = [
     {
       id: 'news-1',
       title: 'Hòa Phát (HPG) tăng tốc mở rộng Dung Quất 2, sản lượng HRC dự kiến vượt 5.6 triệu tấn',
@@ -1215,6 +1222,8 @@ export function getLatestNews(): NewsItem[] {
       impactScore: 4,
     },
   ];
+
+  return rawFallback.map((item) => enrichNewsItemWithDeepScoring(item));
 }
 
 // Macro Data
@@ -1472,6 +1481,7 @@ export async function syncRealMarketData() {
             const stock = stockStore[sym];
             if (stock) {
               stock.technical = computeTechnicalIndicators(realCandles);
+              stock.smartMoney = analyzeSmartMoneySignal(stock);
             }
           }
         }

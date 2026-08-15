@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ChevronRight, ExternalLink, Eye, Info, Newspaper, Plus, RefreshCw, Search, Sparkles, Trash2, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, ExternalLink, Eye, Info, Newspaper, Plus, Radar, RefreshCw, Search, Sparkles, Trash2, TrendingUp, X, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { StockData, StockNewsSentiment, WatchlistItem } from '../types';
@@ -233,7 +233,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
         </div>
       ) : (
         <div ref={tableParentRef} className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl max-h-[650px] overflow-y-auto">
-          <table className="w-full text-xs font-mono text-left min-w-[1080px]">
+          <table className="w-full text-xs font-mono text-left min-w-[1240px]">
           <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-md whitespace-nowrap">
             <tr>
               <th className="p-3 bg-[#050505]">Mã CP</th>
@@ -242,6 +242,12 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                 <div className="flex items-center justify-center space-x-1 text-purple-400">
                   <Newspaper className="w-3.5 h-3.5" />
                   <span>Sắc Thái Tin Tức (Gemini AI)</span>
+                </div>
+              </th>
+              <th className="p-3 bg-[#050505] text-center">
+                <div className="flex items-center justify-center space-x-1 text-cyan-400">
+                  <Radar className="w-3.5 h-3.5" />
+                  <span>Dòng Tiền Cá Mập & Bẫy</span>
                 </div>
               </th>
               <th className="p-3 bg-[#050505] text-right">Giá Hiện Tại</th>
@@ -329,6 +335,32 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                         <RefreshCw className="w-3 h-3 animate-spin text-purple-400/60" />
                         <span>Đang tính...</span>
                       </div>
+                    )}
+                  </td>
+
+                  {/* SMART MONEY ANOMALY BADGE COLUMN */}
+                  <td className="p-3 text-center">
+                    {stk.smartMoney && stk.smartMoney.patternType !== 'NEUTRAL' ? (
+                      <span
+                        className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-sm text-[10px] font-bold border whitespace-nowrap ${
+                          stk.smartMoney.patternType === 'BULL_TRAP'
+                            ? 'bg-red-950/80 text-red-300 border-red-700 animate-pulse'
+                            : stk.smartMoney.patternType === 'ACCUMULATION_CLANDESTINE'
+                            ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700'
+                            : stk.smartMoney.patternType === 'MORNING_VOLUME_BURST'
+                            ? 'bg-purple-950/80 text-purple-300 border-purple-700'
+                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                        }`}
+                        title={stk.smartMoney.description}
+                      >
+                        {stk.smartMoney.patternType === 'BULL_TRAP' && <AlertTriangle className="w-3 h-3 text-red-400" />}
+                        {stk.smartMoney.patternType === 'ACCUMULATION_CLANDESTINE' && <Eye className="w-3 h-3 text-cyan-400" />}
+                        {stk.smartMoney.patternType === 'MORNING_VOLUME_BURST' && <Zap className="w-3 h-3 text-purple-400" />}
+                        {stk.smartMoney.patternType === 'BEAR_TRAP' && <TrendingUp className="w-3 h-3 text-emerald-400" />}
+                        <span>{stk.smartMoney.patternName}</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-600 text-[10px]">Trung tính</span>
                     )}
                   </td>
 

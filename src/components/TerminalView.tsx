@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, CheckCircle, ChevronLeft, ChevronRight, Flame, Layers, Plus, ShieldCheck, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, ShieldCheck, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
@@ -287,6 +287,23 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               <span className={`px-2 py-0.5 rounded-sm text-xs font-mono border ${priceBadgeBg}`}>
                 {priceBadgeText}
               </span>
+              {stock.smartMoney && stock.smartMoney.patternType !== 'NEUTRAL' && (
+                <span className={`px-2 py-0.5 rounded-sm text-xs font-mono font-bold border flex items-center space-x-1 ${
+                  stock.smartMoney.patternType === 'BULL_TRAP'
+                    ? 'bg-red-950/90 text-red-300 border-red-700 animate-pulse'
+                    : stock.smartMoney.patternType === 'ACCUMULATION_CLANDESTINE'
+                    ? 'bg-cyan-950/90 text-cyan-300 border-cyan-700'
+                    : stock.smartMoney.patternType === 'MORNING_VOLUME_BURST'
+                    ? 'bg-purple-950/90 text-purple-300 border-purple-700'
+                    : 'bg-emerald-950/90 text-emerald-300 border-emerald-700'
+                }`}>
+                  {stock.smartMoney.patternType === 'BULL_TRAP' && <AlertTriangle className="w-3.5 h-3.5 text-red-400" />}
+                  {stock.smartMoney.patternType === 'ACCUMULATION_CLANDESTINE' && <Eye className="w-3.5 h-3.5 text-cyan-400" />}
+                  {stock.smartMoney.patternType === 'MORNING_VOLUME_BURST' && <Zap className="w-3.5 h-3.5 text-purple-400" />}
+                  {stock.smartMoney.patternType === 'BEAR_TRAP' && <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />}
+                  <span>{stock.smartMoney.patternName}</span>
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 font-mono">
               <p className="text-xs text-gray-400 font-medium">{stock.name}</p>
@@ -600,53 +617,109 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             </div>
           </div>
 
-          {/* AI Quantitative Verdict Card */}
+          {/* AI Quantitative 4-Layer Verdict Card */}
           <div className="bg-[#0a0a0a] rounded-sm p-3.5 border border-gray-800 flex-1 flex flex-col justify-between shadow-lg">
             <div>
               <div className="flex items-center justify-between mb-3 border-b border-gray-800 pb-2">
                 <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded-sm flex items-center justify-center text-[10px] text-white font-bold">A</div>
-                  <h3 className="font-mono font-bold text-[11px] text-gray-300 uppercase tracking-widest">KHUYẾN NGHỊ AI QUANT</h3>
+                  <div className="w-5 h-5 bg-blue-600 rounded-sm flex items-center justify-center text-[10px] text-white font-bold font-mono shadow">
+                    4Q
+                  </div>
+                  <div>
+                    <h3 className="font-mono font-bold text-[11px] text-white uppercase tracking-wider">
+                      PHÂN TÍCH ĐỊNH LƯỢNG 4 TẦNG
+                    </h3>
+                    <span className="text-[9px] text-gray-500 font-mono">Gemini 3.7 Flash + Quant Engine</span>
+                  </div>
                 </div>
                 <span
                   className={`text-xs px-2.5 py-0.5 rounded-sm font-black font-mono border whitespace-nowrap ${
-                    stock.aiVerdict === 'MUA MẠNH'
+                    (aiAnalysisResult?.verdict || stock.aiVerdict) === 'MUA MẠNH'
                       ? 'bg-blue-600 text-white border-blue-500'
-                      : stock.aiVerdict === 'MUA'
+                      : (aiAnalysisResult?.verdict || stock.aiVerdict) === 'MUA'
                       ? 'bg-blue-950/80 text-blue-400 border-blue-700'
                       : 'bg-amber-950/80 text-amber-400 border-amber-700'
                   }`}
                 >
-                  {stock.aiVerdict}
+                  {aiAnalysisResult?.verdict || stock.aiVerdict}
                 </span>
               </div>
 
-              {/* Score & Targets */}
-              <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono mb-3">
+              {/* Score & Plan Targets */}
+              <div className="grid grid-cols-4 gap-1.5 text-center text-xs font-mono mb-3">
                 <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-500 block text-[10px] uppercase">ĐIỂM AI</span>
-                  <span className="text-blue-400 font-black text-lg">{stock.aiScore}</span>
+                  <span className="text-gray-500 block text-[9px] uppercase">ĐIỂM AI</span>
+                  <span className="text-blue-400 font-black text-base">{aiAnalysisResult?.score || stock.aiScore}</span>
                 </div>
                 <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-500 block text-[10px] uppercase">MỤC TIÊU</span>
-                  <span className="text-emerald-400 font-bold text-sm">{stock.aiTargetPrice}</span>
+                  <span className="text-gray-500 block text-[9px] uppercase">VÙNG MUA</span>
+                  <span className="text-blue-300 font-bold text-xs">{aiAnalysisResult?.buyZone || `${(stock.price * 0.99).toFixed(1)}-${(stock.price * 1.01).toFixed(1)}k`}</span>
                 </div>
                 <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-500 block text-[10px] uppercase">CẮT LỖ</span>
-                  <span className="text-red-400 font-bold text-sm">{stock.aiStopLoss}</span>
+                  <span className="text-gray-500 block text-[9px] uppercase">CHỐT LỜI (TP)</span>
+                  <span className="text-emerald-400 font-bold text-xs">{aiAnalysisResult?.targetPrice || stock.aiTargetPrice}k</span>
+                </div>
+                <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                  <span className="text-gray-500 block text-[9px] uppercase">CẮT LỖ (SL)</span>
+                  <span className="text-red-400 font-bold text-xs">{aiAnalysisResult?.stopLoss || stock.aiStopLoss}k</span>
                 </div>
               </div>
 
-              {/* AI Reasoning */}
-              <div className="bg-[#050505] p-3 rounded-sm border border-gray-800 text-xs text-gray-300 leading-relaxed space-y-2 mb-3">
-                <div className="font-semibold text-blue-400 font-mono flex items-center space-x-1 text-[11px] uppercase tracking-wider">
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>LUẬN ĐIỂM ĐẦU TƯ AI:</span>
-                </div>
-                <p className="font-mono text-[11px] text-gray-300">{aiAnalysisResult ? aiAnalysisResult.summary : stock.aiReasoning}</p>
+              {/* 4-Layer Fast Accordion/Highlights */}
+              <div className="bg-[#050505] p-2.5 rounded-sm border border-gray-800 text-xs text-gray-300 leading-relaxed space-y-2 mb-3 font-mono">
+                <div className="space-y-1.5 text-[11px]">
+                  {/* T1 */}
+                  <div className="border-b border-gray-800/80 pb-1.5">
+                    <span className="text-blue-400 font-bold text-[10px] uppercase block">1️⃣ TẦNG 1: NỀN TẢNG CƠ BẢN</span>
+                    <p className="text-gray-300 text-[10px]">
+                      {aiAnalysisResult?.layer1_fundamental?.summary ||
+                        `P/E: ${fund.pe}x (Ngành ${fund.industryAvgPE}x), ROE: ${fund.roe}%, Tăng trưởng LN YoY: +${fund.profitGrowthYoY}%.`}
+                    </p>
+                  </div>
 
-                {aiAnalysisResult && (
-                  <div className="space-y-1.5 pt-2 border-t border-gray-800 text-[11px] font-mono">
+                  {/* T2 */}
+                  <div className="border-b border-gray-800/80 pb-1.5">
+                    <span className="text-purple-400 font-bold text-[10px] uppercase block">2️⃣ TẦNG 2: KỸ THUẬT & XU HƯỚNG</span>
+                    <p className="text-gray-300 text-[10px]">
+                      {aiAnalysisResult?.layer2_technical?.summary ||
+                        `RSI(14): ${tech.rsi14}. Hỗ trợ: ${tech.supportLevel}k, Kháng cự: ${tech.resistanceLevel}k.`}
+                    </p>
+                  </div>
+
+                  {/* T3 */}
+                  <div className="border-b border-gray-800/80 pb-1.5">
+                    <span className="text-cyan-400 font-bold text-[10px] uppercase block flex items-center justify-between">
+                      <span>3️⃣ TẦNG 3: DẤU CHÂN CÁ MẬP & BẪY GIÁ</span>
+                      {stock.smartMoney && (
+                        <span className="text-[9px] text-cyan-300 font-mono">
+                          Vol Sáng: {stock.smartMoney.morningVolRatio}x | Lô lớn: {stock.smartMoney.largeBlockNetRatio}%
+                        </span>
+                      )}
+                    </span>
+                    <p className="text-gray-300 text-[10px]">
+                      {aiAnalysisResult?.layer3_smartMoney?.summary ||
+                        stock.smartMoney?.description ||
+                        `Khối ngoại: ${stock.foreignNetVal > 0 ? `+${stock.foreignNetVal}` : stock.foreignNetVal} tỷ VNĐ. Khối lượng: ${(stock.volume ?? 0).toLocaleString('vi-VN')} CP.`}
+                    </p>
+                    {stock.smartMoney?.trapWarning && (
+                      <p className="text-red-400 text-[10px] font-bold mt-0.5">
+                        ⚠️ {stock.smartMoney.trapWarning}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* T4 */}
+                  <div>
+                    <span className="text-emerald-400 font-bold text-[10px] uppercase block">4️⃣ TẦNG 4: KẾ HOẠCH & QUẢN TRỊ RỦI RO</span>
+                    <p className="text-gray-300 text-[10px]">
+                      {aiAnalysisResult?.layer4_actionPlan?.strategyNote ||
+                        `Tỷ lệ R:R dự kiến ${aiAnalysisResult?.riskRewardRatio || '1:2.8'}. Giải ngân khuyến nghị max 15-20% NAV.`}
+                    </p>
+                  </div>
+                </div>
+
+                {aiAnalysisResult?.catalysts && (
+                  <div className="pt-2 border-t border-gray-800 text-[10px] space-y-1">
                     <div>
                       <strong className="text-emerald-400">Động lực:</strong> {aiAnalysisResult.catalysts?.join('; ')}
                     </div>
@@ -666,15 +739,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-sm text-xs flex items-center justify-center space-x-1.5 transition shadow"
               >
                 <Zap className="w-4 h-4" />
-                <span>{isAnalyzing ? 'ĐANG PHÂN TÍCH DEEP AI...' : `PHÂN TÍCH CHUYÊN SÂU ${stock.symbol}`}</span>
+                <span>{isAnalyzing ? 'ĐANG PHÂN TÍCH 4 TẦNG QUANT...' : `PHÂN TÍCH 4 TẦNG ${stock.symbol}`}</span>
               </button>
 
               <button
-                onClick={() => onOpenAIChat(`Phân tích chi tiết luận điểm đầu tư và triển vọng quý tới của ${stock.symbol}`)}
+                onClick={() => onOpenAIChat(`Phân tích chi tiết cổ phiếu ${stock.symbol} theo cấu trúc 4 tầng định lượng`)}
                 className="w-full bg-[#050505] hover:bg-gray-800 text-gray-300 font-semibold py-1.5 rounded-sm text-xs flex items-center justify-center space-x-1.5 transition border border-gray-700"
               >
                 <Bot className="w-3.5 h-3.5 text-blue-400" />
-                <span>HỎI CHUYÊN GIA AI VỀ {stock.symbol}</span>
+                <span>HỎI CHUYÊN GIA AI 4 TẦNG VỀ {stock.symbol}</span>
               </button>
             </div>
           </div>

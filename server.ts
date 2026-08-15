@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { analyzeBatchNewsSentiment, analyzeStockNewsSentiment, analyzeStockWithAI, chatWithAIAgent } from './server/aiAgent';
+import { analyzeNewsDeepAI } from './server/newsSentimentEngine';
 import {
   getAllStocks,
   getCandlesForSymbol,
@@ -288,6 +289,17 @@ async function startServer() {
     }
     const batchResults = await analyzeBatchNewsSentiment(symbols);
     res.json(batchResults);
+  });
+
+  // 12c. Deep Sentiment & Authenticity & Price Impact 5-Session AI Model
+  app.post('/api/ai/news-deep-analyze', async (req, res) => {
+    const { newsId, title } = req.body;
+    if (!newsId && !title) {
+      res.status(400).json({ error: 'newsId or title parameter required' });
+      return;
+    }
+    const result = await analyzeNewsDeepAI(newsId || '', title);
+    res.json(result);
   });
 
   // 13. System Blueprint & Enterprise Specs (Docker, K8s, ERD, OpenAPI)
