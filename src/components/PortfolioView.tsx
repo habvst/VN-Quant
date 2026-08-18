@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { PortfolioPosition, StockData } from '../types';
 import { BetaTimeframe, calculateCorrelationMatrix, calculatePortfolioMetrics, getSectorConcentrationAnalysis } from '../utils/riskEngine';
 import { MetricTooltip } from './MetricTooltip';
+import { MoneyInput } from './MoneyInput';
+import { numberToVietnameseWords } from '../utils/numberToVietnameseWords';
 
 interface PortfolioViewProps {
   stocks: StockData[];
@@ -605,6 +607,27 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                 </div>
               </div>
 
+              {/* Real-time Buy Calculation Preview if BUY mode */}
+              {tradeMode === 'BUY' && (() => {
+                const pPrice = parseFloat(buyPrice) || 0;
+                const pQty = parseInt(quantity, 10) || 0;
+                const estBuyCost = Math.round(pPrice * 1000 * pQty * 1.0015);
+                if (estBuyCost <= 0) return null;
+
+                return (
+                  <div className="bg-[#050505] border border-blue-900/60 p-2.5 rounded space-y-1.5 text-[11px] animate-fadeIn">
+                    <div className="flex justify-between text-gray-400">
+                      <span>Tổng tiền giải ngân (gồm 0.15% phí):</span>
+                      <span className="text-white font-bold">{estBuyCost.toLocaleString('vi-VN')} VNĐ</span>
+                    </div>
+                    <div className="text-[10px] text-blue-200 italic border-t border-gray-800/80 pt-1.5 flex items-start gap-1 bg-blue-950/30 p-1.5 rounded">
+                      <span className="font-bold text-blue-400 shrink-0">Bằng chữ:</span>
+                      <span className="font-semibold">{numberToVietnameseWords(estBuyCost)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Real-time Sell Calculation Preview if SELL mode */}
               {tradeMode === 'SELL' && (() => {
                 const pos = positions.find((p) => p.symbol === symbol);
@@ -618,7 +641,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                 const estPnLPercent = cost > 0 ? (estPnL / cost) * 100 : 0;
 
                 return (
-                  <div className="bg-[#050505] border border-amber-800/40 p-2.5 rounded-sm space-y-1 text-[11px]">
+                  <div className="bg-[#050505] border border-amber-800/40 p-2.5 rounded space-y-1.5 text-[11px] animate-fadeIn">
                     <div className="flex justify-between text-gray-400">
                       <span>Doanh thu bán dự kiến:</span>
                       <span className="text-white font-bold">{Math.round(gross).toLocaleString('vi-VN')} VNĐ</span>
@@ -633,6 +656,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                         {estPnL >= 0 ? '+' : ''}{Math.round(estPnL).toLocaleString('vi-VN')} VNĐ ({estPnLPercent.toFixed(2)}%)
                       </span>
                     </div>
+                    {gross > 0 && (
+                      <div className="text-[10px] text-amber-200 italic border-t border-gray-800/80 pt-1.5 flex items-start gap-1 bg-amber-950/30 p-1.5 rounded">
+                        <span className="font-bold text-amber-400 shrink-0">Bằng chữ (Doanh thu):</span>
+                        <span className="font-semibold">{numberToVietnameseWords(Math.round(gross))}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1464,6 +1493,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                   <span>Tổng Doanh Thu Bán:</span>
                   <span className="text-white font-bold">{Math.round(gross).toLocaleString('vi-VN')} VNĐ</span>
                 </div>
+                {gross > 0 && (
+                  <div className="text-[10px] text-amber-200 italic bg-amber-950/30 p-1.5 rounded flex items-start gap-1">
+                    <span className="font-bold text-amber-400 shrink-0">Bằng chữ:</span>
+                    <span className="font-semibold">{numberToVietnameseWords(Math.round(gross))}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-400">
                   <span>Thuế & Phí Bán (0.25%):</span>
                   <span className="text-amber-400 font-bold">-{Math.round(taxFee).toLocaleString('vi-VN')} VNĐ</span>
@@ -1590,28 +1625,42 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-gray-400 text-[11px] mb-1">VỐN ĐẦU TƯ BAN ĐẦU (VNĐ):</label>
-                <input
-                  type="number"
-                  value={capitalInput}
-                  onChange={(e) => setCapitalInput(e.target.value)}
-                  className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white font-bold focus:border-blue-500 outline-none"
-                  placeholder="Ví dụ: 1000000000"
-                />
-              </div>
+            <div className="space-y-4">
+              <MoneyInput
+                id="capital-input"
+                label="VỐN ĐẦU TƯ BAN ĐẦU (VNĐ):"
+                value={capitalInput}
+                onChange={(num) => setCapitalInput(num.toString())}
+                placeholder="Ví dụ: 150.000.000"
+                showWords={true}
+                showQuickPresets={true}
+                textColor="text-white"
+                suffix="VNĐ"
+                quickPresets={[
+                  { label: '+50 Tr', amount: 50_000_000 },
+                  { label: '+100 Tr', amount: 100_000_000 },
+                  { label: '+500 Tr', amount: 500_000_000 },
+                  { label: '+1 Tỷ', amount: 1_000_000_000 },
+                ]}
+              />
 
-              <div>
-                <label className="block text-gray-400 text-[11px] mb-1">SỐ DƯ TIỀN MẶT KHẢ DỤNG HIỆN TẠI (VNĐ):</label>
-                <input
-                  type="number"
-                  value={cashInput}
-                  onChange={(e) => setCashInput(e.target.value)}
-                  className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-emerald-400 font-bold focus:border-emerald-500 outline-none"
-                  placeholder="Ví dụ: 250000000"
-                />
-              </div>
+              <MoneyInput
+                id="cash-input"
+                label="SỐ DƯ TIỀN MẶT KHẢ DỤNG HIỆN TẠI (VNĐ):"
+                value={cashInput}
+                onChange={(num) => setCashInput(num.toString())}
+                placeholder="Ví dụ: 71.000.000"
+                showWords={true}
+                showQuickPresets={true}
+                textColor="text-emerald-400"
+                suffix="VNĐ"
+                quickPresets={[
+                  { label: '+10 Tr', amount: 10_000_000 },
+                  { label: '+50 Tr', amount: 50_000_000 },
+                  { label: '+100 Tr', amount: 100_000_000 },
+                  { label: '+500 Tr', amount: 500_000_000 },
+                ]}
+              />
             </div>
 
             <div className="flex items-center space-x-2 pt-2">

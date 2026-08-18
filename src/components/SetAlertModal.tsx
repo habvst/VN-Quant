@@ -10,6 +10,7 @@ import {
   StockAlert,
 } from '../types/alert';
 import { formatConditionLabel } from '../services/alertService';
+import { numberToVietnameseWords } from '../utils/numberToVietnameseWords';
 
 interface SetAlertModalProps {
   isOpen: boolean;
@@ -298,10 +299,16 @@ export const SetAlertModal: React.FC<SetAlertModalProps> = ({
                         step="0.1"
                         value={targetPrice}
                         onChange={(e) => setTargetPrice(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-[#0a0a0a] border border-gray-800 rounded-sm px-3 py-2 text-white font-bold outline-none focus:border-blue-500 text-sm"
+                        className="w-full bg-[#0a0a0a] border border-gray-800 rounded-sm px-3 py-2 text-white font-bold outline-none focus:border-blue-500 text-sm pr-14"
                       />
-                      <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">VNĐ</span>
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">.000 VNĐ</span>
                     </div>
+                    {targetPrice > 0 && (
+                      <div className="text-[10px] text-blue-300 italic bg-blue-950/30 px-2 py-1 rounded border border-blue-900/40 flex items-start gap-1">
+                        <span className="font-bold text-blue-400 shrink-0">Bằng chữ:</span>
+                        <span>{numberToVietnameseWords(Math.round(targetPrice * 1000))}</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
