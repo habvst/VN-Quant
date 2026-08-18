@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, DollarSign, Grid, History, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, Clock, DollarSign, Grid, History, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, Sparkles, Trash2, TrendingUp, Wallet, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { PortfolioPosition, StockData } from '../types';
 import { BetaTimeframe, calculateCorrelationMatrix, calculatePortfolioMetrics, getSectorConcentrationAnalysis } from '../utils/riskEngine';
@@ -64,6 +64,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
     return saved !== null ? Number(saved) : 0;
   });
 
+  const [pendingCash, setPendingCash] = useState<number>(() => {
+    const saved = localStorage.getItem('vnquant_portfolio_pending_cash');
+    return saved !== null ? Number(saved) : 0;
+  });
+
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Left Form Mode & States
@@ -78,6 +83,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [sellPriceInput, setSellPriceInput] = useState<string>('');
   const [sellQuantityInput, setSellQuantityInput] = useState<string>('');
   const [sellDateInput, setSellDateInput] = useState<string>(todayStr);
+  const [sellSettleType, setSellSettleType] = useState<'PENDING' | 'CASH'>('PENDING');
 
   // Delete Modal States
   const [deletingPosition, setDeletingPosition] = useState<PortfolioPosition | null>(null);
@@ -86,6 +92,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [isEditCapitalModalOpen, setIsEditCapitalModalOpen] = useState<boolean>(false);
   const [capitalInput, setCapitalInput] = useState<string>('500000000');
   const [cashInput, setCashInput] = useState<string>('500000000');
+  const [pendingCashInput, setPendingCashInput] = useState<string>('0');
 
   // Settlement Filter State (T+2.5 Cycle)
   const [settlementFilter, setSettlementFilter] = useState<'ALL' | 'SETTLED' | 'PENDING'>('ALL');
@@ -128,6 +135,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
     localStorage.setItem('vnquant_portfolio_cash', String(cashBalance));
   }, [cashBalance]);
 
+  useEffect(() => {
+    localStorage.setItem('vnquant_portfolio_pending_cash', String(pendingCash));
+  }, [pendingCash]);
+
   // Handle Reset All Sample Data
   const handleResetSampleData = () => {
     if (confirm('XÁC NHẬN DỌN SẠCH TÀI KHOẢN MẪU?\n\n• Tất cả vị thế và lịch sử giao dịch mẫu sẽ bị xóa về 0.\n• Bạn có thể nhập Vốn Đầu Tư Thực Tế mới để bắt đầu sử dụng.')) {
@@ -135,10 +146,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       setRealizedTrades([]);
       setCapital(0);
       setCashBalance(0);
+      setPendingCash(0);
       localStorage.removeItem('vnquant_portfolio_positions');
       localStorage.removeItem('vnquant_portfolio_trades');
       localStorage.removeItem('vnquant_portfolio_capital');
       localStorage.removeItem('vnquant_portfolio_cash');
+      localStorage.removeItem('vnquant_portfolio_pending_cash');
     }
   };
 
@@ -150,6 +163,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
     stockMap,
     capital,
     cashBalance,
+    pendingCash,
     totalRealizedPnL,
     betaTimeframe
   );
@@ -234,7 +248,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   };
 
   // Execute Selling Logic (partial or full position)
-  const executeSell = (targetPos: PortfolioPosition, sellPrice: number, sellQty: number, date: string) => {
+  const executeSell = (
+    targetPos: PortfolioPosition,
+    sellPrice: number,
+    sellQty: number,
+    date: string,
+    settleTo: 'PENDING' | 'CASH' = 'PENDING'
+  ) => {
     const buyPrice = targetPos.buyPrice;
     const grossProceeds = sellPrice * 1000 * sellQty;
     const taxAndFee = grossProceeds * 0.0025; // 0.15% fee + 0.1% tax
@@ -243,8 +263,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
     const realizedPnL = grossProceeds - taxAndFee - totalCost;
     const realizedPnLPercent = totalCost > 0 ? (realizedPnL / totalCost) * 100 : 0;
 
-    // Credit Cash Balance from sale proceeds
-    setCashBalance((prev) => prev + netProceeds);
+    // Credit Cash Balance or Pending Cash from sale proceeds
+    if (settleTo === 'CASH') {
+      setCashBalance((prev) => prev + netProceeds);
+    } else {
+      setPendingCash((prev) => prev + netProceeds);
+    }
 
     // Record Realized Trade
     const newTrade: RealizedTrade = {
@@ -308,9 +332,41 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
         </div>
 
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-          <div className="flex items-center space-x-2 bg-[#050505] px-3 py-1.5 rounded-sm border border-gray-800">
-            <span className="text-gray-400">Vốn đầu tư ban đầu:</span>
+          {/* Vốn đầu tư ban đầu */}
+          <div className="flex items-center space-x-2 bg-[#050505] px-3 py-1.5 rounded-sm border border-gray-800" title="Vốn đầu tư ban đầu nạp vào tài khoản">
+            <span className="text-gray-400">Vốn ban đầu:</span>
             <span className="text-blue-400 font-bold">{(capital ?? 0).toLocaleString('vi-VN')} VNĐ</span>
+          </div>
+
+          {/* Tiền tự do (Khả dụng) */}
+          <div className="flex items-center space-x-2 bg-[#050505] px-3 py-1.5 rounded-sm border border-emerald-800/80 shadow-sm" title="Tiền mặt tự do khả dụng để mua cổ phiếu hoặc rút tiền">
+            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Tiền tự do:
+            </span>
+            <span className="text-emerald-300 font-black">{(cashBalance ?? 0).toLocaleString('vi-VN')} VNĐ</span>
+          </div>
+
+          {/* Tiền chưa về (T+2.5) */}
+          <div className="flex items-center space-x-2 bg-[#050505] px-3 py-1.5 rounded-sm border border-amber-800/80 shadow-sm" title="Tiền bán cổ phiếu hoặc cổ tức đang chờ thanh toán chu kỳ T+2.5">
+            <span className="text-amber-400 font-bold flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              Tiền chưa về:
+            </span>
+            <span className="text-amber-300 font-black">{(pendingCash ?? 0).toLocaleString('vi-VN')} VNĐ</span>
+            {pendingCash > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCashBalance((prev) => prev + pendingCash);
+                  setPendingCash(0);
+                }}
+                className="ml-1 px-1.5 py-0.5 bg-amber-600/30 hover:bg-amber-600/60 border border-amber-500/50 rounded text-[9px] text-amber-200 font-bold uppercase transition"
+                title="Ứng trước tiền bán hoặc chuyển tiền đã về sang Tiền tự do"
+              >
+                Nhận về ví
+              </button>
+            )}
           </div>
 
           <button
@@ -318,10 +374,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
             onClick={() => {
               setCapitalInput(capital.toString());
               setCashInput(cashBalance.toString());
+              setPendingCashInput(pendingCash.toString());
               setIsEditCapitalModalOpen(true);
             }}
             className="px-2.5 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-200 font-bold rounded-sm transition flex items-center space-x-1"
-            title="Sửa vốn đầu tư hoặc số dư tiền mặt"
+            title="Sửa vốn ban đầu, tiền tự do, hoặc tiền chưa về"
           >
             <span>⚙️ ĐỔI VỐN / TIỀN</span>
           </button>
@@ -330,7 +387,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
             type="button"
             onClick={handleResetSampleData}
             className="px-2.5 py-1.5 bg-red-950/60 hover:bg-red-900/80 border border-red-800/80 text-red-300 font-bold rounded-sm transition flex items-center space-x-1"
-            title="Xóa tất cả vị thế mẫu và đặt lại tài khoản 1 Tỷ tiền mặt"
+            title="Xóa tất cả vị thế mẫu và đặt lại tài khoản trống"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>ĐẶT LẠI TÀI KHOẢN TRỐNG</span>
@@ -343,15 +400,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
           <MetricTooltip
             title="TỔNG GIÁ TRỊ TÀI SẢN RÒNG (NAV)"
-            formula="NAV = Tiền mặt + Tổng giá trị thị trường cổ phiếu nắm giữ"
-            description="Tổng quy mô danh mục đầu tư hiện tại sau khi đã cộng trừ biến động giá real-time."
+            formula="NAV = Tiền tự do + Tiền chưa về + Giá trị thị trường cổ phiếu nắm giữ"
+            description="Tổng quy mô danh mục đầu tư thực tế sau khi cộng gộp tất cả tiền mặt tự do, tiền bán chờ về T+2.5 và thị giá cổ phiếu."
           >
             <span className="text-gray-500 text-[10px] uppercase block">TỔNG GIÁ TRỊ NAV</span>
           </MetricTooltip>
           <span className="text-white font-black text-base">{(portfolioSummary.nav ?? 0).toLocaleString('vi-VN')}</span>
-          <span className="text-gray-400 text-[10px] block truncate" title={`Tiền mặt: ${(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')} VNĐ | Cổ phiếu: ${(portfolioSummary.currentValue ?? 0).toLocaleString('vi-VN')} VNĐ`}>
-            Tiền: {(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')}
-          </span>
+          <div className="text-[9px] text-gray-400 space-y-0.5 pt-0.5">
+            <div className="text-emerald-400 font-medium truncate" title={`Tiền tự do: ${(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')} VNĐ`}>
+              Tự do: {(portfolioSummary.cashBalance ?? cashBalance).toLocaleString('vi-VN')}
+            </div>
+            <div className="text-amber-400 font-medium truncate" title={`Tiền chưa về: ${(portfolioSummary.pendingCashSettlement ?? pendingCash).toLocaleString('vi-VN')} VNĐ`}>
+              Chờ về: {(portfolioSummary.pendingCashSettlement ?? pendingCash).toLocaleString('vi-VN')}
+            </div>
+          </div>
         </div>
 
         <div className="bg-[#0a0a0a] p-3 rounded-sm border border-gray-800 shadow">
@@ -1487,6 +1549,44 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                 />
               </div>
 
+              {/* Settlement Type Selector */}
+              <div className="bg-[#050505] p-3 rounded border border-gray-800 space-y-2">
+                <label className="text-gray-400 text-[10px] block uppercase font-bold">Hình Thức Nhận Tiền Bán:</label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSellSettleType('PENDING')}
+                    className={`p-2.5 rounded border text-left flex flex-col justify-between transition ${
+                      sellSettleType === 'PENDING'
+                        ? 'bg-amber-950/40 border-amber-500 text-amber-300'
+                        : 'bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-1.5 font-bold">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Chờ T+2.5</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-1">Cộng vào Tiền chưa về (Quy chuẩn sàn)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSellSettleType('CASH')}
+                    className={`p-2.5 rounded border text-left flex flex-col justify-between transition ${
+                      sellSettleType === 'CASH'
+                        ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300'
+                        : 'bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-1.5 font-bold">
+                      <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Ứng trước T+0</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-1">Cộng ngay vào Tiền tự do (Mua mã khác)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Financial Outcome Calculation Box */}
               <div className="bg-[#050505] border border-gray-800 p-3 rounded-lg space-y-1.5 text-xs">
                 <div className="flex justify-between text-gray-400">
@@ -1531,7 +1631,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                       alert('Giá bán không hợp lệ!');
                       return;
                     }
-                    executeSell(sellingPosition, pPrice, pQty, sellDateInput);
+                    executeSell(sellingPosition, pPrice, pQty, sellDateInput, sellSettleType);
                   }}
                   className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded text-xs transition shadow flex items-center justify-center space-x-1"
                 >
@@ -1580,7 +1680,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                   <span>Cập nhật NAV & Tiền mặt:</span>
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-gray-300 pl-1">
-                  <li>Tiền vốn đã mua cổ phiếu <strong>({Math.round(deletingPosition.buyPrice * 1000 * deletingPosition.quantity * 1.0015).toLocaleString('vi-VN')} VNĐ)</strong> sẽ được <strong>hoàn trả về Tiền Mặt khả dụng</strong>.</li>
+                  <li>Tiền vốn đã mua cổ phiếu <strong>({Math.round(deletingPosition.buyPrice * 1000 * deletingPosition.quantity * 1.0015).toLocaleString('vi-VN')} VNĐ)</strong> sẽ được <strong>hoàn trả về Tiền Tự Do khả dụng</strong>.</li>
                   <li>Tổng giá trị tài khoản (NAV) sẽ tự động cập nhật đúng chuẩn giá trị thực tế còn lại.</li>
                 </ul>
               </div>
@@ -1608,86 +1708,157 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       })()}
 
       {/* Edit Capital & Cash Balance Modal */}
-      {isEditCapitalModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0a0a0a] border border-blue-800/80 rounded-lg max-w-md w-full p-5 space-y-4 shadow-2xl font-mono text-xs animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-gray-800 pb-3">
-              <div className="flex items-center space-x-2 text-blue-400">
-                <DollarSign className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-sm text-white uppercase tracking-wider">ĐIỀU CHỈNH VỐN & TIỀN MẶT</h3>
+      {isEditCapitalModalOpen && (() => {
+        const previewCap = parseFloat(capitalInput) || 0;
+        const previewCash = parseFloat(cashInput) || 0;
+        const previewPending = parseFloat(pendingCashInput) || 0;
+        const previewTotalCash = previewCash + previewPending;
+        const stockHoldingValue = portfolioSummary.currentValue || 0;
+        const previewNAV = previewTotalCash + stockHoldingValue;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-[#0a0a0a] border border-blue-800/80 rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl font-mono text-xs animate-in fade-in zoom-in duration-150 my-6">
+              <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div className="flex items-center space-x-2 text-blue-400">
+                  <DollarSign className="w-5 h-5 text-blue-400" />
+                  <h3 className="font-bold text-sm text-white uppercase tracking-wider">CẬP NHẬT VỐN, TIỀN TỰ DO & TIỀN CHƯA VỀ</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditCapitalModalOpen(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditCapitalModalOpen(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="space-y-4">
-              <MoneyInput
-                id="capital-input"
-                label="VỐN ĐẦU TƯ BAN ĐẦU (VNĐ):"
-                value={capitalInput}
-                onChange={(num) => setCapitalInput(num.toString())}
-                placeholder="Ví dụ: 150.000.000"
-                showWords={true}
-                showQuickPresets={true}
-                textColor="text-white"
-                suffix="VNĐ"
-                quickPresets={[
-                  { label: '+50 Tr', amount: 50_000_000 },
-                  { label: '+100 Tr', amount: 100_000_000 },
-                  { label: '+500 Tr', amount: 500_000_000 },
-                  { label: '+1 Tỷ', amount: 1_000_000_000 },
-                ]}
-              />
+              <div className="space-y-4">
+                {/* 1. Vốn Đầu Tư Ban Đầu */}
+                <MoneyInput
+                  id="capital-input"
+                  label="1. VỐN ĐẦU TƯ BAN ĐẦU (VỐN GỐC NẠP VÀO):"
+                  value={capitalInput}
+                  onChange={(num) => setCapitalInput(num.toString())}
+                  placeholder="Ví dụ: 15.000.000"
+                  showWords={true}
+                  showQuickPresets={true}
+                  textColor="text-blue-400"
+                  suffix="VNĐ"
+                  quickPresets={[
+                    { label: '+10 Tr', amount: 10_000_000 },
+                    { label: '+50 Tr', amount: 50_000_000 },
+                    { label: '+100 Tr', amount: 100_000_000 },
+                    { label: '+500 Tr', amount: 500_000_000 },
+                  ]}
+                />
 
-              <MoneyInput
-                id="cash-input"
-                label="SỐ DƯ TIỀN MẶT KHẢ DỤNG HIỆN TẠI (VNĐ):"
-                value={cashInput}
-                onChange={(num) => setCashInput(num.toString())}
-                placeholder="Ví dụ: 71.000.000"
-                showWords={true}
-                showQuickPresets={true}
-                textColor="text-emerald-400"
-                suffix="VNĐ"
-                quickPresets={[
-                  { label: '+10 Tr', amount: 10_000_000 },
-                  { label: '+50 Tr', amount: 50_000_000 },
-                  { label: '+100 Tr', amount: 100_000_000 },
-                  { label: '+500 Tr', amount: 500_000_000 },
-                ]}
-              />
-            </div>
+                {/* 2. Tiền Tự Do / Khả Dụng */}
+                <MoneyInput
+                  id="cash-input"
+                  label="2. SỐ TIỀN TỰ DO / TIỀN MẶT KHẢ DỤNG HIỆN CÓ:"
+                  value={cashInput}
+                  onChange={(num) => setCashInput(num.toString())}
+                  placeholder="Ví dụ: 10.000.000"
+                  showWords={true}
+                  showQuickPresets={true}
+                  textColor="text-emerald-400"
+                  suffix="VNĐ"
+                  quickPresets={[
+                    { label: '+5 Tr', amount: 5_000_000 },
+                    { label: '+10 Tr', amount: 10_000_000 },
+                    { label: '+50 Tr', amount: 50_000_000 },
+                    { label: '+100 Tr', amount: 100_000_000 },
+                  ]}
+                />
 
-            <div className="flex items-center space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsEditCapitalModalOpen(false)}
-                className="flex-1 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 font-bold rounded text-xs border border-gray-800 transition"
-              >
-                HỦY BỎ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const cap = parseFloat(capitalInput);
-                  const cash = parseFloat(cashInput);
-                  if (!isNaN(cap) && cap >= 0) setCapital(cap);
-                  if (!isNaN(cash) && cash >= 0) setCashBalance(cash);
-                  setIsEditCapitalModalOpen(false);
-                }}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-xs transition shadow"
-              >
-                LƯU THAY ĐỔI
-              </button>
+                {/* 3. Tiền Chưa Về (T+2.5) */}
+                <MoneyInput
+                  id="pending-cash-input"
+                  label="3. TIỀN CHƯA VỀ (TIỀN BÁN CHỜ KHẢ DỤNG T+2.5 / CỔ TỨC):"
+                  value={pendingCashInput}
+                  onChange={(num) => setPendingCashInput(num.toString())}
+                  placeholder="Ví dụ: 5.000.000"
+                  showWords={true}
+                  showQuickPresets={true}
+                  textColor="text-amber-400"
+                  suffix="VNĐ"
+                  quickPresets={[
+                    { label: '0 VNĐ', amount: 0 },
+                    { label: '+5 Tr', amount: 5_000_000 },
+                    { label: '+10 Tr', amount: 10_000_000 },
+                    { label: '+50 Tr', amount: 50_000_000 },
+                  ]}
+                />
+              </div>
+
+              {/* Dynamic Account Breakdown Card */}
+              <div className="bg-[#050505] border border-gray-800 p-3.5 rounded-lg space-y-2 text-xs">
+                <div className="text-gray-400 font-bold uppercase text-[10px] tracking-wider border-b border-gray-800 pb-1.5 flex items-center justify-between">
+                  <span>TỔNG QUAN TÀI KHOẢN SAU ĐIỀU CHỈNH:</span>
+                  <span className="text-blue-400 font-semibold">Tự động đồng bộ</span>
+                </div>
+                
+                <div className="flex justify-between text-gray-300">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Tiền Tự Do + Tiền Chưa Về:</span>
+                  </span>
+                  <span className="font-bold text-white">{previewTotalCash.toLocaleString('vi-VN')} VNĐ</span>
+                </div>
+
+                <div className="flex justify-between text-gray-300">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span>Giá trị cổ phiếu đang nắm giữ:</span>
+                  </span>
+                  <span className="font-bold text-blue-300">{stockHoldingValue.toLocaleString('vi-VN')} VNĐ</span>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-gray-800 pt-2 font-bold">
+                  <span className="text-gray-100 uppercase">TỔNG TÀI SẢN (NAV DỰ KIẾN):</span>
+                  <span className="text-emerald-400 font-black text-sm">{previewNAV.toLocaleString('vi-VN')} VNĐ</span>
+                </div>
+
+                {previewCap > 0 && (
+                  <div className="text-[11px] text-gray-400 flex justify-between pt-1">
+                    <span>So với Vốn gốc:</span>
+                    <span className={previewNAV >= previewCap ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                      {previewNAV >= previewCap ? '+' : ''}{(previewNAV - previewCap).toLocaleString('vi-VN')} VNĐ ({((previewNAV - previewCap) / previewCap * 100).toFixed(2)}%)
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditCapitalModalOpen(false)}
+                  className="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 text-gray-300 font-bold rounded text-xs border border-gray-800 transition"
+                >
+                  HỦY BỎ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cap = parseFloat(capitalInput);
+                    const cash = parseFloat(cashInput);
+                    const pending = parseFloat(pendingCashInput);
+                    if (!isNaN(cap) && cap >= 0) setCapital(cap);
+                    if (!isNaN(cash) && cash >= 0) setCashBalance(cash);
+                    if (!isNaN(pending) && pending >= 0) setPendingCash(pending);
+                    setIsEditCapitalModalOpen(false);
+                  }}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-xs transition shadow flex items-center justify-center space-x-1"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>LƯU CẢ 3 KHOẢN TIỀN</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

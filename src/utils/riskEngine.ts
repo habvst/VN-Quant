@@ -293,6 +293,7 @@ export function calculatePortfolioMetrics(
   stockMap: Record<string, StockData>,
   totalCapital: number = 1000000000, // Default 1 Billion VND
   cashBalance?: number,
+  pendingCashSettlement: number = 0,
   realizedPnL: number = 0,
   betaTimeframe: BetaTimeframe = '6M'
 ): PortfolioSummary {
@@ -303,13 +304,14 @@ export function calculatePortfolioMetrics(
       totalCapital,
       currentValue: 0,
       cashBalance: actualCash,
+      pendingCashSettlement,
       totalPnL: realizedPnL,
       totalPnLPercent: 0,
       realizedPnL,
       unrealizedPnL: 0,
       dailyPnL: 0,
       dailyPnLPercent: 0,
-      nav: actualCash,
+      nav: actualCash + pendingCashSettlement,
       maxDrawdown: 0,
       sharpeRatio: 0,
       sortinoRatio: 0,
@@ -434,8 +436,8 @@ export function calculatePortfolioMetrics(
 
   const portfolioBeta = portfolioValue > 0 ? Number((weightedBeta / portfolioValue).toFixed(2)) : 1.0;
 
-  // Total Account NAV = Cash + Stock Value
-  const nav = actualCash + portfolioValue;
+  // Total Account NAV = Free Cash + Pending Cash + Stock Value
+  const nav = actualCash + pendingCashSettlement + portfolioValue;
 
   // Finalize Kelly Optimal VNĐ and Shares per position based on Total NAV
   processedPositions.forEach((pos) => {
@@ -480,6 +482,7 @@ export function calculatePortfolioMetrics(
     totalCapital,
     currentValue: Number(portfolioValue.toFixed(0)),
     cashBalance: Number(actualCash.toFixed(0)),
+    pendingCashSettlement: Number(pendingCashSettlement.toFixed(0)),
     totalPnL: Number(combinedPnL.toFixed(0)),
     totalPnLPercent: Number(totalPnLPercent.toFixed(2)),
     realizedPnL: Number(realizedPnL.toFixed(0)),
