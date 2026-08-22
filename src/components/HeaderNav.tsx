@@ -4,7 +4,7 @@ import { MarketIndex, StockData } from '../types';
 import { auth } from '../lib/firebase';
 import { portfolioCloudSync, CloudSyncStatus } from '../services/portfolioCloudSync';
 import { User } from 'firebase/auth';
-import { getVietnamDateTimeString } from '../utils/timeUtils';
+import { getMarketSessionInfo, getVietnamDateTimeString } from '../utils/timeUtils';
 
 interface HeaderNavProps {
   indices: MarketIndex[];
@@ -113,6 +113,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     : stocks;
 
   const currentStock = stocks.find((s) => s.symbol === selectedStockSymbol);
+  const currentSession = getMarketSessionInfo();
 
   const topPillSymbols = ['HPG', 'FPT', 'VNM', 'MBB', 'SSI', 'TCB', 'MWG', 'VHM', 'VIC', 'STB'];
 
@@ -134,10 +135,31 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
       <div className="flex items-center justify-between px-2 sm:px-3 py-1 bg-[#050505] text-xs border-b border-gray-800 w-full overflow-hidden">
         {/* Left Side: Live Feed Badge & Stock Market Indices (Scrollable with no scrollbar if screen is narrow) */}
         <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1 overflow-x-auto whitespace-nowrap scrollbar-none mr-2">
-          <div className="flex items-center space-x-1.5 bg-blue-950/70 text-blue-400 px-2 py-0.5 rounded-sm border border-blue-800/60 text-[10px] font-mono font-bold tracking-wide shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="hidden sm:inline">LIVE MARKET FEED</span>
-            <span className="sm:hidden">LIVE</span>
+          {/* Market Session Status Badge */}
+          <div
+            className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-sm border text-[10px] font-mono font-bold tracking-wide shrink-0 ${
+              currentSession.canMatchOrders
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                : currentSession.status === 'LUNCH_BREAK'
+                ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
+                : currentSession.status === 'PRE_OPEN'
+                ? 'bg-blue-950/80 text-blue-300 border-blue-700/80'
+                : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+            }`}
+            title={`Trạng thái phiên giao dịch chứng khoán Việt Nam: ${currentSession.label}`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                currentSession.canMatchOrders
+                  ? 'bg-emerald-400 animate-pulse'
+                  : currentSession.status === 'LUNCH_BREAK'
+                  ? 'bg-amber-400'
+                  : currentSession.status === 'PRE_OPEN'
+                  ? 'bg-blue-400'
+                  : 'bg-rose-500'
+              }`}
+            ></span>
+            <span>{currentSession.label}</span>
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-5 font-mono text-[11px] shrink-0">

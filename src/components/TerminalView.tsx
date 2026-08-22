@@ -9,7 +9,7 @@ import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
 import { AlertsDrawer } from './AlertsDrawer';
 import { AlertToast } from './AlertToast';
-import { getVietnamTimeString } from '../utils/timeUtils';
+import { getMarketSessionInfo, getVietnamTimeString } from '../utils/timeUtils';
 
 interface TerminalViewProps {
   stock: StockData;
@@ -834,10 +834,32 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
               {/* Trade Ticks Live Stream Table */}
               <div>
-                <div className="flex justify-between items-center text-[10px] font-mono text-gray-400 mb-1 px-1">
-                  <span>KHỚP LỆNH TỪNG GIÂY (LIVE TICKS)</span>
-                  <span className="text-gray-500">Mới nhất</span>
-                </div>
+                {(() => {
+                  const session = getMarketSessionInfo();
+                  return (
+                    <div className="flex justify-between items-center text-[10px] font-mono text-gray-400 mb-1 px-1">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="font-bold text-gray-300">KHỚP LỆNH TỪNG GIÂY (LIVE TICKS)</span>
+                      </div>
+                      <div>
+                        {session.canMatchOrders ? (
+                          <span className="flex items-center space-x-1 text-emerald-400 text-[9px] font-bold bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/80">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span>LIVE</span>
+                          </span>
+                        ) : session.status === 'LUNCH_BREAK' ? (
+                          <span className="text-amber-400 text-[9px] font-semibold bg-amber-950/70 px-1.5 py-0.2 rounded border border-amber-800/60">
+                            NGHỈ TRƯA (Chốt 11:30)
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-[9px] font-semibold bg-zinc-900 px-1.5 py-0.2 rounded border border-zinc-700">
+                            ĐÃ ĐÓNG CỬA (Chốt 14:45)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="bg-[#050505] rounded-sm border border-gray-800 p-2 max-h-44 overflow-y-auto space-y-1 text-[11px] font-mono scrollbar-none">
                   {tradeTicks.map((t, idx) => (
                     <div

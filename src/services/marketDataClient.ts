@@ -1,4 +1,5 @@
 import { Candle, MarketIndex, OrderBook, StockData, TradeTick } from '../types';
+import { getMarketSessionInfo } from '../utils/timeUtils';
 
 /**
  * Market Data Client Service with:
@@ -32,80 +33,47 @@ export function getVietnamMarketSession(): {
   badgeColor: string;
   recommendedIntervalMs: number;
 } {
-  // Current time in Vietnam (UTC+7)
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const vnTime = new Date(utc + 3600000 * 7);
+  const session = getMarketSessionInfo();
 
-  const day = vnTime.getDay(); // 0 = Sunday, 6 = Saturday
-  const hours = vnTime.getHours();
-  const minutes = vnTime.getMinutes();
-  const timeNum = hours * 100 + minutes;
-
-  // Weekend
-  if (day === 0 || day === 6) {
+  if (session.status === 'ATO' || session.status === 'ATC') {
     return {
-      isOpen: false,
-      statusText: 'Đóng Cửa (Cuối Tuần)',
-      badgeColor: 'text-gray-400 bg-gray-900 border-gray-700',
-      recommendedIntervalMs: 30000,
+      isOpen: true,
+      statusText: session.label,
+      badgeColor: 'text-purple-400 bg-purple-950/60 border-purple-800',
+      recommendedIntervalMs: 3000,
     };
   }
 
-  // Weekdays (Mon-Fri)
-  if (timeNum < 900) {
+  if (session.canMatchOrders) {
+    return {
+      isOpen: true,
+      statusText: session.label,
+      badgeColor: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
+      recommendedIntervalMs: 4000,
+    };
+  }
+
+  if (session.status === 'LUNCH_BREAK') {
     return {
       isOpen: false,
-      statusText: 'Tiền Phiên (Trước 09:00)',
+      statusText: session.label,
       badgeColor: 'text-amber-400 bg-amber-950/60 border-amber-800',
       recommendedIntervalMs: 15000,
     };
   }
-  if (timeNum >= 900 && timeNum < 915) {
-    return {
-      isOpen: true,
-      statusText: 'Phiên Khớp Lệnh ATO',
-      badgeColor: 'text-purple-400 bg-purple-950/60 border-purple-800',
-      recommendedIntervalMs: 3000,
-    };
-  }
-  if (timeNum >= 915 && timeNum < 1130) {
-    return {
-      isOpen: true,
-      statusText: 'Phiên Sáng (Liên Tục)',
-      badgeColor: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
-      recommendedIntervalMs: 4000,
-    };
-  }
-  if (timeNum >= 1130 && timeNum < 1300) {
+
+  if (session.status === 'PRE_OPEN') {
     return {
       isOpen: false,
-      statusText: 'Nghỉ Giữa Phiên (Trưa)',
+      statusText: session.label,
       badgeColor: 'text-blue-400 bg-blue-950/60 border-blue-800',
-      recommendedIntervalMs: 20000,
-    };
-  }
-  if (timeNum >= 1300 && timeNum < 1430) {
-    return {
-      isOpen: true,
-      statusText: 'Phiên Chiều (Liên Tục)',
-      badgeColor: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
-      recommendedIntervalMs: 4000,
-    };
-  }
-  if (timeNum >= 1430 && timeNum <= 1445) {
-    return {
-      isOpen: true,
-      statusText: 'Phiên Khớp Lệnh ATC',
-      badgeColor: 'text-purple-400 bg-purple-950/60 border-purple-800',
-      recommendedIntervalMs: 3000,
+      recommendedIntervalMs: 10000,
     };
   }
 
-  // After 15:00
   return {
     isOpen: false,
-    statusText: 'Đóng Cửa Phiên',
+    statusText: session.label,
     badgeColor: 'text-gray-400 bg-gray-900 border-gray-700',
     recommendedIntervalMs: 30000,
   };

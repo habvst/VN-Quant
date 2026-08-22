@@ -8,7 +8,7 @@ import {
   getTradeTicks,
 } from './marketDataService';
 import { OrderBook, StockData, TradeTick, MarketIndex } from '../src/types';
-import { getVietnamTimeString } from './timeUtils';
+import { getMarketSessionInfo, getVietnamTimeString } from './timeUtils';
 
 export interface StreamClient {
   id: string;
@@ -196,6 +196,25 @@ class MarketStreamHub {
 
       this.simulatedTickSeq++;
       const timeStr = getVietnamTimeString();
+      const session = getMarketSessionInfo();
+
+      // If market is NOT open for matching orders (closed, weekend, lunch break, pre-open),
+      // DO NOT fabricate live ticks. Only send periodic indices or heartbeat.
+      if (!session.canMatchOrders) {
+        if (this.simulatedTickSeq % 5 === 0) {
+          const indices = getMarketIndices();
+          this.clients.forEach((client) => {
+            if (client.channels.has('indices')) {
+              this.sendEvent(client, 'INDICES_UPDATE', {
+                indices,
+                timestamp: timeStr,
+                marketSession: session,
+              });
+            }
+          });
+        }
+        return;
+      }
 
       // 1. Group active symbols being observed by connected clients
       const activeSymbols = new Set<string>();

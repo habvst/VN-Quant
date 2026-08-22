@@ -2,7 +2,7 @@ import { Candle, FundamentalData, MacroData, MarketIndex, MarketType, NewsItem, 
 import { computeTechnicalIndicators } from '../src/utils/technicalEngine';
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
 import { enrichNewsItemWithDeepScoring } from './newsSentimentEngine';
-import { getVietnamDateString, getVietnamTimeShort, getVietnamTimeString } from './timeUtils';
+import { getMarketSessionInfo, getVietnamDateString, getVietnamTimeParts, getVietnamTimeShort, getVietnamTimeString } from './timeUtils';
 
 // Seed raw stock universe info with realistic base prices
 interface RawStockSeed {
@@ -1009,10 +1009,38 @@ export function getTradeTicks(symbol: string): TradeTick[] {
   const stock = stockStore[symbol] || stockStore['HPG'];
   const price = stock.price;
   const ticks: TradeTick[] = [];
+  const session = getMarketSessionInfo();
   const now = new Date();
 
+  // Determine base anchor time for ticks:
+  // If active trading: use current live time.
+  // If lunch break: anchor to morning close at 11:29:58
+  // If closed / weekend / before open: anchor to market close at 14:44:58
+  let baseSecondsOffset = 0;
+  if (!session.canMatchOrders) {
+    if (session.status === 'LUNCH_BREAK') {
+      const { hours, minutes, seconds } = getVietnamTimeParts(now);
+      const currentSecondsOfDay = hours * 3600 + minutes * 60 + seconds;
+      const targetSecondsOfDay = 11 * 3600 + 29 * 60 + 58; // 11:29:58
+      baseSecondsOffset = (currentSecondsOfDay - targetSecondsOfDay);
+    } else {
+      // Market closed or weekend or pre-open -> Anchor to 14:44:58
+      const { hours, minutes, seconds } = getVietnamTimeParts(now);
+      const currentSecondsOfDay = hours * 3600 + minutes * 60 + seconds;
+      const targetSecondsOfDay = 14 * 3600 + 44 * 60 + 58; // 14:44:58
+      if (currentSecondsOfDay >= targetSecondsOfDay) {
+        baseSecondsOffset = (currentSecondsOfDay - targetSecondsOfDay);
+      } else {
+        // e.g. 08:00 morning -> anchor to 14:44:58 yesterday (or Friday)
+        baseSecondsOffset = (currentSecondsOfDay + (24 * 3600 - targetSecondsOfDay));
+      }
+    }
+  }
+
+  const baseTimestamp = now.getTime() - baseSecondsOffset * 1000;
+
   for (let i = 0; i < 15; i++) {
-    const time = getVietnamTimeString(new Date(now.getTime() - i * 15 * 1000));
+    const time = getVietnamTimeString(new Date(baseTimestamp - i * 18 * 1000));
     const type = Math.random() > 0.45 ? 'BUY' : 'SELL';
     const delta = type === 'BUY' ? 0.05 : -0.05;
     ticks.push({
