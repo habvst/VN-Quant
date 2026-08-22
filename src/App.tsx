@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { AIChatView } from './components/AIChatView';
 import { ArchitectureView } from './components/ArchitectureView';
+import { CloudSyncModal } from './components/CloudSyncModal';
 import { FearGreedGauge } from './components/FearGreedGauge';
 import { FinancialReportView } from './components/FinancialReportView';
 import { HeaderNav } from './components/HeaderNav';
@@ -15,6 +16,7 @@ import { WatchlistView } from './components/WatchlistView';
 import { Candle, MarketIndex, OrderBook, StockData, TradeTick } from './types';
 import { getAutoLockTimeout } from './utils/security';
 import { fetchStockDetailWithSWR, getVietnamMarketSession, CachedStockBundle } from './services/marketDataClient';
+import { marketStreamClient, StreamConnectionStatus } from './services/marketStreamClient';
 import { Lock, Shield, Activity, Wifi } from 'lucide-react';
 
 export function App() {
@@ -28,6 +30,7 @@ export function App() {
   const [tradeTicks, setTradeTicks] = useState<TradeTick[]>([]);
   const [aiChatPrompt, setAiChatPrompt] = useState<string>('');
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
+  const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(true);
   const [marketSession, setMarketSession] = useState(getVietnamMarketSession());
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(true);
@@ -90,7 +93,7 @@ export function App() {
     return await res.json();
   };
 
-  // Fetch initial market data & setup real-time polling interval
+  // Fetch initial market data bootstrap
   const fetchData = useCallback(async () => {
     try {
       const [stocksRes, indicesRes] = await Promise.all([fetch('/api/market/stocks'), fetch('/api/market/indices')]);
@@ -137,28 +140,61 @@ export function App() {
     });
   }, [applyStockBundle]);
 
-  // Adaptive Real-Time Polling based on VN Stock Exchange Session (09:00 - 15:00 vs after-hours)
+  // Real-Time 2-Way SSE Event-Driven Stream Architecture (Zero HTTP Polling Overhead)
   useEffect(() => {
+    // 1. Initial bootstrap
     fetchData();
 
-    // Re-evaluate session status every 30s
+    // 2. Subscribe to Market Indices Stream (Realtime VN-Index, VN30, HNX, UPCOM)
+    const unsubIndices = marketStreamClient.onIndicesUpdate((newIndices) => {
+      if (Array.isArray(newIndices) && newIndices.length > 0) {
+        setIndices(newIndices);
+      }
+    });
+
+    // 3. Subscribe to Real-Time Level 2 Order Book & Trade Ticks Stream
+    const unsubTicks = marketStreamClient.onTickUpdate((evt) => {
+      if (evt.symbol === selectedStockSymbol) {
+        if (evt.orderBook) setOrderBook(evt.orderBook);
+        if (evt.latestTick) {
+          setTradeTicks((prev) => [evt.latestTick, ...prev.slice(0, 19)]);
+        }
+        if (evt.stock) {
+          setCurrentStock((prev) => (prev ? { ...prev, ...evt.stock } : evt.stock!));
+          setStocks((prev) =>
+            prev.map((s) => (s.symbol === evt.symbol ? { ...s, ...evt.stock } : s))
+          );
+        }
+      }
+    });
+
+    // 4. Subscribe to Stream Status and Ping Latency
+    const unsubStatus = marketStreamClient.onStatusChange((status) => {
+      setIsLiveStreaming(status === 'CONNECTED');
+    });
+
+    // 5. Re-evaluate market session status periodically
     const sessionTimer = setInterval(() => {
       setMarketSession(getVietnamMarketSession());
     }, 30000);
 
-    const session = getVietnamMarketSession();
-    const intervalTime = session.recommendedIntervalMs;
-    const interval = setInterval(fetchData, intervalTime);
+    // 6. Background fallback sync (Low frequency 60s) to keep full stock universe fresh
+    const backupSyncTimer = setInterval(fetchData, 60000);
 
     return () => {
-      clearInterval(interval);
+      unsubIndices();
+      unsubTicks();
+      unsubStatus();
       clearInterval(sessionTimer);
+      clearInterval(backupSyncTimer);
     };
-  }, [fetchData]);
+  }, [fetchData, selectedStockSymbol]);
 
+  // Synchronize active stock symbol with 2-Way SSE Hub
   useEffect(() => {
     if (selectedStockSymbol) {
       fetchStockDetail(selectedStockSymbol);
+      marketStreamClient.switchSymbol(selectedStockSymbol);
     }
   }, [selectedStockSymbol, fetchStockDetail]);
 
@@ -189,13 +225,19 @@ export function App() {
           setActiveTab={setActiveTab}
           onSelectStock={handleSelectStock}
           selectedStockSymbol={selectedStockSymbol}
-          onOpenTelegramModal={() => setIsTelegramModalOpen(false || true)}
+          onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+          onOpenCloudSyncModal={() => setIsCloudSyncModalOpen(true)}
           onLockApp={handleLockApp}
         />
 
         <TelegramSettingsModal
           isOpen={isTelegramModalOpen}
           onClose={() => setIsTelegramModalOpen(false)}
+        />
+
+        <CloudSyncModal
+          isOpen={isCloudSyncModalOpen}
+          onClose={() => setIsCloudSyncModalOpen(false)}
         />
 
         {/* Anti-Tampering Content Guard: When locked, unmount confidential subviews from DOM */}

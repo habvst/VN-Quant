@@ -6,20 +6,28 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Code2,
+  Compass,
+  Cpu,
   Crosshair,
+  Database,
   DollarSign,
   Flame,
+  Globe,
   Layers,
   PieChart,
+  Radio,
+  Search,
   Send,
   ShieldAlert,
   Sparkles,
+  Terminal,
   TrendingUp,
   Waves,
   Zap,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { AIChatMessage } from '../types';
+import { AIChatMessage, ToolCallExecution } from '../types';
 
 interface AIChatViewProps {
   initialPrompt?: string;
@@ -31,23 +39,57 @@ export const AIChatView: React.FC<AIChatViewProps> = ({ initialPrompt = '', onSe
     {
       id: 'msg-welcome',
       sender: 'AI',
-      text: `### 🤖 VN-QUANT AI AGENT 4.0 — CỐ VẤN ĐỊNH LƯỢNG 4 TẦNG
+      text: `### 🤖 VN-QUANT AI AGENT 4.0 — TỰ ĐỘNG GỌI TOOL NỘI BỘ (FUNCTION CALLING) & 4 TẦNG ĐỊNH LƯỢNG
 Xin chào! Tôi là Trưởng ban Phân tích Định lượng AI tại **VN-Quant Terminal**.
 
-Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử lý theo **Khung Chuẩn Định Lượng 4 Tầng**:
-- 🏢 **Tầng 1:** Nền tảng Cơ bản & Định giá (BCTC, P/E vs Ngành, ROE, Tăng trưởng)
-- 📈 **Tầng 2:** Kỹ thuật & Hành động giá (Trend MA, RSI, MACD, Hỗ trợ / Kháng cự)
-- 🐋 **Tầng 3:** Dấu chân Cá mập & Dòng tiền lớn (Khối ngoại, Đột biến Volume, Lệnh gom lớn)
-- 🎯 **Tầng 4:** Kế hoạch Giao dịch & Quản trị Rủi ro (Vùng Mua, Chốt lời TP1/TP2, Cắt lỗ SL, Tỷ lệ R:R)
+Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các Tool nội bộ (Internal Function Calling)** trước khi đưa ra nhận định:
+- 📑 **Tool BCTC:** Truy xuất BCTC Q1/2026, Doanh thu, Lợi nhuận, ROE, Nợ/VCSH, P/E vs Ngành.
+- 🏛️ **Tool Tự Doanh & Khối Ngoại:** Quét dòng tiền mua/bán ròng tổ chức, khớp lệnh chủ động.
+- 🐋 **Tool Lệnh Lớn & Cá Mập:** Bắt dấu vết gom ngầm, tỷ lệ khớp lệnh lô lớn >1 tỷ VNĐ.
+- 📈 **Tool Kỹ Thuật Chuyên Sâu:** Quét Mây Ichimoku, Fibo Thoái lui, SMA/EMA (20/50/200), RSI, MACD.
+- 🌐 **Tool Vĩ Mô:** Phân tích Tỷ giá USD/VND, Lãi suất SBV, GDP, tương quan VN-Index.
 
-*Nhập bất kỳ mã cổ phiếu nào (ví dụ: **HPG**, **FPT**, **SSI**) hoặc yêu cầu đánh giá danh mục để bắt đầu!*`,
+*Hãy thử nhấn các gợi ý bên dưới hoặc gõ bất kỳ câu hỏi nào để quan sát AI gọi công cụ nội bộ thời gian thực!*`,
       timestamp: new Date().toLocaleTimeString('vi-VN'),
+      confidenceScore: 92,
+      confidenceLevel: 'HIGH',
+      counterThesis: [
+        'Rủi ro biến động thị trường chung: Nếu chỉ số VN-Index điều chỉnh gãy vùng hỗ trợ 1.235 điểm, xác suất các vị thế mới bị áp lực rung lắc ngắn hạn là rất cao.',
+        'Rủi ro tỷ giá & dòng tiền ngoại: Biến động tỷ giá USD/VND vượt ngưỡng 25.500 có thể kích hoạt làn sóng chốt lời từ các quỹ ngoại ETF.',
+      ],
+      riskDisclaimer: 'Toàn bộ dữ liệu định lượng, điểm số AI và khuyến nghị giao dịch mang tính chất tham khảo kỹ thuật và toán học. Nhà đầu tư tự chịu trách nhiệm đối với quyết định giao dịch và phân bổ vốn.',
+      toolCalls: [
+        {
+          toolName: 'getMacroAndMarketOverview',
+          toolDisplayName: 'Tổng quan Vĩ mô & Thị trường',
+          args: {},
+          summary: 'VN-Index 1.248,65 điểm (+0.68%), Tỷ giá USD/VND 25.420, Lãi suất SBV 4.5%',
+          executedAt: new Date().toLocaleTimeString('vi-VN'),
+          status: 'SUCCESS',
+        },
+        {
+          toolName: 'searchMarketTopPicks',
+          toolDisplayName: 'Bộ lọc Quant Top cổ phiếu',
+          args: { criteria: 'SMART_MONEY_ACCUMULATION', limit: 5 },
+          summary: 'Đã tìm thấy 5 mã thỏa mãn tiêu chí Cá mập gom ngầm: HPG, SSI, FPT, VNM, MWG',
+          executedAt: new Date().toLocaleTimeString('vi-VN'),
+          status: 'SUCCESS',
+        },
+      ],
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedPromptRef = useRef<string>('');
+
+  const toggleToolDetails = (toolKey: string) => {
+    setExpandedTools((prev) => ({
+      ...prev,
+      [toolKey]: !prev[toolKey],
+    }));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,7 +137,12 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
         sender: 'AI',
         text: data.text,
         timestamp: new Date().toLocaleTimeString('vi-VN'),
+        confidenceScore: data.confidenceScore || data.dataCard?.confidenceScore,
+        confidenceLevel: data.confidenceLevel || data.dataCard?.confidenceLevel,
+        counterThesis: data.counterThesis || data.dataCard?.counterThesis,
+        riskDisclaimer: data.riskDisclaimer || data.dataCard?.riskDisclaimer,
         dataCard: data.dataCard,
+        toolCalls: data.toolCalls,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -116,12 +163,31 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
   };
 
   const samplePrompts = [
-    { label: '📊 Phân tích 4 tầng HPG', prompt: 'Phân tích cổ phiếu HPG theo cấu trúc 4 tầng' },
-    { label: '🐋 Dòng tiền cá mập SSI', prompt: 'Đánh giá dòng tiền cá mập và khối ngoại của SSI' },
-    { label: '🎯 Điểm mua tối ưu FPT', prompt: 'Đề xuất vùng mua, chốt lời và cắt lỗ cho FPT' },
-    { label: '🛡️ Đánh giá danh mục HPG, SSI, FPT', prompt: 'Đánh giá danh mục đầu tư gồm HPG, SSI, FPT' },
-    { label: '⚡ Top mã gom ngầm hôm nay', prompt: 'Top cổ phiếu nào đang có dòng tiền cá mập gom ngầm?' },
+    { label: '📑 Tra cứu BCTC Q1/2026 của HPG', prompt: 'Gọi tool tra cứu Báo cáo tài chính quý mới nhất của HPG và đánh giá định giá P/E so với ngành thép' },
+    { label: '🏛️ Lệnh lớn Tự doanh & Khối ngoại SSI', prompt: 'Tra cứu dữ liệu giao dịch tự doanh, khối ngoại và dòng tiền lệnh lớn của SSI' },
+    { label: '☁️ Kỹ thuật Mây Ichimoku & Fibo FPT', prompt: 'Gọi tool phân tích kỹ thuật Ichimoku, Fibonacci và hành động giá cho FPT' },
+    { label: '🐋 Quét Top mã cá mập gom ngầm', prompt: 'Kích hoạt tool quét thị trường tìm Top 5 cổ phiếu có dòng tiền cá mập gom ngầm' },
+    { label: '🛡️ Đánh giá danh mục HPG, SSI, FPT', prompt: 'Đánh giá danh mục đầu tư gồm HPG, SSI, FPT theo chuẩn 4 tầng và phân bổ vốn' },
   ];
+
+  const getToolIcon = (toolName: string) => {
+    switch (toolName) {
+      case 'getFinancialStatements':
+        return <Building2 className="w-3.5 h-3.5 text-blue-400" />;
+      case 'getProprietaryAndForeignTrading':
+        return <Globe className="w-3.5 h-3.5 text-purple-400" />;
+      case 'getLargeBlockOrdersAndSmartMoney':
+        return <Waves className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'getTechnicalSignalsAndPriceAction':
+        return <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />;
+      case 'searchMarketTopPicks':
+        return <Search className="w-3.5 h-3.5 text-amber-400" />;
+      case 'getMacroAndMarketOverview':
+        return <Radio className="w-3.5 h-3.5 text-rose-400" />;
+      default:
+        return <Cpu className="w-3.5 h-3.5 text-blue-400" />;
+    }
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] max-w-5xl mx-auto p-3 bg-[#050505] text-[#d1d5db]">
@@ -133,23 +199,23 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
           </div>
           <div>
             <h2 className="text-xs font-mono font-bold text-white flex items-center space-x-2">
-              <span>VN-QUANT AI AGENT 4.0 (GEMINI 3.7 FLASH + 4-LAYER ENGINE)</span>
+              <span>VN-QUANT AI AGENT 4.0 (FUNCTION CALLING + 4-LAYER ENGINE)</span>
               <span className="bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-[9px] px-1.5 py-0.2 rounded-sm font-mono flex items-center space-x-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>4-TIER ACTIVE</span>
+                <span>AI TOOL USE ENABLED</span>
               </span>
             </h2>
             <p className="text-[10px] text-gray-400 font-mono">
-              Phân tích đa chiều: Cơ bản • Kỹ thuật • Dấu chân Cá mập • Kế hoạch Định lượng
+              Tự động gọi Tool: BCTC Quý • Khối Ngoại/Tự Doanh • Lệnh Cá Mập • Ichimoku & Fibo
             </p>
           </div>
         </div>
 
         <div className="hidden sm:flex items-center space-x-2 text-[10px] font-mono text-gray-400">
-          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-blue-400 font-bold">1: Cơ Bản</span>
-          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-purple-400 font-bold">2: Kỹ Thuật</span>
-          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-cyan-400 font-bold">3: Cá Mập</span>
-          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-emerald-400 font-bold">4: Kế Hoạch</span>
+          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-blue-400 font-bold">Tool 1: BCTC</span>
+          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-purple-400 font-bold">Tool 2: Tự Doanh</span>
+          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-cyan-400 font-bold">Tool 3: Cá Mập</span>
+          <span className="px-2 py-0.5 bg-[#050505] rounded-sm border border-gray-800 text-emerald-400 font-bold">Tool 4: Kỹ Thuật</span>
         </div>
       </div>
 
@@ -157,7 +223,7 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
       <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none mb-2 text-xs font-mono">
         <span className="text-blue-400 text-[10px] uppercase font-bold tracking-widest whitespace-nowrap flex items-center space-x-1">
           <Sparkles className="w-3 h-3" />
-          <span>GỢI Ý QUANT:</span>
+          <span>GỢI Ý GỌI TOOL:</span>
         </span>
         {samplePrompts.map((p, idx) => (
           <button
@@ -190,12 +256,91 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
 
             {/* Content Bubble */}
             <div
-              className={`max-w-[88%] rounded-sm p-3.5 text-xs font-mono leading-relaxed shadow ${
+              className={`max-w-[92%] rounded-sm p-3.5 text-xs font-mono leading-relaxed shadow ${
                 msg.sender === 'USER'
                   ? 'bg-blue-950/40 border border-blue-800/80 text-gray-100'
                   : 'bg-[#050505] border border-gray-800 text-gray-200'
               }`}
             >
+              {/* AI Tool Calling Execution Trace Section */}
+              {msg.toolCalls && msg.toolCalls.length > 0 && (
+                <div className="mb-3.5 bg-[#080d14] rounded-sm border border-blue-900/60 p-2.5 font-mono space-y-2">
+                  <div className="flex items-center justify-between border-b border-blue-950 pb-1.5">
+                    <div className="flex items-center space-x-1.5 text-blue-400 font-bold text-[11px]">
+                      <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="tracking-wide">⚡ AI INTERNAL TOOLS EXECUTED ({msg.toolCalls.length} công cụ)</span>
+                    </div>
+                    <span className="flex items-center space-x-1 text-[9px] text-emerald-400 font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>AUTO-INVOKED</span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {msg.toolCalls.map((tool, tIdx) => {
+                      const toolKey = `${msg.id}-tool-${tIdx}`;
+                      const isExpanded = !!expandedTools[toolKey];
+                      return (
+                        <div
+                          key={tIdx}
+                          className="bg-[#04080e] rounded-sm border border-gray-800 p-2 text-[10px] space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1.5">
+                              {getToolIcon(tool.toolName)}
+                              <span className="font-bold text-gray-200">{tool.toolDisplayName}</span>
+                              <code className="text-[9px] text-blue-400 bg-blue-950/80 px-1 py-0.2 rounded-sm">
+                                {tool.toolName}()
+                              </code>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-emerald-400 text-[9px] font-bold border border-emerald-900/80 bg-emerald-950/60 px-1.5 py-0.2 rounded-sm">
+                                ✓ {tool.status}
+                              </span>
+                              <button
+                                onClick={() => toggleToolDetails(toolKey)}
+                                className="text-gray-400 hover:text-white flex items-center space-x-0.5 text-[9px] bg-gray-900 px-1.5 py-0.5 rounded-sm"
+                              >
+                                <span>{isExpanded ? 'Ẩn' : 'Chi tiết'}</span>
+                                <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="text-gray-300 text-[10px] pl-5 flex items-center space-x-1">
+                            <span className="text-cyan-400 font-semibold">Kết quả:</span>
+                            <span className="truncate">{tool.summary}</span>
+                          </div>
+
+                          {/* Expanded JSON & Details */}
+                          {isExpanded && (
+                            <div className="mt-2 pt-2 border-t border-gray-900 space-y-1.5 text-[9px]">
+                              <div>
+                                <span className="text-gray-500 font-bold block">THAM SỐ TRUYỀN VÀO (ARGS):</span>
+                                <pre className="bg-[#020408] p-1.5 rounded text-blue-300 overflow-x-auto">
+                                  {JSON.stringify(tool.args, null, 2)}
+                                </pre>
+                              </div>
+                              {tool.dataSnippet && (
+                                <div>
+                                  <span className="text-gray-500 font-bold block">DỮ LIỆU ĐỊNH LƯỢNG TRẢ VỀ (DATA SNIPPET):</span>
+                                  <pre className="bg-[#020408] p-1.5 rounded text-emerald-300 overflow-x-auto max-h-36">
+                                    {JSON.stringify(tool.dataSnippet, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                              <div className="text-gray-500 text-[8px] text-right">
+                                Thời điểm gọi: {tool.executedAt}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Text formatting with markdown friendly spacing */}
               <div className="whitespace-pre-line space-y-2 text-[11px] leading-relaxed">
                 {msg.text}
@@ -384,6 +529,46 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
                     </div>
                   </div>
 
+                  {/* Confidence Score & Risk / Counter-Thesis Section */}
+                  {msg.dataCard.counterThesis && msg.dataCard.counterThesis.length > 0 && (
+                    <div className="bg-[#12080a] p-2.5 rounded-sm border border-red-900/60 space-y-2 text-[10px]">
+                      <div className="flex items-center justify-between border-b border-red-950/80 pb-1">
+                        <div className="flex items-center space-x-1.5 text-rose-400 font-bold text-[10px]">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                          <span className="uppercase tracking-wide">LUẬN ĐIỂM PHẢN BIỆN & KỊCH BẢN RỦI RO (COUNTER-THESIS)</span>
+                        </div>
+                        {msg.dataCard.confidenceScore && (
+                          <div className="flex items-center space-x-1">
+                            <span className="text-gray-400 text-[9px]">Độ tin cậy:</span>
+                            <span className={`font-bold px-1.5 py-0.2 rounded-sm text-[9px] ${
+                              (msg.dataCard.confidenceLevel || 'HIGH') === 'HIGH'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : 'bg-amber-950 text-amber-300 border border-amber-800'
+                            }`}>
+                              {msg.dataCard.confidenceScore}% ({msg.dataCard.confidenceLevel || 'HIGH'})
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1 text-gray-300">
+                        {msg.dataCard.counterThesis.map((thesis, ctIdx) => (
+                          <div key={ctIdx} className="flex items-start space-x-1.5 pl-0.5">
+                            <span className="text-rose-400 font-bold shrink-0">⚠️</span>
+                            <span className="leading-relaxed">{thesis}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {msg.dataCard.riskDisclaimer && (
+                        <div className="pt-1.5 border-t border-red-950/80 text-[9px] text-gray-400 leading-normal italic">
+                          <span className="font-semibold text-gray-400 not-italic">Khuyến cáo rủi ro: </span>
+                          {msg.dataCard.riskDisclaimer}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Direct Action Button */}
                   <button
                     onClick={() => onSelectStock(msg.dataCard!.symbol!)}
@@ -437,6 +622,46 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
                 </div>
               )}
 
+              {/* Stand-alone Counter-Thesis & Confidence Section (for Non-Stock or General Responses) */}
+              {!msg.dataCard?.symbol && msg.counterThesis && msg.counterThesis.length > 0 && (
+                <div className="mt-3.5 bg-[#12080a] p-2.5 rounded-sm border border-red-900/60 space-y-2 text-[10px]">
+                  <div className="flex items-center justify-between border-b border-red-950/80 pb-1">
+                    <div className="flex items-center space-x-1.5 text-rose-400 font-bold text-[10px]">
+                      <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                      <span className="uppercase tracking-wide">LUẬN ĐIỂM PHẢN BIỆN & KỊCH BẢN RỦI RO (COUNTER-THESIS)</span>
+                    </div>
+                    {msg.confidenceScore && (
+                      <div className="flex items-center space-x-1">
+                        <span className="text-gray-400 text-[9px]">Độ tin cậy:</span>
+                        <span className={`font-bold px-1.5 py-0.2 rounded-sm text-[9px] ${
+                          (msg.confidenceLevel || 'HIGH') === 'HIGH'
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-amber-950 text-amber-300 border border-amber-800'
+                        }`}>
+                          {msg.confidenceScore}% ({msg.confidenceLevel || 'HIGH'})
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 text-gray-300">
+                    {msg.counterThesis.map((thesis, ctIdx) => (
+                      <div key={ctIdx} className="flex items-start space-x-1.5 pl-0.5">
+                        <span className="text-rose-400 font-bold shrink-0">⚠️</span>
+                        <span className="leading-relaxed">{thesis}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {msg.riskDisclaimer && (
+                    <div className="pt-1.5 border-t border-red-950/80 text-[9px] text-gray-400 leading-normal italic">
+                      <span className="font-semibold text-gray-400 not-italic">Khuyến cáo rủi ro: </span>
+                      {msg.riskDisclaimer}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <span className="text-[9px] text-gray-500 mt-2 block font-mono text-right">{msg.timestamp}</span>
             </div>
           </div>
@@ -449,7 +674,7 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
             </div>
             <div className="bg-[#050505] border border-gray-800 rounded-sm p-3 text-xs font-mono text-blue-400 flex items-center space-x-2">
               <Sparkles className="w-4 h-4 animate-spin text-blue-400" />
-              <span>AI Quant đang quét dữ liệu 4 tầng (Cơ bản + Kỹ thuật + Cá mập + Kế hoạch R:R)...</span>
+              <span>AI Quant đang tự động gọi các Tool nội bộ (BCTC, Tự doanh & Khối ngoại, Lệnh cá mập, Kỹ thuật Ichimoku)...</span>
             </div>
           </div>
         )}
@@ -461,7 +686,7 @@ Mọi yêu cầu phân tích cổ phiếu hoặc danh mục đều được xử
       <div className="flex items-center space-x-2 bg-[#0a0a0a] p-2 rounded-sm border border-gray-800">
         <input
           type="text"
-          placeholder="Hỏi AI về bất kỳ mã nào (VD: HPG, FPT) hoặc yêu cầu đánh giá danh mục..."
+          placeholder="Hỏi AI về bất kỳ mã nào (VD: HPG, FPT) hoặc yêu cầu gọi tool tra cứu..."
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}

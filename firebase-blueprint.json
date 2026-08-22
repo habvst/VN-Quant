@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public user profile and account metadata",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User UID from Firebase Auth"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "User avatar photo URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of account creation"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "ISO timestamp of last login"
+        }
+      },
+      "required": ["userId", "email", "createdAt", "lastLogin"]
+    },
+    "EncryptedPortfolioData": {
+      "title": "EncryptedPortfolioData",
+      "description": "End-to-End Encrypted (E2EE) portfolio holdings, capital, cash balance and transaction ledger",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "encryptedPayload": {
+          "type": "string",
+          "description": "AES-GCM 256-bit encrypted ciphertext"
+        },
+        "iv": {
+          "type": "string",
+          "description": "Initialization vector in base64"
+        },
+        "salt": {
+          "type": "string",
+          "description": "PBKDF2 salt in base64"
+        },
+        "version": {
+          "type": "number",
+          "description": "Schema version number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        },
+        "deviceInfo": {
+          "type": "string",
+          "description": "Device name or client platform identifier"
+        }
+      },
+      "required": ["userId", "encryptedPayload", "iv", "salt", "version", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Root user profile document"
+    },
+    "/users/{userId}/portfolio/{docId}": {
+      "schema": {
+        "$ref": "#/entities/EncryptedPortfolioData"
+      },
+      "description": "Encrypted portfolio payload for user"
+    }
+  }
+}

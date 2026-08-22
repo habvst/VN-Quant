@@ -27,6 +27,8 @@ export interface GenerateGeminiOptions {
   systemInstruction?: string;
   responseMimeType?: string;
   temperature?: number;
+  tools?: any[];
+  toolConfig?: any;
 }
 
 /**
@@ -59,10 +61,17 @@ export function extractJsonFromText(rawText: string): any {
   }
 }
 
+export interface GeminiSafeResult {
+  text: string;
+  parsedJson?: any;
+  functionCalls?: any[];
+  rawResponse?: any;
+}
+
 /**
  * Call Gemini with multi-model fallback and transient retry logic to handle 503 high demand / 429 rate limit
  */
-export async function callGeminiSafe(options: GenerateGeminiOptions): Promise<{ text: string; parsedJson?: any } | null> {
+export async function callGeminiSafe(options: GenerateGeminiOptions): Promise<GeminiSafeResult | null> {
   const ai = getGenAI();
   if (!ai) return null;
 
@@ -79,6 +88,12 @@ export async function callGeminiSafe(options: GenerateGeminiOptions): Promise<{ 
         if (typeof options.temperature === 'number') {
           config.temperature = options.temperature;
         }
+        if (options.tools && options.tools.length > 0) {
+          config.tools = options.tools;
+        }
+        if (options.toolConfig) {
+          config.toolConfig = options.toolConfig;
+        }
 
         const response = await ai.models.generateContent({
           model,
@@ -92,7 +107,7 @@ export async function callGeminiSafe(options: GenerateGeminiOptions): Promise<{ 
           parsedJson = extractJsonFromText(text);
         }
 
-        return { text, parsedJson };
+        return { text, parsedJson, functionCalls: response.functionCalls, rawResponse: response };
       } catch (err: any) {
         const errMsg = err?.message || String(err);
         const isUnavailableOrRateLimit =

@@ -1,4 +1,4 @@
-import { StockNewsSentiment } from '../src/types';
+import { StockNewsSentiment, ToolCallExecution } from '../src/types';
 import {
   getAllStocks,
   getLatestNews,
@@ -12,6 +12,7 @@ import {
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
 import { calculateDeepSentiment, evaluateNewsAuthenticity, forecastPriceImpact } from './newsSentimentEngine';
 import { callGeminiSafe, getGenAI } from './geminiService';
+import { executeInternalTool, internalFunctionDeclarations } from './aiTools';
 
 // 4-Tier Quant Analysis Calculation Helper
 export function computeQuant4LayerData(stock: any) {
@@ -83,12 +84,40 @@ export function computeQuant4LayerData(stock: any) {
     `Cắt lỗ dứt khoát (${sl}k, -${maxDownside}%): Thoát toàn bộ vị thế khi nến ngày đóng cửa dưới ${sl}k (gãy hỗ trợ ${tech.supportLevel}k). Tuyệt đối không trung bình giá xuống.`,
   ];
 
+  // Confidence Score & Counter-Thesis Calculation
+  let confidenceScore = Math.min(95, Math.max(62, Math.round(
+    (stock.aiScore * 0.5) +
+    (fund.roe >= 15 ? 15 : 8) +
+    (stock.price > tech.ma20 ? 12 : 4) +
+    (stock.foreignNetVal > 0 ? 10 : 3) +
+    (tech.rsi14 >= 45 && tech.rsi14 <= 65 ? 8 : 4)
+  )));
+
+  const confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' = confidenceScore >= 82 ? 'HIGH' : (confidenceScore >= 70 ? 'MEDIUM' : 'LOW');
+
+  // Build stock-specific Counter-Thesis (Luận điểm phản biện & Kịch bản rủi ro)
+  const counterThesis: string[] = [
+    `Rủi ro phá vỡ ngưỡng hỗ trợ: Nếu nến ngày đóng cửa thủng vùng hỗ trợ then chốt ${tech.supportLevel}k VNĐ (hoặc gãy MA20 tại ${tech.ma20}k), xu hướng tích lũy sẽ bị vô hiệu hóa và kích hoạt làn sóng bán cắt lỗ tự động.`,
+    stock.foreignNetVal < 0 
+      ? `Áp lực xả ròng từ Khối ngoại: Khối ngoại đang bán ròng (${stock.foreignNetVal} tỷ VNĐ), có thể tạo áp lực nguồn cung trôi nổi đè nặng lên các nhịp hồi phục ngắn hạn.`
+      : `Rủi ro bẫy giá (Bull-trap): Nếu cổ phiếu tiến về vùng cản ${tech.resistanceLevel}k nhưng thanh khoản khớp lệnh không vượt được 130% trung bình 20 phiên, xác suất xuất hiện nhịp rung lắc rũ bỏ là rất cao.`,
+    fund.pe > fund.industryAvgPE * 1.15
+      ? `Định giá P/E (${fund.pe}x) đang cao hơn trung bình ngành (${fund.industryAvgPE}x), đòi hỏi tốc độ tăng trưởng lợi nhuận quý tới phải duy trì tối thiểu >${fund.profitGrowthYoY}% để duy trì bội số định giá.`
+      : `Rủi ro biến động Vĩ mô & Thị trường chung: Nếu chỉ số VN-Index đánh mất mốc 1.235 điểm hoặc tỷ giá USD/VND vượt ngưỡng 25.500, dòng tiền tổ chức có thể tạm thời rút lui về thế phòng thủ.`,
+  ];
+
+  const riskDisclaimer = 'Mọi phân tích, điểm số định lượng AI, mức độ tin cậy và kế hoạch giao dịch được tạo tự động dựa trên mô hình toán học và dữ liệu thời gian thực của thị trường chứng khoán Việt Nam. Thông tin mang tính chất tham khảo cho hoạt động nghiên cứu đầu tư độc lập, không phải là lời chào mời hay cam kết lợi nhuận. Nhà đầu tư tự chịu trách nhiệm hoàn toàn đối với mọi quyết định phân bổ vốn và rủi ro thị trường.';
+
   return {
     symbol: stock.symbol,
     companyName: stock.name,
     price: stock.price,
     changePercent: stock.changePercent,
     score: stock.aiScore,
+    confidenceScore,
+    confidenceLevel,
+    counterThesis,
+    riskDisclaimer,
     verdict: stock.aiVerdict,
     targetPrice: tp1,
     targetPrice2: tp2,
@@ -156,8 +185,25 @@ export async function analyzeStockWithAI(symbol: string) {
   const vnindex = indices.find((i) => i.symbol === 'VNINDEX')?.price || 1248.65;
   const base4Layer = computeQuant4LayerData(stock);
 
+  // Execute internal tools to gather official grounded telemetry before issuing recommendation
+  const executedTools: ToolCallExecution[] = [];
+  try {
+    const [tFin, tProp, tSmart, tTech] = await Promise.all([
+      executeInternalTool('getFinancialStatements', { symbol: stock.symbol }),
+      executeInternalTool('getProprietaryAndForeignTrading', { symbol: stock.symbol }),
+      executeInternalTool('getLargeBlockOrdersAndSmartMoney', { symbol: stock.symbol }),
+      executeInternalTool('getTechnicalSignalsAndPriceAction', { symbol: stock.symbol }),
+    ]);
+    executedTools.push(tFin, tProp, tSmart, tTech);
+  } catch (err) {
+    console.error('Error executing internal tools:', err);
+  }
+
   const prompt = `Bạn là Trưởng Bộ Phận Phân Tích Định Lượng & Chiến Lược Đầu Tư (Head of Quant & Strategy) tại Quỹ Đầu Tư Chứng Khoán Việt Nam.
 Hãy tiến hành PHÂN TÍCH CHUYÊN SÂU 4 TẦNG (4-Layer Quantitative Framework) cho mã cổ phiếu: ${stock.symbol} (${stock.name} - Sàn ${stock.exchange} - Nhóm ngành: ${stock.sector}).
+
+=== DỮ LIỆU TỪ CÁC CÔNG CỤ NỘI BỘ VỪA TRUY XUẤT (INTERNAL TOOLS DATA): ===
+${executedTools.map((t) => `[TOOL ${t.toolName}]: ${t.summary}`).join('\n')}
 
 === BỘ DỮ LIỆU THỰC THỜI GIAN THỰC ===
 1. GIÁ & DÒNG TIỀN HIỆN TẠI:
@@ -231,6 +277,7 @@ Hãy tiến hành PHÂN TÍCH CHUYÊN SÂU 4 TẦNG (4-Layer Quantitative Framew
     return {
       ...base4Layer,
       ...parsed,
+      toolCalls: executedTools,
       layer1_fundamental: {
         ...base4Layer.layer1_fundamental,
         ...(parsed.layer1_fundamental || {}),
@@ -250,7 +297,10 @@ Hãy tiến hành PHÂN TÍCH CHUYÊN SÂU 4 TẦNG (4-Layer Quantitative Framew
     };
   }
 
-  return base4Layer;
+  return {
+    ...base4Layer,
+    toolCalls: executedTools,
+  };
 }
 
 const COMPANY_NAME_ALIASES: Record<string, string> = {
@@ -560,6 +610,43 @@ Phong cách của bạn: Vô cùng sắc sảo, thông minh, trả lời TRỰC 
 === DỮ LIỆU THỊ TRƯỜNG THỜI GIAN THỰC ĐƯỢC NẠP: ===
 ${JSON.stringify(contextData, null, 2)}`;
 
+  // Proactively run relevant tools based on user context to ensure grounded analysis
+  const executedTools: ToolCallExecution[] = [];
+  try {
+    if (primaryStock) {
+      const [tFin, tProp, tSmart, tTech] = await Promise.all([
+        executeInternalTool('getFinancialStatements', { symbol: primaryStock.symbol }),
+        executeInternalTool('getProprietaryAndForeignTrading', { symbol: primaryStock.symbol }),
+        executeInternalTool('getLargeBlockOrdersAndSmartMoney', { symbol: primaryStock.symbol }),
+        executeInternalTool('getTechnicalSignalsAndPriceAction', { symbol: primaryStock.symbol }),
+      ]);
+      executedTools.push(tFin, tProp, tSmart, tTech);
+    } else if (isSmartMoneyQuery || isTopPicksQuery) {
+      const topSym = topSmartMoneyStocks[0]?.stock?.symbol || 'HPG';
+      const [tScan, tSmart, tProp] = await Promise.all([
+        executeInternalTool('searchMarketTopPicks', { criteria: 'SMART_MONEY_ACCUMULATION', limit: 5 }),
+        executeInternalTool('getLargeBlockOrdersAndSmartMoney', { symbol: topSym }),
+        executeInternalTool('getProprietaryAndForeignTrading', { symbol: topSym }),
+      ]);
+      executedTools.push(tScan, tSmart, tProp);
+    } else if (isPortfolioQuery && matchedStocks.length > 0) {
+      const tMacro = await executeInternalTool('getMacroAndMarketOverview', {});
+      executedTools.push(tMacro);
+      for (const s of matchedStocks.slice(0, 2)) {
+        const tTech = await executeInternalTool('getTechnicalSignalsAndPriceAction', { symbol: s.symbol });
+        executedTools.push(tTech);
+      }
+    } else {
+      const [tMacro, tTop] = await Promise.all([
+        executeInternalTool('getMacroAndMarketOverview', {}),
+        executeInternalTool('searchMarketTopPicks', { criteria: 'TOP_QUANT_SCORE', limit: 5 }),
+      ]);
+      executedTools.push(tMacro, tTop);
+    }
+  } catch (err) {
+    console.error('Error pre-executing internal tools:', err);
+  }
+
   // Deterministic Fallback Logic if AI Key is missing or Gemini fails
   const buildDeterministicResponse = () => {
     // Scenario 1: Smart Money / Gom Ngầm Query
@@ -568,7 +655,7 @@ ${JSON.stringify(contextData, null, 2)}`;
       const q4Top = computeQuant4LayerData(topPick);
 
       let text = `### 🐋 TOP CỔ PHIẾU CÓ DÒNG TIỀN CÁ MẬP GOM NGẦM & BỨT PHÁ (REAL-TIME QUANT SCAN)
-Hệ thống VN-Quant Sentinel vừa quét toàn bộ thị trường và nhận diện **Top 5 cổ phiếu có dấu chân dòng tiền tổ chức (Smart Money Accumulation)** mạnh nhất phiên hôm nay:
+Hệ thống VN-Quant Sentinel vừa kích hoạt các Tool nội bộ và quét toàn bộ thị trường. Nhận diện **Top 5 cổ phiếu có dấu chân dòng tiền tổ chức (Smart Money Accumulation)** mạnh nhất:
 
 ---
 
@@ -599,6 +686,7 @@ Hệ thống VN-Quant Sentinel vừa quét toàn bộ thị trường và nhận
       return {
         text,
         dataCard: q4Top,
+        toolCalls: executedTools,
       };
     }
 
@@ -619,14 +707,15 @@ Hệ thống VN-Quant Sentinel vừa quét toàn bộ thị trường và nhận
 * **Tăng trưởng Doanh nghiệp:** Tăng trưởng LN sau thuế YoY đạt **+${primaryStock.fundamental.profitGrowthYoY}%**, Doanh thu YoY **+${primaryStock.fundamental.revenueGrowthYoY}%**.
 * **Sức khỏe tài chính:** Tỷ lệ Nợ/VCSH ở mức **${primaryStock.fundamental.debtToEquity}x** (an toàn), biên lợi nhuận ròng **${primaryStock.fundamental.netMargin}%**.
 
-#### 2️⃣ 📈 TẦNG 2: PHÂN TÍCH KỸ THUẬT & HÀNH HỌC GIÁ (Technical & Price Action)
+#### 2️⃣ 📈 TẦNG 2: PHÂN TÍCH KỸ THUẬT & HÀNH ĐỘNG GIÁ (Technical & Price Action)
 * **Cấu trúc xu hướng:** **${q4.layer2_technical.trend}** (Giá vận động so với MA20: **${primaryStock.technical.ma20}k**, MA50: **${primaryStock.technical.ma50}k**, MA200: **${primaryStock.technical.ma200}k**).
-* **Chỉ báo động lượng:** RSI(14) đạt **${primaryStock.technical.rsi14}** nằm trong vùng kiểm soát lành mạnh; MACD Histogram **${q4.layer2_technical.macd}**.
-* **Vùng hỗ trợ then chốt:** **${primaryStock.technical.supportLevel}k VNĐ** (Ngưỡng phòng thủ cứng).
-* **Vùng kháng cự mục tiêu:** **${primaryStock.technical.resistanceLevel}k VNĐ** (Cản kỹ thuật ngắn hạn).
+* **Chỉ báo động lượng:** RSI(14) đạt **${primaryStock.technical.rsi14}**; MACD Histogram **${q4.layer2_technical.macd}**.
+* **Ichimoku Kinko Hyo:** Giá vượt trên Mây Kumo; Tenkan: **${primaryStock.technical.ichimoku.tenkan}k**, Kijun: **${primaryStock.technical.ichimoku.kijun}k**.
+* **Fibonacci Retracement:** Vùng hỗ trợ Fibo 50%: **${primaryStock.technical.fibonacci.f500}k**, Fibo 61.8% Golden Zone: **${primaryStock.technical.fibonacci.f618}k**.
+* **Vùng hỗ trợ then chốt:** **${primaryStock.technical.supportLevel}k VNĐ** | **Vùng kháng cự mục tiêu:** **${primaryStock.technical.resistanceLevel}k VNĐ**.
 
 #### 3️⃣ 🐋 TẦNG 3: DẤU CHÂN CÁ MẬP & DÒNG TIỀN LỚN (Smart Money & Order Flow)
-* **Hành vi Khối ngoại:** Mua ròng **${primaryStock.foreignNetVal > 0 ? `+${primaryStock.foreignNetVal}` : primaryStock.foreignNetVal} tỷ VNĐ** trên sàn ${primaryStock.exchange}.
+* **Hành vi Khối ngoại & Tự doanh:** Khối ngoại mua ròng **${primaryStock.foreignNetVal > 0 ? `+${primaryStock.foreignNetVal}` : primaryStock.foreignNetVal} tỷ VNĐ**.
 * **Thanh khoản & Khối lượng:** Khối lượng khớp **${primaryStock.volume.toLocaleString('vi-VN')} CP** (${q4.layer3_smartMoney.volumeStatus}).
 * **Dòng tiền chủ động:** **${q4.layer3_smartMoney.moneyFlowVerdict}**, ${q4.layer3_smartMoney.bigOrderActivity}.
 
@@ -639,6 +728,7 @@ Hệ thống VN-Quant Sentinel vừa quét toàn bộ thị trường và nhận
 * **Tỷ Lệ Lợi Nhuận / Rủi Ro (R:R Ratio):** **${q4.riskRewardRatio}** (Đạt chuẩn Quant $\\ge 1:2.5$).
 * **Chiến Lược Phân Bổ Vốn:** Giải ngân tối đa **${q4.maxAllocationPercent}% NAV**. Chia làm 2 đợt (50% vùng gom tích lũy, 50% gia tăng khi vượt cản ${primaryStock.technical.resistanceLevel}k kèm volume bùng nổ).`,
         dataCard: q4,
+        toolCalls: executedTools,
       };
     }
 
@@ -669,8 +759,22 @@ ${topSymbols
 #### 3️⃣ Kế Hoạch Hành Động & Tái Cơ Cấu (Rebalancing):
 * **Tỷ lệ Tiền mặt / Cổ phiếu khuyến nghị:** Duy trì **70% Cổ phiếu / 30% Tiền mặt** để linh hoạt đón sóng.
 * **Chiến lược Trailing-Stop:** Khi các mã đạt TP1 (+15%), nâng mức chặn lãi lên bằng giá vốn để bảo vệ thành quả đầu tư.`,
+        confidenceScore: 88,
+        confidenceLevel: 'HIGH',
+        counterThesis: [
+          'Rủi ro tương quan ngành (Sector Correlation): Nếu nhóm Thép hoặc Chứng khoán đồng loạt chịu áp lực bán chốt lời diện rộng, danh mục có thể biến động mạnh hơn VN-Index.',
+          'Rủi ro bão hòa thanh khoản: Trong trường hợp thanh khoản toàn thị trường suy giảm dưới 15.000 tỷ VNĐ/phiên, tốc độ đạt mục tiêu TP1 có thể kéo dài hơn dự kiến.',
+        ],
+        riskDisclaimer: 'Báo cáo cơ cấu danh mục định lượng được tính toán dựa trên dữ liệu thống kê quá khứ và mô hình rủi ro hiện hành, mang tính chất hỗ trợ quyết định quản trị vốn độc lập.',
         dataCard: {
           symbols: topSymbols,
+          confidenceScore: 88,
+          confidenceLevel: 'HIGH',
+          counterThesis: [
+            'Rủi ro tương quan ngành: Các nhóm ngành trụ cột có thể chịu tác động tiêu cực đồng thời nếu thị trường chung đảo chiều.',
+            'Cần duy trì kỷ luật chặn lãi Trailing-Stop để bảo toàn lợi nhuận đã tích lũy.',
+          ],
+          riskDisclaimer: 'Báo cáo đánh giá danh mục mang tính chất tham khảo định lượng độc lập.',
           portfolioInsights: {
             symbols: topSymbols,
             overallHealth: 'DANH MỤC TĂNG TRƯỞNG MẠNH',
@@ -684,6 +788,7 @@ ${topSymbols
             ],
           },
         },
+        toolCalls: executedTools,
       };
     }
 
@@ -711,6 +816,13 @@ ${topSymbols
 1. **Thanh khoản (Volume Confirmation):** Tại phiên giao cắt, khối lượng giao dịch phải bùng nổ **>130% - 150% so với trung bình 20 phiên**.
 2. **Góc dốc đường MA:** Đường MA dài hạn (MA200) phải đang đi ngang hoặc hướng lên. Nếu MA200 đang dốc xuống mạnh, tín hiệu dễ bị nhiễu.
 3. **Quản trị R:R:** Đặt Stop Loss ngay dưới đáy nến breakout hoặc dưới đường MA50 (khoảng -5% đến -7%).`,
+          confidenceScore: 95,
+          confidenceLevel: 'HIGH',
+          counterThesis: [
+            'Rủi ro bẫy giao cắt giả (Lagging Indicator): Golden Cross là chỉ báo đi sau (trễ pha), trong thị trường Sideway đi ngang, các tín hiệu giao cắt liên tục có thể gây tổn thất phí giao dịch nếu không có bộ lọc thanh khoản xác nhận.',
+          ],
+          riskDisclaimer: 'Kiến thức kỹ thuật mang tính chất đào tạo và nghiên cứu quy luật vận động giá.',
+          toolCalls: executedTools,
         };
       }
     }
@@ -727,6 +839,14 @@ ${topSymbols
 🎯 **Chiến lược Hành động:**
 * **Tỷ trọng khuyến nghị:** Duy trì **70% Cổ phiếu / 30% Tiền mặt**.
 * **Trọng tâm danh mục:** Ưu tiên các cổ phiếu có Điểm Quant AI $\\ge 80$, định giá P/E thấp hơn ngành và có tín hiệu cá mập gom ngầm.`,
+      confidenceScore: 86,
+      confidenceLevel: 'HIGH',
+      counterThesis: [
+        'Kịch bản rủi ro VN-Index: Kháng cự tâm lý 1.260 - 1.280 điểm có thể xuất hiện áp lực cung chốt lời từ lượng hàng kẹp vùng đỉnh.',
+        'Rủi ro tỷ giá: Đà tăng của chỉ số DXY quốc tế nếu gây áp lực lên tỷ giá USD/VND trong nước có thể khiến Ngân hàng Nhà nước thu hẹp thanh khoản qua kênh OMO/Tín phiếu.',
+      ],
+      riskDisclaimer: 'Bản tin nhận định thị trường phục vụ công tác theo dõi dòng tiền vĩ mô, không phải khuyến nghị mua bán trực tiếp.',
+      toolCalls: executedTools,
     };
   };
 
@@ -735,11 +855,24 @@ ${topSymbols
     return buildDeterministicResponse();
   }
 
-  // Attempt Gemini inference
+  // Attempt Gemini inference with tools
+  const toolsContextPrompt = `${userMessage}\n\n[DỮ LIỆU TỪ CÁC CÔNG CỤ NỘI BỘ VỪA TRUY XUẤT]:\n${executedTools.map((t) => `* ${t.toolDisplayName}: ${t.summary}`).join('\n')}`;
+
   const geminiRes = await callGeminiSafe({
-    contents: userMessage,
+    contents: toolsContextPrompt,
     systemInstruction,
+    tools: [{ functionDeclarations: internalFunctionDeclarations }],
   });
+
+  // Handle any dynamic function calls requested by Gemini
+  if (geminiRes && (geminiRes as any).functionCalls && (geminiRes as any).functionCalls.length > 0) {
+    for (const fc of (geminiRes as any).functionCalls) {
+      if (!executedTools.some((t) => t.toolName === fc.name)) {
+        const toolResult = await executeInternalTool(fc.name, fc.args as Record<string, any>);
+        executedTools.push(toolResult);
+      }
+    }
+  }
 
   if (geminiRes && geminiRes.text && geminiRes.text.trim().length > 30) {
     let cardData: any = undefined;
@@ -747,6 +880,12 @@ ${topSymbols
       cardData = computeQuant4LayerData(primaryStock);
     } else if (isPortfolioQuery && matchedStocks.length > 0) {
       cardData = {
+        confidenceScore: 88,
+        confidenceLevel: 'HIGH',
+        counterThesis: [
+          'Rủi ro tương quan ngành và biến động chung của chỉ số VN-Index.',
+        ],
+        riskDisclaimer: 'Báo cáo cơ cấu danh mục định lượng độc lập.',
         portfolioInsights: {
           symbols: matchedStocks.map((s) => s.symbol),
           overallHealth: 'TÍCH CỰC - TIỀM NĂNG TĂNG TRƯỞNG',
@@ -766,7 +905,15 @@ ${topSymbols
 
     return {
       text: geminiRes.text,
+      confidenceScore: cardData?.confidenceScore || 85,
+      confidenceLevel: cardData?.confidenceLevel || 'HIGH',
+      counterThesis: cardData?.counterThesis || [
+        'Rủi ro biến động thị trường chung khi VN-Index tiệm cận kháng cự đỉnh cũ.',
+        'Biến động tỷ giá USD/VND và động thái mua/bán ròng của khối ngoại.',
+      ],
+      riskDisclaimer: 'Toàn bộ nhận định định lượng được tạo tự động dựa trên mô hình toán học và dữ liệu thời gian thực.',
       dataCard: cardData,
+      toolCalls: executedTools,
     };
   }
 

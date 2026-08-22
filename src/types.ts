@@ -26,6 +26,9 @@ export interface TechnicalIndicators {
   ma100: number;
   ma200: number;
   ema20: number;
+  ema50?: number;
+  ema200?: number;
+  vol20?: number;
   vwap: number;
   ichimoku: {
     tenkan: number;
@@ -52,11 +55,13 @@ export interface TechnicalIndicators {
     s2: number;
   };
   fibonacci: {
+    f000?: number;
     f236: number;
     f382: number;
     f500: number;
     f618: number;
     f786: number;
+    f1000?: number;
   };
   patterns: CandlestickPattern[];
 }
@@ -402,17 +407,36 @@ export interface MacroData {
   gdpGrowth: number; // %
 }
 
+export interface ToolCallExecution {
+  toolName: string;
+  toolDisplayName: string;
+  args: Record<string, any>;
+  summary: string;
+  dataSnippet?: any;
+  executedAt: string;
+  status: 'SUCCESS' | 'RUNNING' | 'ERROR';
+}
+
 export interface AIChatMessage {
   id: string;
   sender: 'USER' | 'AI';
   text: string;
   timestamp: string;
+  confidenceScore?: number; // % Mức độ tin cậy định lượng (ví dụ: 88%)
+  confidenceLevel?: 'HIGH' | 'MEDIUM' | 'LOW'; // Phân cấp tin cậy
+  counterThesis?: string[]; // Các rủi ro phản biện / kịch bản bất lợi cần lưu ý
+  riskDisclaimer?: string; // Tuyên bố miễn trừ trách nhiệm định lượng
+  toolCalls?: ToolCallExecution[];
   dataCard?: {
     symbol?: string;
     companyName?: string;
     price?: number;
     changePercent?: number;
     score?: number;
+    confidenceScore?: number;
+    confidenceLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
+    counterThesis?: string[];
+    riskDisclaimer?: string;
     verdict?: string;
     targetPrice?: number;
     targetPrice2?: number;

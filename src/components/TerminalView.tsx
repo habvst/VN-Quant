@@ -1,9 +1,10 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, ShieldCheck, Sparkles, TrendingUp, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Wifi, X, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
 import { getStoredAlerts, saveAlertsToStorage, getStoredNotifications, saveNotificationsToStorage, playAlertSound } from '../services/alertService';
 import { useWatchlist } from '../services/watchlistService';
+import { marketStreamClient } from '../services/marketStreamClient';
 import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
 import { AlertsDrawer } from './AlertsDrawer';
@@ -92,40 +93,35 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   const tech = stock.technical;
   const fund = stock.fundamental;
 
-  // SSE EventSource for SSI FastConnect Live Tick Stream
+  // High-Throughput SSE Market Stream & Latency Subscription
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(`/api/market/stream?symbol=${stock.symbol}`);
-      
-      eventSource.onopen = () => {
-        setStreamConnected(true);
-      };
+    const unsubStatus = marketStreamClient.onStatusChange((status, latency) => {
+      setStreamConnected(status === 'CONNECTED');
+      setLiveLatency(latency);
+    });
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'CONNECTED') {
-            setStreamConnected(true);
-            setLiveLatency(data.latencyMs || 12);
-          } else if (data.type === 'TICK_UPDATE') {
-            setLiveTickCount((c) => c + 1);
-            setLiveLatency(Math.floor(8 + Math.random() * 16));
-          }
-        } catch (e) {}
-      };
-
-      eventSource.onerror = () => {
-        setStreamConnected(false);
-      };
-    } catch (e) {
-      setStreamConnected(false);
-    }
+    const unsubTick = marketStreamClient.onTickUpdate((evt) => {
+      if (evt.symbol === stock.symbol) {
+        setLiveTickCount((c) => c + 1);
+      }
+    });
 
     return () => {
-      if (eventSource) eventSource.close();
+      unsubStatus();
+      unsubTick();
     };
   }, [stock.symbol]);
+
+  const [isPinging, setIsPinging] = useState(false);
+  const handleTestPing = async () => {
+    setIsPinging(true);
+    try {
+      const lat = await marketStreamClient.measureLatency();
+      setLiveLatency(lat);
+    } finally {
+      setTimeout(() => setIsPinging(false), 300);
+    }
+  };
 
   // Market Microstructure Logic (Ceiling, Floor, Reference)
   const bandPercent = stock.exchange === 'UPCOM' ? '±15%' : stock.exchange === 'HNX' ? '±10%' : '±7%';
@@ -352,13 +348,21 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 font-mono">
               <p className="text-xs text-gray-400 font-medium">{stock.name}</p>
               <span className="text-[10px] text-gray-500 hidden sm:inline">•</span>
-              <div className="flex items-center space-x-1.5 bg-black px-2 py-0.5 rounded border border-gray-800 text-[10px]">
+              <div className="flex items-center space-x-1.5 bg-[#050505] px-2 py-0.5 rounded border border-gray-800 text-[10px]">
                 <span className={`w-2 h-2 rounded-full ${streamConnected ? 'bg-emerald-400 animate-ping' : 'bg-amber-500'}`}></span>
-                <span className="text-emerald-400 font-bold">FASTCONNECT SSE LIVE (1s)</span>
+                <span className="text-emerald-400 font-bold">SSE 2-WAY LIVE</span>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-300">Độ trễ: <strong className="text-amber-400">{liveLatency}ms</strong></span>
+                <button
+                  onClick={handleTestPing}
+                  disabled={isPinging}
+                  title="Bấm để đo độ trễ thực tế qua kênh SSE / Ping"
+                  className="flex items-center space-x-1 text-gray-300 hover:text-white transition cursor-pointer"
+                >
+                  <span>Độ trễ: <strong className={liveLatency < 25 ? 'text-emerald-400' : 'text-amber-400'}>{liveLatency}ms</strong></span>
+                  <RefreshCw className={`w-2.5 h-2.5 text-gray-400 ${isPinging ? 'animate-spin text-blue-400' : ''}`} />
+                </button>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-400">Ticks: {liveTickCount}</span>
+                <span className="text-gray-400">Ticks: <strong className="text-blue-400">{liveTickCount}</strong></span>
               </div>
             </div>
           </div>
@@ -575,20 +579,98 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             )}
 
             {activeTab === 'TECHNICAL' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-mono">
-                <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-400 block">MA100: <strong className="text-gray-200">{tech.ma100}</strong></span>
-                  <span className="text-gray-400 block">MA200: <strong className="text-gray-200">{tech.ma200}</strong></span>
-                  <span className="text-gray-400 block">EMA20: <strong className="text-gray-200">{tech.ema20}</strong></span>
+              <div className="space-y-2.5 text-xs font-mono">
+                {/* Top Row: Ichimoku & Fibonacci Retracement */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Ichimoku Kinko Hyo Card */}
+                  <div className="bg-[#050505] p-2.5 rounded-sm border border-cyan-900/40 bg-gradient-to-br from-cyan-950/20 to-transparent">
+                    <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-cyan-900/30">
+                      <span className="text-cyan-400 font-bold text-[11px] flex items-center space-x-1">
+                        <span>☁️ HỆ THỐNG MÂY ICHIMOKU KINKO HYO</span>
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                        stock.price >= (tech.ichimoku?.senkouA || 0)
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                          : 'bg-red-950 text-red-400 border border-red-800'
+                      }`}>
+                        {stock.price >= (tech.ichimoku?.senkouA || 0) ? 'TRÊN MÂY KUMO (BULL)' : 'DƯỚI MÂY (BEAR)'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                      <span className="text-gray-400">Tenkan (9): <strong className="text-cyan-300">{tech.ichimoku?.tenkan}</strong></span>
+                      <span className="text-gray-400">Kijun (26): <strong className="text-orange-400">{tech.ichimoku?.kijun}</strong></span>
+                      <span className="text-gray-400">Span A (Kumo): <strong className="text-emerald-400">{tech.ichimoku?.senkouA}</strong></span>
+                      <span className="text-gray-400">Span B (52): <strong className="text-rose-400">{tech.ichimoku?.senkouB}</strong></span>
+                      <span className="text-gray-400 col-span-2 text-[10px] text-slate-400">
+                        {tech.ichimoku?.tenkan > tech.ichimoku?.kijun ? '✓ Tenkan cắt trên Kijun (Tín hiệu mua sớm)' : 'Tenkan dưới Kijun (Tích lũy điều chỉnh)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fibonacci Retracement Card */}
+                  <div className="bg-[#050505] p-2.5 rounded-sm border border-amber-900/40 bg-gradient-to-br from-amber-950/20 to-transparent">
+                    <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-amber-900/30">
+                      <span className="text-amber-400 font-bold text-[11px] flex items-center space-x-1">
+                        <span>📐 THOÁI LUI FIBONACCI RETRACEMENT</span>
+                      </span>
+                      <span className="text-[9px] bg-amber-950/80 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800 font-bold">
+                        PRICE ACTION
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 text-[10px]">
+                      <div className="bg-[#0a0a0a] p-1 rounded border border-gray-800">
+                        <span className="text-gray-400 block text-[9px]">Fibo 23.6%</span>
+                        <strong className="text-sky-400 text-xs">{tech.fibonacci.f236}</strong>
+                      </div>
+                      <div className="bg-[#0a0a0a] p-1 rounded border border-amber-900/50 bg-amber-950/20">
+                        <span className="text-amber-400 block text-[9px] font-bold">★ Fibo 38.2%</span>
+                        <strong className="text-amber-300 text-xs">{tech.fibonacci.f382}</strong>
+                      </div>
+                      <div className="bg-[#0a0a0a] p-1 rounded border border-gray-800">
+                        <span className="text-orange-400 block text-[9px]">Fibo 50.0%</span>
+                        <strong className="text-orange-300 text-xs">{tech.fibonacci.f500}</strong>
+                      </div>
+                      <div className="bg-[#0a0a0a] p-1 rounded border border-emerald-900/50 bg-emerald-950/20 col-span-2">
+                        <span className="text-emerald-400 block text-[9px] font-bold">★ Fibo 61.8% (Golden Zone)</span>
+                        <strong className="text-emerald-300 text-xs">{tech.fibonacci.f618}</strong>
+                      </div>
+                      <div className="bg-[#0a0a0a] p-1 rounded border border-gray-800">
+                        <span className="text-purple-400 block text-[9px]">Fibo 78.6%</span>
+                        <strong className="text-purple-300 text-xs">{tech.fibonacci.f786}</strong>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-400 block">VWAP: <strong className="text-blue-400">{tech.vwap}</strong></span>
-                  <span className="text-gray-400 block">ADX(14): <strong className="text-amber-400">{tech.adx14}</strong></span>
-                  <span className="text-gray-400 block">ATR(14): <strong className="text-gray-200">{tech.atr14}</strong></span>
-                </div>
-                <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
-                  <span className="text-gray-400 block">Fibonacci 38.2%: <strong className="text-amber-400">{tech.fibonacci.f382}</strong></span>
-                  <span className="text-gray-400 block">Fibonacci 61.8%: <strong className="text-emerald-400">{tech.fibonacci.f618}</strong></span>
+
+                {/* Bottom Row: Multi-cycle SMA / EMA, Vol20, ATR & ADX */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold block mb-1">ĐƯỜNG SMA ĐA KỲ</span>
+                    <span className="text-gray-400 block text-[11px]">SMA 20: <strong className="text-sky-400">{tech.ma20}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">SMA 50: <strong className="text-amber-400">{tech.ma50}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">SMA 200: <strong className="text-purple-400">{tech.ma200}</strong></span>
+                  </div>
+
+                  <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold block mb-1">ĐƯỜNG EMA ĐA KỲ</span>
+                    <span className="text-gray-400 block text-[11px]">EMA 20: <strong className="text-emerald-400">{tech.ema20}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">EMA 50: <strong className="text-orange-400">{tech.ema50 || tech.ma50}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">EMA 200: <strong className="text-rose-400">{tech.ema200 || tech.ma200}</strong></span>
+                  </div>
+
+                  <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold block mb-1">THANH KHOẢN & VWAP</span>
+                    <span className="text-gray-400 block text-[11px]">VWAP: <strong className="text-blue-400">{tech.vwap}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">Vol MA20: <strong className="text-yellow-400">{(tech.vol20 || (stock.volume * 0.9)).toLocaleString('vi-VN')}</strong></span>
+                    <span className="text-[10px] text-gray-500 block">OBV: {(tech.obv / 1e6).toFixed(1)}M cp</span>
+                  </div>
+
+                  <div className="bg-[#050505] p-2 rounded-sm border border-gray-800">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold block mb-1">XU HƯỚNG & BIẾN ĐỘNG</span>
+                    <span className="text-gray-400 block text-[11px]">ADX (14): <strong className="text-amber-400">{tech.adx14}</strong></span>
+                    <span className="text-gray-400 block text-[11px]">ATR (14): <strong className="text-gray-200">{tech.atr14} VNĐ</strong></span>
+                    <span className="text-gray-400 block text-[11px]">Stoch (14): <strong className="text-emerald-400">{tech.stochastic.k}</strong></span>
+                  </div>
                 </div>
               </div>
             )}
@@ -644,51 +726,144 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
         {/* Right Column: Orderbook & AI Quantitative Verdict (Hidden in Focus Mode or collapsed) */}
         {!isFocusMode && (
           <div className="lg:col-span-4 flex flex-col space-y-3">
-            {/* Order Book Depth & Ticks */}
+            {/* Order Book Level 2 Depth & Real-time Trade Ticks */}
             <div className="bg-[#0a0a0a] rounded-sm p-3 border border-gray-800 shadow">
-              <h3 className="text-[10px] font-mono font-bold text-blue-500 uppercase tracking-widest flex items-center space-x-1.5 mb-2.5">
-                <Layers className="w-3.5 h-3.5 text-blue-400" />
-                <span>SỔ LỆNH & GIAO DỊCH KHỚP LỆNH</span>
-              </h3>
-
-            {/* Bid / Ask Progress Bars */}
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
-              <div className="space-y-1 bg-[#050505] p-2 rounded-sm border border-gray-800">
-                <span className="text-emerald-400 font-bold block text-[10px] uppercase tracking-wider">DƯ MUA (BID)</span>
-                {orderBook.bid.map((b, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-[11px]">
-                    <span className="text-emerald-400 font-bold">{b.price.toFixed(2)}</span>
-                    <span className="text-gray-400">{(b.volume ?? 0).toLocaleString('vi-VN')}</span>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest flex items-center space-x-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-400" />
+                  <span>SỔ LỆNH ĐỘ SÂU LEVEL 2 (MARKET DEPTH)</span>
+                </h3>
+                <span className="text-[9px] font-mono text-gray-500 bg-gray-900 px-1.5 py-0.5 rounded border border-gray-800">
+                  SSE STREAM
+                </span>
               </div>
-              <div className="space-y-1 bg-[#050505] p-2 rounded-sm border border-gray-800">
-                <span className="text-red-400 font-bold block text-[10px] uppercase tracking-wider">DƯ BÁN (ASK)</span>
-                {orderBook.ask.map((a, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-[11px]">
-                    <span className="text-red-400 font-bold">{a.price.toFixed(2)}</span>
-                    <span className="text-gray-400">{(a.volume ?? 0).toLocaleString('vi-VN')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Trade Ticks Stream */}
-            <div className="bg-[#050505] rounded-sm border border-gray-800 p-2 max-h-40 overflow-y-auto space-y-1 text-[11px] font-mono scrollbar-none">
-              {tradeTicks.map((t) => (
-                <div key={t.id} className="flex justify-between items-center">
-                  <span className="text-gray-500">{t.time}</span>
-                  <span className={t.type === 'BUY' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
-                    {t.price.toFixed(2)}
-                  </span>
-                  <span className="text-gray-300">{(t.volume ?? 0).toLocaleString('vi-VN')}</span>
-                  <span className={`text-[9px] px-1 rounded-sm ${t.type === 'BUY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'}`}>
-                    {t.type}
-                  </span>
+              {/* Bid vs Ask Volume Pressure Bar */}
+              {(() => {
+                const totalBidVol = orderBook.bid.reduce((acc, b) => acc + (b.volume || 0), 0);
+                const totalAskVol = orderBook.ask.reduce((acc, a) => acc + (a.volume || 0), 0);
+                const maxLevelVol = Math.max(
+                  ...orderBook.bid.map((b) => b.volume || 0),
+                  ...orderBook.ask.map((a) => a.volume || 0),
+                  1
+                );
+                const buyRatio = totalBidVol + totalAskVol > 0 ? Math.round((totalBidVol / (totalBidVol + totalAskVol)) * 100) : 50;
+                const sellRatio = 100 - buyRatio;
+
+                return (
+                  <>
+                    <div className="bg-[#050505] p-2 rounded-sm border border-gray-800/90 mb-2.5 font-mono">
+                      <div className="flex justify-between items-center text-[10px] mb-1">
+                        <span className="text-emerald-400 font-bold">
+                          DƯ MUA: {totalBidVol.toLocaleString('vi-VN')} ({buyRatio}%)
+                        </span>
+                        <span className="text-red-400 font-bold">
+                          ({sellRatio}%) {totalAskVol.toLocaleString('vi-VN')} :DƯ BÁN
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-gray-900 rounded-full flex overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full transition-all duration-300"
+                          style={{ width: `${buyRatio}%` }}
+                        />
+                        <div
+                          className="bg-gradient-to-r from-red-400 to-red-600 h-full transition-all duration-300"
+                          style={{ width: `${sellRatio}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Level 2 Depth 3-Tier Grid with Relative Volume Heatmaps */}
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
+                      {/* Bid Side */}
+                      <div className="space-y-1 bg-[#050505] p-2 rounded-sm border border-gray-800 relative overflow-hidden">
+                        <div className="flex justify-between items-center text-[10px] pb-1 border-b border-gray-800 text-gray-400 font-semibold">
+                          <span>GIÁ MUA (3 BƯỚC)</span>
+                          <span>KHỐI LƯỢNG</span>
+                        </div>
+                        {orderBook.bid.map((b, idx) => {
+                          const depthPercent = Math.min(100, Math.round(((b.volume || 0) / maxLevelVol) * 100));
+                          return (
+                            <div key={idx} className="relative flex justify-between items-center text-[11px] py-0.5 px-1 rounded-xs">
+                              {/* Visual Depth Bar Background */}
+                              <div
+                                className="absolute right-0 top-0 bottom-0 bg-emerald-950/60 border-l border-emerald-700/50 rounded-xs pointer-events-none transition-all duration-300"
+                                style={{ width: `${depthPercent}%` }}
+                              />
+                              <span className="text-emerald-400 font-bold relative z-10">
+                                {idx === 0 ? '① ' : idx === 1 ? '② ' : '③ '}{b.price.toFixed(2)}
+                              </span>
+                              <span className="text-gray-200 relative z-10 font-medium">
+                                {(b.volume ?? 0).toLocaleString('vi-VN')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Ask Side */}
+                      <div className="space-y-1 bg-[#050505] p-2 rounded-sm border border-gray-800 relative overflow-hidden">
+                        <div className="flex justify-between items-center text-[10px] pb-1 border-b border-gray-800 text-gray-400 font-semibold">
+                          <span>GIÁ BÁN (3 BƯỚC)</span>
+                          <span>KHỐI LƯỢNG</span>
+                        </div>
+                        {orderBook.ask.map((a, idx) => {
+                          const depthPercent = Math.min(100, Math.round(((a.volume || 0) / maxLevelVol) * 100));
+                          return (
+                            <div key={idx} className="relative flex justify-between items-center text-[11px] py-0.5 px-1 rounded-xs">
+                              {/* Visual Depth Bar Background */}
+                              <div
+                                className="absolute left-0 top-0 bottom-0 bg-red-950/60 border-r border-red-700/50 rounded-xs pointer-events-none transition-all duration-300"
+                                style={{ width: `${depthPercent}%` }}
+                              />
+                              <span className="text-red-400 font-bold relative z-10">
+                                {idx === 0 ? '① ' : idx === 1 ? '② ' : '③ '}{a.price.toFixed(2)}
+                              </span>
+                              <span className="text-gray-200 relative z-10 font-medium">
+                                {(a.volume ?? 0).toLocaleString('vi-VN')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* Trade Ticks Live Stream Table */}
+              <div>
+                <div className="flex justify-between items-center text-[10px] font-mono text-gray-400 mb-1 px-1">
+                  <span>KHỚP LỆNH TỪNG GIÂY (LIVE TICKS)</span>
+                  <span className="text-gray-500">Mới nhất</span>
                 </div>
-              ))}
+                <div className="bg-[#050505] rounded-sm border border-gray-800 p-2 max-h-44 overflow-y-auto space-y-1 text-[11px] font-mono scrollbar-none">
+                  {tradeTicks.map((t, idx) => (
+                    <div
+                      key={t.id || idx}
+                      className={`flex justify-between items-center py-0.5 px-1 rounded transition-colors ${
+                        idx === 0 ? 'bg-blue-950/30' : 'hover:bg-gray-900/40'
+                      }`}
+                    >
+                      <span className="text-gray-500 text-[10px]">{t.time}</span>
+                      <span className={t.type === 'BUY' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                        {t.price.toFixed(2)}
+                      </span>
+                      <span className="text-gray-300 font-medium">{(t.volume ?? 0).toLocaleString('vi-VN')}</span>
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded-xs ${
+                          t.type === 'BUY'
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/80'
+                            : 'bg-red-950 text-red-300 border border-red-800/80'
+                        }`}
+                      >
+                        {t.type === 'BUY' ? 'MUA' : 'BÁN'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
 
           {/* AI Quantitative 4-Layer Verdict Card */}
           <div className="bg-[#0a0a0a] rounded-sm p-3.5 border border-gray-800 flex-1 flex flex-col justify-between shadow-lg">

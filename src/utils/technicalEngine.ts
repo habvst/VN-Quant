@@ -114,12 +114,201 @@ export function calculatePivotPoints(high: number, low: number, close: number) {
 export function calculateFibonacci(high: number, low: number) {
   const diff = high - low;
   return {
+    f000: Number(high.toFixed(2)),
     f236: Number((high - diff * 0.236).toFixed(2)),
     f382: Number((high - diff * 0.382).toFixed(2)),
     f500: Number((high - diff * 0.5).toFixed(2)),
     f618: Number((high - diff * 0.618).toFixed(2)),
     f786: Number((high - diff * 0.786).toFixed(2)),
+    f1000: Number(low.toFixed(2)),
   };
+}
+
+export function calculateSMA_Series(data: number[], period: number): (number | null)[] {
+  const result: (number | null)[] = [];
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i];
+    if (i >= period) {
+      sum -= data[i - period];
+    }
+    if (i >= period - 1) {
+      result.push(Number((sum / period).toFixed(2)));
+    } else {
+      result.push(null);
+    }
+  }
+  return result;
+}
+
+export function calculateEMA_Series(data: number[], period: number): (number | null)[] {
+  const result: (number | null)[] = [];
+  if (data.length === 0) return result;
+  const k = 2 / (period + 1);
+  let ema = data[0];
+  result.push(Number(ema.toFixed(2)));
+
+  for (let i = 1; i < data.length; i++) {
+    ema = data[i] * k + ema * (1 - k);
+    if (i >= period - 1) {
+      result.push(Number(ema.toFixed(2)));
+    } else {
+      result.push(null);
+    }
+  }
+  return result;
+}
+
+export function calculateBollingerBands_Series(closes: number[], period: number = 20, multiplier: number = 2) {
+  const upper: (number | null)[] = [];
+  const middle: (number | null)[] = [];
+  const lower: (number | null)[] = [];
+
+  for (let i = 0; i < closes.length; i++) {
+    if (i < period - 1) {
+      upper.push(null);
+      middle.push(null);
+      lower.push(null);
+      continue;
+    }
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = slice.reduce((sum, v) => sum + v, 0) / period;
+    const variance = slice.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / period;
+    const stdDev = Math.sqrt(variance);
+
+    middle.push(Number(mean.toFixed(2)));
+    upper.push(Number((mean + multiplier * stdDev).toFixed(2)));
+    lower.push(Number((mean - multiplier * stdDev).toFixed(2)));
+  }
+
+  return { upper, middle, lower };
+}
+
+export function calculateIchimoku_Series(candles: Candle[]) {
+  const len = candles.length;
+  const tenkan: (number | null)[] = [];
+  const kijun: (number | null)[] = [];
+  const senkouA: (number | null)[] = [];
+  const senkouB: (number | null)[] = [];
+  const chikou: (number | null)[] = [];
+
+  const getHL = (startIdx: number, endIdx: number) => {
+    let high = -Infinity;
+    let low = Infinity;
+    for (let i = startIdx; i <= endIdx; i++) {
+      if (candles[i].high > high) high = candles[i].high;
+      if (candles[i].low < low) low = candles[i].low;
+    }
+    return (high + low) / 2;
+  };
+
+  for (let i = 0; i < len; i++) {
+    // Tenkan (9)
+    const tVal = i >= 8 ? Number(getHL(i - 8, i).toFixed(2)) : null;
+    tenkan.push(tVal);
+
+    // Kijun (26)
+    const kVal = i >= 25 ? Number(getHL(i - 25, i).toFixed(2)) : null;
+    kijun.push(kVal);
+
+    // Senkou Span A (midpoint of Tenkan & Kijun)
+    if (tVal !== null && kVal !== null) {
+      senkouA.push(Number(((tVal + kVal) / 2).toFixed(2)));
+    } else {
+      senkouA.push(null);
+    }
+
+    // Senkou Span B (52)
+    const sBVal = i >= 51 ? Number(getHL(i - 51, i).toFixed(2)) : null;
+    senkouB.push(sBVal);
+
+    // Chikou Span (current close plotted at index)
+    chikou.push(candles[i].close);
+  }
+
+  return { tenkan, kijun, senkouA, senkouB, chikou };
+}
+
+export function calculateRSI_Series(closes: number[], period: number = 14): (number | null)[] {
+  const result: (number | null)[] = [];
+  if (closes.length <= period) {
+    return closes.map(() => null);
+  }
+
+  let gains = 0;
+  let losses = 0;
+
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses += Math.abs(diff);
+  }
+
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+
+  for (let i = 0; i < period; i++) {
+    result.push(null);
+  }
+
+  let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  result.push(Number((100 - 100 / (1 + rs)).toFixed(2)));
+
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    const gain = diff >= 0 ? diff : 0;
+    const loss = diff < 0 ? Math.abs(diff) : 0;
+
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    result.push(Number((100 - 100 / (1 + rs)).toFixed(2)));
+  }
+
+  return result;
+}
+
+export function calculateMACD_Series(closes: number[]) {
+  const ema12 = calculateEMA_Series(closes, 12);
+  const ema26 = calculateEMA_Series(closes, 26);
+  const macdLine: (number | null)[] = [];
+
+  for (let i = 0; i < closes.length; i++) {
+    if (ema12[i] !== null && ema26[i] !== null) {
+      macdLine.push(Number(((ema12[i] as number) - (ema26[i] as number)).toFixed(2)));
+    } else {
+      macdLine.push(null);
+    }
+  }
+
+  // Signal line EMA 9 of MACD line
+  const validMacdValues: number[] = [];
+  const validIndices: number[] = [];
+  macdLine.forEach((val, idx) => {
+    if (val !== null) {
+      validMacdValues.push(val);
+      validIndices.push(idx);
+    }
+  });
+
+  const signalValues = calculateEMA_Series(validMacdValues, 9);
+  const signalLine: (number | null)[] = new Array(closes.length).fill(null);
+  const histogram: (number | null)[] = new Array(closes.length).fill(null);
+
+  validIndices.forEach((origIdx, i) => {
+    const sigVal = signalValues[i];
+    signalLine[origIdx] = sigVal;
+    if (macdLine[origIdx] !== null && sigVal !== null) {
+      histogram[origIdx] = Number(((macdLine[origIdx] as number) - sigVal).toFixed(2));
+    }
+  });
+
+  return { macdLine, signalLine, histogram };
+}
+
+export function calculateVolumeMA_Series(volumes: number[], period: number = 20): (number | null)[] {
+  return calculateSMA_Series(volumes, period);
 }
 
 export function detectCandlestickPatterns(candles: Candle[]): CandlestickPattern[] {
@@ -299,6 +488,10 @@ export function computeTechnicalIndicators(candles: Candle[]): TechnicalIndicato
   const ma100 = calculateSMA(closes, 100);
   const ma200 = calculateSMA(closes, 200);
   const ema20 = calculateEMA(closes, 20);
+  const ema50 = calculateEMA(closes, 50);
+  const ema200 = calculateEMA(closes, 200);
+  const volumes = candles.map((c) => c.volume);
+  const vol20 = calculateSMA(volumes, 20);
   const rsi14 = calculateRSI(closes, 14);
   const macd = calculateMACD(closes);
   const bb = calculateBollingerBands(closes, 20, 2);
@@ -326,6 +519,9 @@ export function computeTechnicalIndicators(candles: Candle[]): TechnicalIndicato
     ma100,
     ma200,
     ema20,
+    ema50,
+    ema200,
+    vol20,
     vwap,
     ichimoku,
     adx14: Number((20 + (rsi14 > 50 ? (rsi14 - 50) * 0.6 : (50 - rsi14) * 0.6)).toFixed(1)),

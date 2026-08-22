@@ -1,10 +1,14 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, Clock, DollarSign, Grid, History, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, Sparkles, Trash2, TrendingUp, Wallet, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, Clock, Cloud, Database, Dices, DollarSign, Flame, Grid, History, Lock, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Trash2, TrendingUp, Wallet, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { PortfolioPosition, StockData } from '../types';
 import { BetaTimeframe, calculateCorrelationMatrix, calculatePortfolioMetrics, getSectorConcentrationAnalysis } from '../utils/riskEngine';
 import { MetricTooltip } from './MetricTooltip';
 import { MoneyInput } from './MoneyInput';
 import { numberToVietnameseWords } from '../utils/numberToVietnameseWords';
+import { portfolioCloudSync, CloudSyncStatus, PortfolioDataModel } from '../services/portfolioCloudSync';
+import { CloudSyncModal } from './CloudSyncModal';
+import { StressTestingModule } from './StressTestingModule';
+import { MonteCarloModule } from './MonteCarloModule';
 
 interface PortfolioViewProps {
   stocks: StockData[];
@@ -101,7 +105,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [betaTimeframe, setBetaTimeframe] = useState<BetaTimeframe>('6M');
 
   // Right Column View Tab State
-  const [portfolioTab, setPortfolioTab] = useState<'POSITIONS' | 'CORRELATION' | 'SECTORS'>('POSITIONS');
+  const [portfolioTab, setPortfolioTab] = useState<'POSITIONS' | 'CORRELATION' | 'SECTORS' | 'STRESS_TEST' | 'MONTE_CARLO'>('POSITIONS');
 
   // Correlation Matrix View Mode (Sectors vs Portfolio Stocks)
   const [corrMatrixMode, setCorrMatrixMode] = useState<'SECTOR' | 'STOCKS'>('SECTOR');
@@ -112,7 +116,49 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   const [kellySymbol, setKellySymbol] = useState<string>('HPG');
   const [kellyPrice, setKellyPrice] = useState<string>('25.0');
 
-  // Sync state changes with localStorage & Server Sentinel P1 Priority Engine
+  // Cloud Sync Modal & Status State
+  const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('LOCAL_ONLY');
+
+  useEffect(() => {
+    const unsub = portfolioCloudSync.onStatusChange((st) => {
+      setCloudSyncStatus(st);
+    });
+
+    const handleCloudUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<PortfolioDataModel>;
+      if (customEvent.detail) {
+        const data = customEvent.detail;
+        if (data.positions) setPositions(data.positions);
+        if (data.capital !== undefined) setCapital(data.capital);
+        if (data.cashBalance !== undefined) setCashBalance(data.cashBalance);
+        if (data.pendingCash !== undefined) setPendingCash(data.pendingCash);
+        if (data.transactions) setRealizedTrades(data.transactions);
+      }
+    };
+
+    window.addEventListener('VNQUANT_CLOUD_PORTFOLIO_RECEIVED', handleCloudUpdate);
+
+    return () => {
+      unsub();
+      window.removeEventListener('VNQUANT_CLOUD_PORTFOLIO_RECEIVED', handleCloudUpdate);
+    };
+  }, []);
+
+  // Function to manually or automatically trigger push to Cloud
+  const handlePushToCloud = () => {
+    portfolioCloudSync.pushToCloud({
+      positions,
+      capital,
+      cashBalance,
+      pendingCash,
+      transactions: realizedTrades,
+      updatedAt: new Date().toISOString(),
+      version: 1,
+    });
+  };
+
+  // Sync state changes with localStorage, Server Sentinel & Cloud Firestore E2EE
   useEffect(() => {
     localStorage.setItem('vnquant_portfolio_positions', JSON.stringify(positions));
     // Auto sync to backend for Tier P1 Real Holding Sentinel alerts
@@ -121,7 +167,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ positions }),
     }).catch((err) => console.warn('[PORTFOLIO SENTINEL SYNC ERROR]:', err));
-  }, [positions]);
+
+    // Debounced sync to Cloud Firestore E2EE
+    const timer = setTimeout(() => {
+      handlePushToCloud();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [positions, capital, cashBalance, pendingCash, realizedTrades]);
 
   useEffect(() => {
     localStorage.setItem('vnquant_portfolio_trades', JSON.stringify(realizedTrades));
@@ -371,6 +423,30 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
 
           <button
             type="button"
+            onClick={() => setIsCloudSyncModalOpen(true)}
+            className={`px-2.5 py-1.5 border font-bold rounded-sm transition flex items-center space-x-1.5 cursor-pointer ${
+              cloudSyncStatus === 'SYNCED'
+                ? 'bg-emerald-950/70 hover:bg-emerald-900 border-emerald-700/80 text-emerald-300'
+                : cloudSyncStatus === 'SYNCING'
+                ? 'bg-blue-950/70 hover:bg-blue-900 border-blue-600 text-blue-300 animate-pulse'
+                : cloudSyncStatus === 'NEED_PIN'
+                ? 'bg-amber-950/70 hover:bg-amber-900 border-amber-600 text-amber-300'
+                : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-gray-200'
+            }`}
+            title="Mở bảng điều khiển đồng bộ đám mây và mã hóa đầu cuối E2EE"
+          >
+            <Cloud className="w-3.5 h-3.5 text-blue-400" />
+            <span>
+              {cloudSyncStatus === 'SYNCED'
+                ? 'CLOUD E2EE 🟢'
+                : cloudSyncStatus === 'NEED_PIN'
+                ? 'CẦN PIN 🔒'
+                : 'ĐỒNG BỘ CLOUD'}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setCapitalInput(capital.toString());
               setCashInput(cashBalance.toString());
@@ -394,6 +470,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
           </button>
         </div>
       </div>
+
+      {/* Cloud Sync & E2EE Modal */}
+      <CloudSyncModal
+        isOpen={isCloudSyncModalOpen}
+        onClose={() => setIsCloudSyncModalOpen(false)}
+        onManualSyncTrigger={handlePushToCloud}
+      />
 
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 font-mono text-xs">
@@ -879,6 +962,60 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
               })()}
             </div>
           </div>
+
+          {/* Quick Stress-Testing & Crisis Simulation Launcher Widget */}
+          <div
+            onClick={() => setPortfolioTab('STRESS_TEST')}
+            className="bg-gradient-to-r from-red-950/60 via-slate-900 to-black p-3.5 rounded-sm border border-red-800/80 hover:border-red-500 transition cursor-pointer shadow-lg group space-y-2 font-mono text-xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Flame className="w-4 h-4 text-red-400 group-hover:animate-bounce" />
+                <span className="font-bold text-white uppercase text-[11px]">
+                  MÔ PHỎNG KHỦNG HOẢNG LỊCH SỬ 🔥
+                </span>
+              </div>
+              <span className="text-[9px] bg-red-950 text-red-300 px-1.5 py-0.5 rounded border border-red-800 font-bold">
+                STRESS-TEST
+              </span>
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Mô phỏng kịch bản VN-Index giảm <strong className="text-red-300">-55.49 điểm (-4.5%)</strong> hoặc tăng sốc lãi suất/tỷ giá để kiểm tra sức chống chịu của danh mục và đệm tiền mặt.
+            </p>
+
+            <div className="pt-1 flex items-center justify-between text-[10px] text-blue-400 font-bold group-hover:text-blue-300">
+              <span>Mở bảng phân tích định lượng ➔</span>
+              <span className="text-gray-500">4 Kịch bản sẵn có</span>
+            </div>
+          </div>
+
+          {/* Quick Monte Carlo Stochastic Forecast Launcher Widget */}
+          <div
+            onClick={() => setPortfolioTab('MONTE_CARLO')}
+            className="bg-gradient-to-r from-indigo-950/70 via-slate-900 to-black p-3.5 rounded-sm border border-indigo-800/80 hover:border-indigo-400 transition cursor-pointer shadow-lg group space-y-2 font-mono text-xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Dices className="w-4 h-4 text-indigo-400 group-hover:rotate-45 transition-transform" />
+                <span className="font-bold text-white uppercase text-[11px]">
+                  MÔ PHỎNG MONTE CARLO 🎲
+                </span>
+              </div>
+              <span className="text-[9px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800 font-bold">
+                10.000 RUNS
+              </span>
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Chạy <strong className="text-indigo-300">1.000 - 10.000 kịch bản ngẫu nhiên (GBM)</strong> để vẽ nón phân phối xác suất NAV và đo lường rủi ro đuôi (VaR 95% & CVaR) trong 30-90 ngày tới.
+            </p>
+
+            <div className="pt-1 flex items-center justify-between text-[10px] text-indigo-400 font-bold group-hover:text-indigo-300">
+              <span>Khám phá nón xác suất NAV ➔</span>
+              <span className="text-gray-500">30-90 Ngày</span>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Positions Table, Correlation Matrix & Sector Analysis */}
@@ -982,6 +1119,32 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
               >
                 <PieChart className="w-3.5 h-3.5" />
                 <span>CƠ CẤU NGÀNH ({sectorConcentration.hasWarning ? '⚠️ Cảnh báo' : '✅ Chuẩn'})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPortfolioTab('STRESS_TEST')}
+                className={`px-3 py-1.5 rounded-sm transition flex items-center space-x-1.5 ${
+                  portfolioTab === 'STRESS_TEST'
+                    ? 'bg-red-600 text-white shadow ring-1 ring-red-400'
+                    : 'bg-[#050505] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-red-400" />
+                <span className="font-bold">MÔ PHỎNG KHỦNG HOẢNG 🔥</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPortfolioTab('MONTE_CARLO')}
+                className={`px-3 py-1.5 rounded-sm transition flex items-center space-x-1.5 ${
+                  portfolioTab === 'MONTE_CARLO'
+                    ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-400'
+                    : 'bg-[#050505] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                <Dices className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="font-bold">MÔ PHỎNG MONTE CARLO 🎲</span>
               </button>
             </div>
 
@@ -1442,6 +1605,28 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                 )}
               </div>
             </div>
+          )}
+
+          {/* TAB 4: HISTORICAL STRESS-TESTING & SCENARIO ANALYSIS */}
+          {portfolioTab === 'STRESS_TEST' && (
+            <StressTestingModule
+              positions={portfolioSummary.positions}
+              stocks={stocks}
+              freeCash={cashBalance}
+              pendingCash={pendingCash}
+              onSelectStock={onSelectStock}
+            />
+          )}
+
+          {/* TAB 5: MONTE CARLO STOCHASTIC SIMULATION & PROBABILITY FORECAST */}
+          {portfolioTab === 'MONTE_CARLO' && (
+            <MonteCarloModule
+              positions={portfolioSummary.positions}
+              stocks={stocks}
+              freeCash={cashBalance}
+              pendingCash={pendingCash}
+              onSelectStock={onSelectStock}
+            />
           )}
         </div>
       </div>

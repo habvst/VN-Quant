@@ -42,6 +42,7 @@ import {
   formatPortfolioTelegramAlert,
   formatMarketOpportunityTelegramAlert,
 } from './server/watchlistSentinelService';
+import { marketStreamHub } from './server/marketStreamHub';
 
 async function startServer() {
   const app = express();
@@ -398,37 +399,60 @@ async function startServer() {
     res.json(getTradeTicks(symbol));
   });
 
-  // 6b. Real-time Live Stream (SSE - Server-Sent Events / SSI FastConnect & VPS Stream Simulation)
+  // 6b. Enterprise Real-time Live Stream Hub (SSE - Server-Sent Events with 2-Way Command Channel)
   app.get('/api/market/stream', async (req, res) => {
     const symbol = (req.query.symbol as string || 'HPG').toUpperCase();
+    const clientId = (req.query.clientId as string) || `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const channelsParam = req.query.channels as string;
+    const channels = channelsParam ? channelsParam.split(',') : ['stock', 'orderbook', 'ticks', 'indices'];
+
     await getOrFetchStockBySymbol(symbol);
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', symbol, latencyMs: 12, feed: 'SSI_FASTCONNECT_WS_V3', timestamp: new Date().toISOString() })}\n\n`);
-
-    const intervalId = setInterval(() => {
-      const stock = getStockBySymbol(symbol);
-      const orderBook = getOrderBook(symbol);
-      const ticks = getTradeTicks(symbol);
-
-      const payload = {
-        type: 'TICK_UPDATE',
-        symbol,
-        stock,
-        orderBook,
-        latestTick: ticks[0],
-        timestamp: new Date().toISOString(),
-      };
-
-      res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    }, 1200);
+    const client = marketStreamHub.registerClient(clientId, res, symbol, channels);
 
     req.on('close', () => {
-      clearInterval(intervalId);
+      marketStreamHub.removeClient(client.id);
+    });
+  });
+
+  // 6c. 2-Way Command: Update active symbol or channels without reconnecting
+  app.post('/api/market/stream/subscribe', (req, res) => {
+    const { clientId, symbol, channels } = req.body;
+    if (!clientId) {
+      return res.status(400).json({ error: 'clientId is required' });
+    }
+
+    const success = marketStreamHub.updateClientSubscription(clientId, symbol, channels);
+    res.json({
+      status: success ? 'success' : 'client_not_found',
+      clientId,
+      symbol,
+      channels,
+      activeClients: marketStreamHub.getConnectedClientsCount(),
+    });
+  });
+
+  // 6d. Round-trip Ping/Pong Latency check
+  app.post('/api/market/stream/ping', (req, res) => {
+    const { clientTimestamp } = req.body;
+    const now = Date.now();
+    const roundtrip = clientTimestamp ? now - Number(clientTimestamp) : 8;
+    res.json({
+      status: 'pong',
+      serverTime: now,
+      latencyMs: Math.max(2, Math.round(roundtrip)),
+      activeClients: marketStreamHub.getConnectedClientsCount(),
+    });
+  });
+
+  // 6e. Stream Stats & Server Health
+  app.get('/api/market/stream/stats', (req, res) => {
+    res.json({
+      status: 'online',
+      activeClients: marketStreamHub.getConnectedClientsCount(),
+      protocol: 'SSE_V2_DUPLEX',
+      uptime: process.uptime(),
+      memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
   });
 

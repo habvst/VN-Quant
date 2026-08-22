@@ -1,6 +1,9 @@
-import { Activity, Bot, ChevronDown, Cpu, Eye, FileText, KeyRound, LayoutDashboard, LineChart, Lock, Newspaper, PieChart, RefreshCw, Search, Send, ShieldAlert, Zap } from 'lucide-react';
+import { Activity, Bot, ChevronDown, Cloud, Cpu, Database, Eye, FileText, KeyRound, LayoutDashboard, LineChart, Lock, Newspaper, PieChart, RefreshCw, Search, Send, ShieldAlert, ShieldCheck, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { MarketIndex, StockData } from '../types';
+import { auth } from '../lib/firebase';
+import { portfolioCloudSync, CloudSyncStatus } from '../services/portfolioCloudSync';
+import { User } from 'firebase/auth';
 
 interface HeaderNavProps {
   indices: MarketIndex[];
@@ -10,6 +13,7 @@ interface HeaderNavProps {
   onSelectStock: (symbol: string) => void;
   selectedStockSymbol: string;
   onOpenTelegramModal?: () => void;
+  onOpenCloudSyncModal?: () => void;
   onLockApp?: () => void;
 }
 
@@ -21,13 +25,29 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onSelectStock,
   selectedStockSymbol,
   onOpenTelegramModal,
+  onOpenCloudSyncModal,
   onLockApp,
 }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('LOCAL_ONLY');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [countdown, setCountdown] = useState(300); // 5 minutes countdown (300 seconds)
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => {
+      setCurrentUser(u);
+    });
+    const unsubSync = portfolioCloudSync.onStatusChange((st) => {
+      setCloudStatus(st);
+    });
+    return () => {
+      unsubAuth();
+      unsubSync();
+    };
+  }, []);
 
   const [lastUpdated, setLastUpdated] = useState<string>(() =>
     new Date().toLocaleString('vi-VN', {
@@ -155,7 +175,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Status, AI Refresh, Telegram Bot & Lock Screen Controls (Always Pinned to Top Right) */}
+        {/* Right Side: Status, AI Refresh, Cloud Sync E2EE, Telegram Bot & Lock Screen Controls */}
         <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0 ml-auto font-mono">
           <div className="hidden xl:flex items-center space-x-1.5 text-gray-400 text-[10px] bg-[#0a0a0a] px-2 py-0.5 rounded-sm border border-gray-800">
             <span className="text-gray-500">Cập nhật:</span>
@@ -168,8 +188,40 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <span className="text-blue-400 font-bold">{formatTime(countdown)}</span>
           </div>
 
-          {/* Telegram Settings Modal Opener & Lock Terminal Button */}
+          {/* Cloud Sync E2EE, Telegram Settings & Lock Terminal Buttons */}
           <div className="flex items-center space-x-1.5 sm:space-x-2">
+            {onOpenCloudSyncModal && (
+              <button
+                onClick={onOpenCloudSyncModal}
+                className={`flex items-center space-x-1 px-2 py-0.5 sm:py-1 rounded border text-[10px] font-bold transition shadow-sm cursor-pointer group whitespace-nowrap ${
+                  cloudStatus === 'SYNCED'
+                    ? 'bg-emerald-950/70 hover:bg-emerald-900 border-emerald-700/80 text-emerald-300'
+                    : cloudStatus === 'SYNCING'
+                    ? 'bg-blue-950/70 hover:bg-blue-900 border-blue-600/80 text-blue-300 animate-pulse'
+                    : cloudStatus === 'NEED_PIN'
+                    ? 'bg-amber-950/70 hover:bg-amber-900 border-amber-600/80 text-amber-300'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-gray-300'
+                }`}
+                title="Đồng bộ Đám mây Cloud Firestore & Mã hóa đầu cuối E2EE"
+              >
+                {cloudStatus === 'SYNCED' ? (
+                  <Database className="w-3 h-3 text-emerald-400 shrink-0" />
+                ) : (
+                  <Cloud className="w-3 h-3 text-blue-400 shrink-0" />
+                )}
+                <span className="hidden sm:inline">
+                  {currentUser
+                    ? cloudStatus === 'SYNCED'
+                      ? 'CLOUD E2EE 🟢'
+                      : cloudStatus === 'NEED_PIN'
+                      ? 'CẦN PIN 🔒'
+                      : 'ĐANG ĐỒNG BỘ 🟡'
+                    : 'ĐỒNG BỘ CLOUD'}
+                </span>
+                <span className="sm:hidden">CLOUD</span>
+              </button>
+            )}
+
             {onOpenTelegramModal && (
               <button
                 onClick={onOpenTelegramModal}
