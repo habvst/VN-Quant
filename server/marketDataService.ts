@@ -10,6 +10,12 @@ interface RawStockSeed {
   exchange: MarketType;
   sector: string;
   basePrice: number; // Trong nghìn VNĐ
+  referencePrice: number;
+  ceilingPrice: number;
+  floorPrice: number;
+  change: number;
+  changePercent: number;
+  volume: number;
   marketCap: number; // Tỷ VNĐ
   pe: number;
   pb: number;
@@ -36,7 +42,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tập đoàn Hòa Phát',
     exchange: 'HOSE',
     sector: 'Thép',
-    basePrice: 21.0,
+    basePrice: 21.7,
+    referencePrice: 21.15,
+    ceilingPrice: 22.6,
+    floorPrice: 19.7,
+    change: 0.55,
+    changePercent: 2.6,
+    volume: 25138400,
     marketCap: 128900,
     pe: 13.8,
     pb: 1.5,
@@ -61,7 +73,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần FPT',
     exchange: 'HOSE',
     sector: 'Công nghệ',
-    basePrice: 69.0,
+    basePrice: 72.0,
+    referencePrice: 69.8,
+    ceilingPrice: 74.6,
+    floorPrice: 65.0,
+    change: 2.2,
+    changePercent: 3.15,
+    volume: 7035800,
     marketCap: 108000,
     pe: 24.2,
     pb: 5.1,
@@ -86,7 +104,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Sữa Việt Nam',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 62.1,
+    basePrice: 63.8,
+    referencePrice: 64.0,
+    ceilingPrice: 68.4,
+    floorPrice: 59.6,
+    change: -0.2,
+    changePercent: -0.31,
+    volume: 3581800,
     marketCap: 124300,
     pe: 15.2,
     pb: 4.0,
@@ -111,7 +135,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Quân Đội',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 19.95,
+    basePrice: 20.85,
+    referencePrice: 20.3,
+    ceilingPrice: 21.7,
+    floorPrice: 18.9,
+    change: 0.55,
+    changePercent: 2.71,
+    volume: 15698000,
     marketCap: 129000,
     pe: 5.9,
     pb: 1.1,
@@ -137,6 +167,12 @@ const RAW_STOCKS: RawStockSeed[] = [
     exchange: 'HOSE',
     sector: 'Chứng khoán',
     basePrice: 20.75,
+    referencePrice: 19.4,
+    ceilingPrice: 20.75,
+    floorPrice: 18.05,
+    change: 1.35,
+    changePercent: 6.96,
+    volume: 38706800,
     marketCap: 52400,
     pe: 16.5,
     pb: 1.7,
@@ -161,7 +197,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 30.85,
+    basePrice: 31.65,
+    referencePrice: 31.0,
+    ceilingPrice: 33.15,
+    floorPrice: 28.85,
+    change: 0.65,
+    changePercent: 2.1,
+    volume: 9772000,
     marketCap: 208000,
     pe: 6.8,
     pb: 1.05,
@@ -186,7 +228,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư Thế Giới Di Động',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 72.8,
+    basePrice: 75.0,
+    referencePrice: 72.7,
+    ceilingPrice: 77.7,
+    floorPrice: 67.7,
+    change: 2.3,
+    changePercent: 3.16,
+    volume: 4995900,
     marketCap: 105400,
     pe: 22.0,
     pb: 3.3,
@@ -211,7 +259,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Vinhomes',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 69.2,
+    basePrice: 71.7,
+    referencePrice: 69.5,
+    ceilingPrice: 74.3,
+    floorPrice: 64.7,
+    change: 2.2,
+    changePercent: 3.17,
+    volume: 5100800,
     marketCap: 301000,
     pe: 8.2,
     pb: 1.02,
@@ -236,7 +290,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tập đoàn Vingroup',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 200.0,
+    basePrice: 205.0,
+    referencePrice: 202.0,
+    ceilingPrice: 216.1,
+    floorPrice: 187.9,
+    change: 3.0,
+    changePercent: 1.49,
+    volume: 3196900,
     marketCap: 760000,
     pe: 32.0,
     pb: 1.35,
@@ -261,7 +321,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Ngoại Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 58.0,
+    basePrice: 59.1,
+    referencePrice: 57.8,
+    ceilingPrice: 61.8,
+    floorPrice: 53.8,
+    change: 1.3,
+    changePercent: 2.25,
+    volume: 4695200,
     marketCap: 324000,
     pe: 13.5,
     pb: 2.4,
@@ -286,7 +352,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Sài Gòn Thương Tín',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 75.2,
+    basePrice: 74.7,
+    referencePrice: 74.5,
+    ceilingPrice: 79.7,
+    floorPrice: 69.3,
+    change: 0.2,
+    changePercent: 0.27,
+    volume: 1953800,
     marketCap: 141000,
     pe: 8.5,
     pb: 1.3,
@@ -311,7 +383,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Tập đoàn Hóa chất Đức Giang',
     exchange: 'HOSE',
     sector: 'Hóa chất',
-    basePrice: 41.8,
+    basePrice: 43.05,
+    referencePrice: 41.4,
+    ceilingPrice: 44.25,
+    floorPrice: 38.55,
+    change: 1.65,
+    changePercent: 3.99,
+    volume: 451600,
     marketCap: 15800,
     pe: 14.0,
     pb: 2.8,
@@ -336,7 +414,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư và Kinh doanh Nhà Khang Điền',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 17.7,
+    basePrice: 18.0,
+    referencePrice: 17.15,
+    ceilingPrice: 18.35,
+    floorPrice: 15.95,
+    change: 0.85,
+    changePercent: 4.96,
+    volume: 6264700,
     marketCap: 12500,
     pe: 18.0,
     pb: 1.4,
@@ -361,7 +445,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Phát triển Bất động sản Phát Đạt',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 12.05,
+    basePrice: 12.3,
+    referencePrice: 11.8,
+    ceilingPrice: 12.6,
+    floorPrice: 11.0,
+    change: 0.5,
+    changePercent: 4.24,
+    volume: 8033600,
     marketCap: 10500,
     pe: 20.0,
     pb: 1.2,
@@ -386,7 +476,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Đầu tư Phát triển Xây dựng',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 10.6,
+    basePrice: 11.0,
+    referencePrice: 10.3,
+    ceilingPrice: 11.0,
+    floorPrice: 9.58,
+    change: 0.7,
+    changePercent: 6.8,
+    volume: 10507200,
     marketCap: 6400,
     pe: 35.0,
     pb: 1.1,
@@ -411,7 +507,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Cơ Điện Lạnh',
     exchange: 'HOSE',
     sector: 'Điện',
-    basePrice: 45.35,
+    basePrice: 46.1,
+    referencePrice: 45.6,
+    ceilingPrice: 48.75,
+    floorPrice: 42.45,
+    change: 0.5,
+    changePercent: 1.1,
+    volume: 384700,
     marketCap: 21500,
     pe: 11.5,
     pb: 1.4,
@@ -436,7 +538,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Gemadept',
     exchange: 'HOSE',
     sector: 'Cảng biển',
-    basePrice: 79.5,
+    basePrice: 77.4,
+    referencePrice: 77.0,
+    ceilingPrice: 82.3,
+    floorPrice: 71.7,
+    change: 0.4,
+    changePercent: 0.52,
+    volume: 1388900,
     marketCap: 24200,
     pe: 12.0,
     pb: 2.2,
@@ -461,7 +569,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Khoan và Dịch vụ Khoan Dầu khí',
     exchange: 'HOSE',
     sector: 'Dầu khí',
-    basePrice: 18.5,
+    basePrice: 18.6,
+    referencePrice: 18.35,
+    ceilingPrice: 19.6,
+    floorPrice: 17.1,
+    change: 0.25,
+    changePercent: 1.36,
+    volume: 2938800,
     marketCap: 10200,
     pe: 16.0,
     pb: 1.0,
@@ -486,7 +600,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Dịch vụ Kỹ thuật Dầu khí Việt Nam',
     exchange: 'HNX',
     sector: 'Dầu khí',
-    basePrice: 35.7,
+    basePrice: 37.0,
+    referencePrice: 37.0,
+    ceilingPrice: 40.7,
+    floorPrice: 33.3,
+    change: 0.0,
+    changePercent: 0.0,
+    volume: 2869423,
     marketCap: 17100,
     pe: 15.5,
     pb: 1.3,
@@ -511,7 +631,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Bán lẻ Kỹ thuật số FPT',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 145.1,
+    basePrice: 143.5,
+    referencePrice: 145.0,
+    ceilingPrice: 155.1,
+    floorPrice: 134.9,
+    change: -1.5,
+    changePercent: -1.03,
+    volume: 469400,
     marketCap: 19800,
     pe: 42.0,
     pb: 8.5,
@@ -536,7 +662,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư Nam Long',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 23.5,
+    basePrice: 24.0,
+    referencePrice: 23.45,
+    ceilingPrice: 25.05,
+    floorPrice: 21.85,
+    change: 0.55,
+    changePercent: 2.35,
+    volume: 3392700,
     marketCap: 9000,
     pe: 16.0,
     pb: 1.2,
@@ -561,7 +693,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Phát triển Đô thị Kinh Bắc',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 27.05,
+    basePrice: 27.35,
+    referencePrice: 27.1,
+    ceilingPrice: 28.95,
+    floorPrice: 25.25,
+    change: 0.25,
+    changePercent: 0.92,
+    volume: 1544600,
     marketCap: 20700,
     pe: 14.5,
     pb: 1.1,
@@ -586,7 +724,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Vincom Retail',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 24.4,
+    basePrice: 25.3,
+    referencePrice: 24.15,
+    ceilingPrice: 25.8,
+    floorPrice: 22.5,
+    change: 1.15,
+    changePercent: 4.76,
+    volume: 6035600,
     marketCap: 55400,
     pe: 13.0,
     pb: 1.5,
@@ -611,7 +755,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Công Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 31.55,
+    basePrice: 32.15,
+    referencePrice: 31.4,
+    ceilingPrice: 33.55,
+    floorPrice: 29.25,
+    change: 0.75,
+    changePercent: 2.39,
+    volume: 6428200,
     marketCap: 169000,
     pe: 6.2,
     pb: 1.1,
@@ -636,7 +786,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Á Châu',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 21.65,
+    basePrice: 22.75,
+    referencePrice: 21.95,
+    ceilingPrice: 23.45,
+    floorPrice: 20.45,
+    change: 0.8,
+    changePercent: 3.64,
+    volume: 12170700,
     marketCap: 84000,
     pe: 5.8,
     pb: 1.15,
@@ -662,13 +818,12 @@ const RAW_STOCKS: RawStockSeed[] = [
 const candleStore: Record<string, Candle[]> = {};
 const stockStore: Record<string, StockData> = {};
 
-// Helper to generate deterministic historical daily candles (3 years) that GUARANTEE ending at targetPrice
-function generateHistoricalCandles(targetPrice: number, changePercent: number = 0): Candle[] {
+// Helper to generate deterministic historical daily candles (3 years) that GUARANTEE ending at targetPrice and referencePrice
+function generateHistoricalCandles(targetPrice: number, referencePrice: number = targetPrice, changePercent: number = 0): Candle[] {
   const now = new Date();
   const daysToGenerate = 750; // ~3 years of trading days
 
-  // Work BACKWARDS from targetPrice so that the most recent candle (index length-1) is EXACTLY targetPrice!
-  let currentClose = targetPrice;
+  let currentClose = referencePrice;
 
   const dates: string[] = [];
   let dayOffset = 0;
@@ -683,10 +838,42 @@ function generateHistoricalCandles(targetPrice: number, changePercent: number = 
 
   for (let i = 0; i < dates.length; i++) {
     const dateStr = dates[i];
-    const dailyChange = i === 0
-      ? (changePercent / 100)
-      : ((Math.random() - 0.485) * 0.032);
+    if (i === 0) {
+      // Latest candle (today)
+      const open = Math.max(0.5, Number((referencePrice + (targetPrice - referencePrice) * 0.3).toFixed(2)));
+      const high = Number((Math.max(open, targetPrice) * 1.008).toFixed(2));
+      const low = Number((Math.min(open, targetPrice) * 0.992).toFixed(2));
+      const volume = Math.floor(2500000 + Math.random() * 8000000);
+      backwardsCandles.push({
+        time: dateStr,
+        open,
+        high,
+        low,
+        close: targetPrice,
+        volume,
+      });
+      continue;
+    }
 
+    if (i === 1) {
+      // Previous day candle (yesterday = reference price)
+      const open = Number((referencePrice * 0.995).toFixed(2));
+      const high = Number((referencePrice * 1.01).toFixed(2));
+      const low = Number((referencePrice * 0.99).toFixed(2));
+      const volume = Math.floor(2000000 + Math.random() * 6000000);
+      backwardsCandles.push({
+        time: dateStr,
+        open,
+        high,
+        low,
+        close: referencePrice,
+        volume,
+      });
+      currentClose = referencePrice;
+      continue;
+    }
+
+    const dailyChange = (Math.random() - 0.485) * 0.032;
     const open = Math.max(0.5, Number((currentClose / (1 + dailyChange)).toFixed(2)));
     const high = Number((Math.max(open, currentClose) * (1 + Math.random() * 0.015)).toFixed(2));
     const low = Number((Math.min(open, currentClose) * (1 - Math.random() * 0.015)).toFixed(2));
@@ -706,7 +893,8 @@ function generateHistoricalCandles(targetPrice: number, changePercent: number = 
 
   // Reverse so chronological order: oldest to newest
   const sorted = backwardsCandles.reverse();
-  if (sorted.length > 0) {
+  if (sorted.length > 1) {
+    sorted[sorted.length - 2].close = referencePrice;
     sorted[sorted.length - 1].close = targetPrice;
   }
   return sorted;
@@ -714,17 +902,8 @@ function generateHistoricalCandles(targetPrice: number, changePercent: number = 
 
 // Initialize Stock Database
 RAW_STOCKS.forEach((raw) => {
-  const candles = generateHistoricalCandles(raw.basePrice);
+  const candles = generateHistoricalCandles(raw.basePrice, raw.referencePrice, raw.changePercent);
   candleStore[raw.symbol] = candles;
-
-  const lastCandle = candles[candles.length - 1];
-  const prevCandle = candles[candles.length - 2] || lastCandle;
-  const change = Number((lastCandle.close - prevCandle.close).toFixed(2));
-  const changePercent = prevCandle.close > 0 ? Number(((change / prevCandle.close) * 100).toFixed(2)) : 0;
-
-  const referencePrice = prevCandle.close;
-  const ceilingPrice = Number((referencePrice * (raw.exchange === 'HOSE' ? 1.07 : raw.exchange === 'HNX' ? 1.1 : 1.15)).toFixed(2));
-  const floorPrice = Number((referencePrice * (raw.exchange === 'HOSE' ? 0.93 : raw.exchange === 'HNX' ? 0.9 : 0.85)).toFixed(2));
 
   const technical = computeTechnicalIndicators(candles);
 
@@ -767,19 +946,19 @@ RAW_STOCKS.forEach((raw) => {
     exchange: raw.exchange,
     sector: raw.sector,
     price: raw.basePrice,
-    change,
-    changePercent,
-    openPrice: lastCandle.open,
-    highPrice: lastCandle.high,
-    lowPrice: lastCandle.low,
-    referencePrice,
-    ceilingPrice,
-    floorPrice,
-    volume: lastCandle.volume,
-    value: Number(((raw.basePrice * lastCandle.volume) / 10000000).toFixed(1)), // Tỷ VNĐ
-    foreignBuyVol: Math.floor(lastCandle.volume * 0.15),
-    foreignSellVol: Math.floor(lastCandle.volume * 0.08),
-    foreignNetVal: Number(((lastCandle.volume * 0.07 * raw.basePrice) / 1000000).toFixed(1)),
+    change: raw.change,
+    changePercent: raw.changePercent,
+    openPrice: Number((raw.referencePrice + raw.change * 0.4).toFixed(2)),
+    highPrice: Math.max(raw.basePrice, Number((raw.referencePrice + Math.abs(raw.change) * 1.2).toFixed(2))),
+    lowPrice: Math.min(raw.basePrice, Number((raw.referencePrice - Math.abs(raw.change) * 0.3).toFixed(2))),
+    referencePrice: raw.referencePrice,
+    ceilingPrice: raw.ceilingPrice,
+    floorPrice: raw.floorPrice,
+    volume: raw.volume,
+    value: Number(((raw.basePrice * raw.volume) / 10000000).toFixed(1)), // Tỷ VNĐ
+    foreignBuyVol: Math.floor(raw.volume * 0.15),
+    foreignSellVol: Math.floor(raw.volume * 0.08),
+    foreignNetVal: Number(((raw.volume * 0.07 * raw.basePrice) / 1000000).toFixed(1)),
     technical,
     fundamental,
     financialStatements,
@@ -1439,43 +1618,81 @@ export async function syncRealMarketData() {
 
     // 1. Fetch real-time stock prices from exchange API
     const priceUrl = `https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${symbols.join(',')}&size=100`;
-    const res = await fetch(priceUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (res.ok) {
-      const json = await res.json();
-      const rawList = json.data || [];
-      const latestMap: Record<string, any> = {};
-      rawList.forEach((item: any) => {
-        if (!latestMap[item.code]) {
-          latestMap[item.code] = item;
-        }
-      });
-
-      symbols.forEach((sym) => {
-        const item = latestMap[sym];
-        const stock = stockStore[sym];
-        if (item && stock) {
-          stock.price = item.close;
-          stock.referencePrice = item.basicPrice;
-          stock.ceilingPrice = item.ceilingPrice;
-          stock.floorPrice = item.floorPrice;
-          stock.openPrice = item.open;
-          stock.highPrice = item.high;
-          stock.lowPrice = item.low;
-          stock.change = item.change;
-          stock.changePercent = Number((item.pctChange ?? 0).toFixed(2));
-          stock.volume = item.nmVolume;
-          stock.value = Number(((item.nmValue ?? 0) / 1000000000).toFixed(1));
-
-          // Synchronize latest candle with live quote
-          if (candleStore[sym] && candleStore[sym].length > 0) {
-            const lastC = candleStore[sym][candleStore[sym].length - 1];
-            lastC.close = item.close;
-            lastC.high = Math.max(lastC.high, item.high || item.close);
-            lastC.low = Math.min(lastC.low, item.low || item.close);
-            lastC.volume = item.nmVolume || lastC.volume;
+    let quoteSuccess = false;
+    try {
+      const res = await fetch(priceUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (res.ok) {
+        const json = await res.json();
+        const rawList = json.data || [];
+        const latestMap: Record<string, any> = {};
+        rawList.forEach((item: any) => {
+          if (!latestMap[item.code]) {
+            latestMap[item.code] = item;
           }
+        });
+
+        if (Object.keys(latestMap).length > 0) {
+          quoteSuccess = true;
+          symbols.forEach((sym) => {
+            const item = latestMap[sym];
+            const stock = stockStore[sym];
+            if (item && stock) {
+              stock.price = item.close;
+              stock.referencePrice = item.basicPrice;
+              stock.ceilingPrice = item.ceilingPrice;
+              stock.floorPrice = item.floorPrice;
+              stock.openPrice = item.open;
+              stock.highPrice = item.high;
+              stock.lowPrice = item.low;
+              stock.change = item.change;
+              stock.changePercent = Number((item.pctChange ?? 0).toFixed(2));
+              stock.volume = item.nmVolume;
+              stock.value = Number(((item.nmValue ?? 0) / 1000000000).toFixed(1));
+
+              // Synchronize latest candle with live quote
+              if (candleStore[sym] && candleStore[sym].length > 0) {
+                const lastC = candleStore[sym][candleStore[sym].length - 1];
+                lastC.close = item.close;
+                lastC.high = Math.max(lastC.high, item.high || item.close);
+                lastC.low = Math.min(lastC.low, item.low || item.close);
+                lastC.volume = item.nmVolume || lastC.volume;
+              }
+            }
+          });
         }
-      });
+      }
+    } catch {}
+
+    // Fallback: If VNDirect is blocked/fails on Render cloud host, sync latest price from DNSE
+    if (!quoteSuccess) {
+      const dnseNow = Math.floor(Date.now() / 1000);
+      for (const sym of symbols) {
+        try {
+          const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${dnseNow - 86400 * 10}&to=${dnseNow}&resolution=1D`;
+          const dRes = await fetch(dnseUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (dRes.ok) {
+            const dJson = await dRes.json();
+            if (dJson && dJson.c && dJson.c.length > 0) {
+              const len = dJson.c.length - 1;
+              const close = dJson.c[len];
+              const prevClose = len > 0 ? dJson.c[len - 1] : close;
+              const change = Number((close - prevClose).toFixed(2));
+              const pct = prevClose > 0 ? Number(((change / prevClose) * 100).toFixed(2)) : 0;
+              const stock = stockStore[sym];
+              if (stock) {
+                stock.price = close;
+                stock.referencePrice = prevClose;
+                stock.change = change;
+                stock.changePercent = pct;
+                stock.volume = dJson.v?.[len] || stock.volume;
+                stock.highPrice = dJson.h?.[len] || close;
+                stock.lowPrice = dJson.l?.[len] || close;
+                stock.openPrice = dJson.o?.[len] || close;
+              }
+            }
+          }
+        } catch {}
+      }
     }
 
     // 2. Fetch candle histories for active stocks to keep technical indicators exact
@@ -1556,26 +1773,56 @@ export async function syncRealMarketData() {
 
     for (const [key, dchartSymbol] of Object.entries(idxMap)) {
       try {
-        const iUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${dchartSymbol}&from=${from}&to=${now}`;
-        const iRes = await fetch(iUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (iRes.ok) {
-          const iData = await iRes.json();
-          if (iData && iData.t && iData.t.length > 0) {
-            const len = iData.t.length - 1;
-            const prev = len > 0 ? len - 1 : len;
-            const currentPrice = iData.c[len];
-            const prevPrice = iData.c[prev];
-            const change = Number((currentPrice - prevPrice).toFixed(2));
-            const changePercent = Number(((change / prevPrice) * 100).toFixed(2));
+        let matched = false;
+        try {
+          const iUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${dchartSymbol}&from=${from}&to=${now}`;
+          const iRes = await fetch(iUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (iRes.ok) {
+            const iData = await iRes.json();
+            if (iData && iData.t && iData.t.length > 0) {
+              const len = iData.t.length - 1;
+              const prev = len > 0 ? len - 1 : len;
+              const currentPrice = iData.c[len];
+              const prevPrice = iData.c[prev];
+              const change = Number((currentPrice - prevPrice).toFixed(2));
+              const changePercent = Number(((change / prevPrice) * 100).toFixed(2));
 
-            const targetIdx = liveIndices.find((i) => i.symbol === key);
-            if (targetIdx) {
-              targetIdx.price = currentPrice;
-              targetIdx.change = change;
-              targetIdx.changePercent = changePercent;
-              targetIdx.totalVolume = iData.v[len];
+              const targetIdx = liveIndices.find((i) => i.symbol === key);
+              if (targetIdx) {
+                targetIdx.price = currentPrice;
+                targetIdx.change = change;
+                targetIdx.changePercent = changePercent;
+                targetIdx.totalVolume = iData.v[len];
+                matched = true;
+              }
             }
           }
+        } catch {}
+
+        if (!matched) {
+          try {
+            const dnseIdxUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/index?symbol=${dchartSymbol}&from=${now - 86400 * 10}&to=${now}&resolution=1D`;
+            const dnseRes = await fetch(dnseIdxUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (dnseRes.ok) {
+              const dData = await dnseRes.json();
+              if (dData && dData.t && dData.t.length > 0) {
+                const len = dData.t.length - 1;
+                const prev = len > 0 ? len - 1 : len;
+                const currentPrice = dData.c[len];
+                const prevPrice = dData.c[prev];
+                const change = Number((currentPrice - prevPrice).toFixed(2));
+                const changePercent = Number(((change / prevPrice) * 100).toFixed(2));
+
+                const targetIdx = liveIndices.find((i) => i.symbol === key);
+                if (targetIdx) {
+                  targetIdx.price = currentPrice;
+                  targetIdx.change = change;
+                  targetIdx.changePercent = changePercent;
+                  targetIdx.totalVolume = dData.v[len];
+                }
+              }
+            }
+          } catch {}
         }
       } catch (e) {}
     }
