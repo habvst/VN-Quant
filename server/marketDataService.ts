@@ -36,10 +36,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tập đoàn Hòa Phát',
     exchange: 'HOSE',
     sector: 'Thép',
-    basePrice: 22.15,
+    basePrice: 21.0,
     marketCap: 128900,
-    pe: 14.2,
-    pb: 1.55,
+    pe: 13.8,
+    pb: 1.5,
     eps: 2017,
     roe: 12.8,
     roa: 7.4,
@@ -52,8 +52,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 3.5,
     aiVerdict: 'MUA MẠNH',
     aiScore: 92,
-    aiTarget: 34.5,
-    aiStop: 20.2,
+    aiTarget: 28.5,
+    aiStop: 19.5,
     aiReasoning: 'Khu liên hợp Dung Quất 2 chạy tối đa công suất giúp sản lượng HRC tăng 40%. Chu kỳ ngành thép phục hồi mạnh mẽ cùng biên lợi nhuận gộp mở rộng.',
   },
   {
@@ -61,10 +61,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần FPT',
     exchange: 'HOSE',
     sector: 'Công nghệ',
-    basePrice: 71.5,
+    basePrice: 69.0,
     marketCap: 108000,
-    pe: 24.8,
-    pb: 5.2,
+    pe: 24.2,
+    pb: 5.1,
     eps: 5423,
     roe: 26.4,
     roa: 12.1,
@@ -77,8 +77,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 2.1,
     aiVerdict: 'MUA MẠNH',
     aiScore: 95,
-    aiTarget: 95.0,
-    aiStop: 66.0,
+    aiTarget: 92.0,
+    aiStop: 63.0,
     aiReasoning: 'Động lực từ mảng AI, Semiconductor và dịch vụ CNTT nước ngoài tăng trưởng >25%. Hợp đồng ký mới ký kết kỷ lục tại Nhật Bản và Mỹ.',
   },
   {
@@ -86,10 +86,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Sữa Việt Nam',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 59.5,
+    basePrice: 62.1,
     marketCap: 124300,
-    pe: 15.6,
-    pb: 4.1,
+    pe: 15.2,
+    pb: 4.0,
     eps: 4346,
     roe: 24.2,
     roa: 16.5,
@@ -103,7 +103,7 @@ const RAW_STOCKS: RawStockSeed[] = [
     aiVerdict: 'MUA',
     aiScore: 78,
     aiTarget: 72.0,
-    aiStop: 55.5,
+    aiStop: 57.5,
     aiReasoning: 'Tỷ lệ cổ tức tiền mặt cao và ổn định (5.8%). Giá nguyên liệu sữa bột đầu vào duy trì ở mức thấp hỗ trợ mở rộng biên lợi nhuận.',
   },
   {
@@ -111,10 +111,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Quân Đội',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 24.4,
+    basePrice: 19.95,
     marketCap: 129000,
-    pe: 6.2,
-    pb: 1.15,
+    pe: 5.9,
+    pb: 1.1,
     eps: 4000,
     roe: 21.5,
     roa: 2.4,
@@ -127,19 +127,19 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 4.0,
     aiVerdict: 'MUA MẠNH',
     aiScore: 89,
-    aiTarget: 30.0,
-    aiStop: 22.5,
-    aiReasoning: 'Định giá P/B cực kỳ hấp dẫn (1.15x) so với hiệu suất ROE vượt trội 21.5%. Tăng trưởng tín dụng dẫn đầu ngành ngân hàng.',
+    aiTarget: 26.0,
+    aiStop: 18.5,
+    aiReasoning: 'Định giá P/B cực kỳ hấp dẫn (1.1x) so với hiệu suất ROE vượt trội 21.5%. Tăng trưởng tín dụng dẫn đầu ngành ngân hàng.',
   },
   {
     symbol: 'SSI',
     name: 'Công ty Cổ phần Chứng khoán SSI',
     exchange: 'HOSE',
     sector: 'Chứng khoán',
-    basePrice: 24.55,
+    basePrice: 19.5,
     marketCap: 48200,
-    pe: 18.5,
-    pb: 1.85,
+    pe: 16.5,
+    pb: 1.7,
     eps: 1848,
     roe: 12.5,
     roa: 5.8,
@@ -152,8 +152,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 3.0,
     aiVerdict: 'MUA',
     aiScore: 84,
-    aiTarget: 32.0,
-    aiStop: 22.0,
+    aiTarget: 26.0,
+    aiStop: 18.0,
     aiReasoning: 'Hưởng lợi trực tiếp từ thanh khoản thị trường bùng nổ và hệ thống KRX vận hành chính thức, tiến tới nâng hạng thị trường FTSE KRX.',
   },
   {
@@ -161,10 +161,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 29.65,
+    basePrice: 30.85,
     marketCap: 208000,
-    pe: 7.1,
-    pb: 1.1,
+    pe: 6.8,
+    pb: 1.05,
     eps: 3310,
     roe: 18.2,
     roa: 2.6,
@@ -177,8 +177,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 3.8,
     aiVerdict: 'MUA MẠNH',
     aiScore: 90,
-    aiTarget: 36.5,
-    aiStop: 26.2,
+    aiTarget: 38.5,
+    aiStop: 28.0,
     aiReasoning: 'Tỷ lệ CASA vượt mốc 40% giúp chi phí vốn cực thấp. Mảng trái phiếu doanh nghiệp và bất động sản đang hồi phục tích cực.',
   },
   {
@@ -186,10 +186,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư Thế Giới Di Động',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 72.1,
+    basePrice: 72.8,
     marketCap: 105400,
-    pe: 22.4,
-    pb: 3.4,
+    pe: 22.0,
+    pb: 3.3,
     eps: 2920,
     roe: 16.8,
     roa: 6.2,
@@ -202,8 +202,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 1.5,
     aiVerdict: 'MUA',
     aiScore: 86,
-    aiTarget: 86.0,
-    aiStop: 65.5,
+    aiTarget: 88.0,
+    aiStop: 66.0,
     aiReasoning: 'Chuỗi Bách Hóa Xanh bắt đầu ghi nhận lợi nhuận ròng tăng đều đặn. Tái cơ cấu thành công hệ thống Thế Giới Di Động & Điện Máy Xanh.',
   },
   {
@@ -211,10 +211,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Vinhomes',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 152.9,
-    marketCap: 665000,
-    pe: 8.5,
-    pb: 1.05,
+    basePrice: 69.2,
+    marketCap: 301000,
+    pe: 8.2,
+    pb: 1.02,
     eps: 4950,
     roe: 17.5,
     roa: 8.2,
@@ -227,19 +227,19 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 0.0,
     aiVerdict: 'THEO DÕI',
     aiScore: 72,
-    aiTarget: 175.5,
-    aiStop: 140.0,
-    aiReasoning: 'Định giá lịch sử siêu rẻ P/B ~ 1.05x. Tuy nhiên dòng tiền khối ngoại bán ròng tạo áp lực ngắn hạn. Chờ tín hiệu tạo đáy kỹ thuật.',
+    aiTarget: 82.5,
+    aiStop: 63.0,
+    aiReasoning: 'Định giá lịch sử siêu rẻ P/B ~ 1.02x. Quỹ đất lớn nhất Việt Nam sẵn sàng mở bán các đại dự án mới khi thị trường BĐS ấm lên.',
   },
   {
     symbol: 'VIC',
     name: 'Tập đoàn Vingroup',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 218.0,
-    marketCap: 830000,
-    pe: 35.2,
-    pb: 1.4,
+    basePrice: 200.0,
+    marketCap: 760000,
+    pe: 32.0,
+    pb: 1.35,
     eps: 1284,
     roe: 4.8,
     roa: 1.2,
@@ -261,10 +261,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Ngoại Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 60.0,
-    marketCap: 335000,
-    pe: 14.8,
-    pb: 2.8,
+    basePrice: 58.0,
+    marketCap: 324000,
+    pe: 13.5,
+    pb: 2.4,
     eps: 6250,
     roe: 21.0,
     roa: 2.2,
@@ -277,8 +277,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 2.5,
     aiVerdict: 'MUA',
     aiScore: 88,
-    aiTarget: 72.0,
-    aiStop: 55.0,
+    aiTarget: 68.0,
+    aiStop: 53.0,
     aiReasoning: 'Chất lượng tài sản hàng đầu toàn hệ thống với tỷ lệ bao phủ nợ xấu vượt 200%. Vị thế anh cả ngành ngân hàng giữ nhịp chỉ số VNIndex.',
   },
   {
@@ -286,10 +286,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Sài Gòn Thương Tín',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 74.1,
-    marketCap: 139600,
-    pe: 7.8,
-    pb: 1.25,
+    basePrice: 75.2,
+    marketCap: 141000,
+    pe: 8.5,
+    pb: 1.3,
     eps: 4070,
     roe: 18.5,
     roa: 1.8,
@@ -311,10 +311,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Tập đoàn Hóa chất Đức Giang',
     exchange: 'HOSE',
     sector: 'Hóa chất',
-    basePrice: 39.6,
-    marketCap: 15000,
-    pe: 12.8,
-    pb: 3.1,
+    basePrice: 41.8,
+    marketCap: 15800,
+    pe: 14.0,
+    pb: 2.8,
     eps: 8780,
     roe: 27.5,
     roa: 21.2,
@@ -327,8 +327,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 4.5,
     aiVerdict: 'MUA MẠNH',
     aiScore: 93,
-    aiTarget: 48.0,
-    aiStop: 35.0,
+    aiTarget: 52.0,
+    aiStop: 38.0,
     aiReasoning: 'Giá Phốt pho vàng (P4) thế giới tăng vọt do nhu cầu sản xuất chip bán dẫn và pin xe điện. Dự án Nghi Sơn sẵn sàng khởi công.',
   },
   {
@@ -336,10 +336,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư và Kinh doanh Nhà Khang Điền',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 18.0,
-    marketCap: 14300,
-    pe: 21.5,
-    pb: 1.8,
+    basePrice: 17.7,
+    marketCap: 12500,
+    pe: 18.0,
+    pb: 1.4,
     eps: 1680,
     roe: 9.2,
     roa: 5.1,
@@ -361,10 +361,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Phát triển Bất động sản Phát Đạt',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 12.1,
+    basePrice: 12.05,
     marketCap: 10500,
-    pe: 28.0,
-    pb: 1.6,
+    pe: 20.0,
+    pb: 1.2,
     eps: 800,
     roe: 6.5,
     roa: 3.2,
@@ -386,10 +386,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Đầu tư Phát triển Xây dựng',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 10.7,
-    marketCap: 6500,
-    pe: 45.0,
-    pb: 1.9,
+    basePrice: 10.6,
+    marketCap: 6400,
+    pe: 35.0,
+    pb: 1.1,
     eps: 570,
     roe: 4.2,
     roa: 2.1,
@@ -411,10 +411,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Cơ Điện Lạnh',
     exchange: 'HOSE',
     sector: 'Điện',
-    basePrice: 48.35,
-    marketCap: 19800,
-    pe: 11.2,
-    pb: 1.45,
+    basePrice: 45.35,
+    marketCap: 21500,
+    pe: 11.5,
+    pb: 1.4,
     eps: 5760,
     roe: 14.2,
     roa: 8.5,
@@ -427,8 +427,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 3.8,
     aiVerdict: 'MUA MẠNH',
     aiScore: 87,
-    aiTarget: 58.0,
-    aiStop: 44.0,
+    aiTarget: 56.0,
+    aiStop: 41.0,
     aiReasoning: 'Hiện tượng La Nina quay trở lại giúp sản lượng thủy điện bùng nổ. Tòa nhà Etown 6 đi vào hoạt động gia tăng dòng tiền cho thuê cố định.',
   },
   {
@@ -436,9 +436,9 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Gemadept',
     exchange: 'HOSE',
     sector: 'Cảng biển',
-    basePrice: 76.5,
-    marketCap: 23300,
-    pe: 15.4,
+    basePrice: 79.5,
+    marketCap: 24200,
+    pe: 12.0,
     pb: 2.2,
     eps: 5320,
     roe: 15.8,
@@ -452,8 +452,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 2.8,
     aiVerdict: 'MUA MẠNH',
     aiScore: 90,
-    aiTarget: 92.0,
-    aiStop: 70.0,
+    aiTarget: 95.0,
+    aiStop: 72.0,
     aiReasoning: 'Cảng Gemalink giai đoạn 2 mở rộng công suất, sản lượng hàng hóa thông quan qua khu vực Cái Mép - Thị Vải tăng trưởng 2 con số.',
   },
   {
@@ -461,10 +461,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Khoan và Dịch vụ Khoan Dầu khí',
     exchange: 'HOSE',
     sector: 'Dầu khí',
-    basePrice: 18.1,
-    marketCap: 10100,
-    pe: 21.0,
-    pb: 1.15,
+    basePrice: 18.5,
+    marketCap: 10200,
+    pe: 16.0,
+    pb: 1.0,
     eps: 1310,
     roe: 5.8,
     roa: 3.2,
@@ -478,7 +478,7 @@ const RAW_STOCKS: RawStockSeed[] = [
     aiVerdict: 'MUA',
     aiScore: 82,
     aiTarget: 23.0,
-    aiStop: 16.0,
+    aiStop: 16.5,
     aiReasoning: 'Hiệu suất hoạt động giàn khoan đạt 100%, giá thuê giàn tự nâng (JU) duy trì ở mức cao. Đại dự án Lô B Ô Môn mang lại khối lượng công việc khổng lồ.',
   },
   {
@@ -486,10 +486,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Cổ phần Dịch vụ Kỹ thuật Dầu khí Việt Nam',
     exchange: 'HNX',
     sector: 'Dầu khí',
-    basePrice: 34.5,
-    marketCap: 16400,
-    pe: 18.2,
-    pb: 1.45,
+    basePrice: 35.7,
+    marketCap: 17100,
+    pe: 15.5,
+    pb: 1.3,
     eps: 2225,
     roe: 8.5,
     roa: 4.1,
@@ -502,8 +502,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 2.5,
     aiVerdict: 'MUA MẠNH',
     aiScore: 89,
-    aiTarget: 42.0,
-    aiStop: 31.0,
+    aiTarget: 44.0,
+    aiStop: 32.0,
     aiReasoning: 'Trúng thầu các hợp đồng EPCIC điện gió ngoài khơi quốc tế và gói thầu chính của Lô B Ô Môn giá trị hàng tỷ USD.',
   },
   {
@@ -511,10 +511,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Bán lẻ Kỹ thuật số FPT',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 133.1,
-    marketCap: 18100,
-    pe: 48.0,
-    pb: 12.5,
+    basePrice: 145.1,
+    marketCap: 19800,
+    pe: 42.0,
+    pb: 8.5,
     eps: 3700,
     roe: 28.0,
     roa: 5.2,
@@ -527,8 +527,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 0.0,
     aiVerdict: 'MUA MẠNH',
     aiScore: 91,
-    aiTarget: 165.0,
-    aiStop: 120.0,
+    aiTarget: 175.0,
+    aiStop: 132.0,
     aiReasoning: 'Chuỗi nhà thuốc Long Châu độc bá thị trường bán lẻ dược phẩm với hơn 1.800 cửa hàng, bắt đầu mở rộng mảng trung tâm tiêm chủng.',
   },
   {
@@ -536,10 +536,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Đầu tư Nam Long',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 21.85,
-    marketCap: 8400,
-    pe: 23.0,
-    pb: 1.5,
+    basePrice: 23.5,
+    marketCap: 9000,
+    pe: 16.0,
+    pb: 1.2,
     eps: 1790,
     roe: 7.2,
     roa: 4.0,
@@ -552,8 +552,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 1.2,
     aiVerdict: 'MUA',
     aiScore: 81,
-    aiTarget: 27.0,
-    aiStop: 19.0,
+    aiTarget: 29.0,
+    aiStop: 21.0,
     aiReasoning: 'Dòng sản phẩm căn hộ vừa túi tiền bàn giao liên tục tại dự án Akari City và Mizuki Park mang lại dòng tiền bán hàng ổn định.',
   },
   {
@@ -561,8 +561,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tổng Công ty Phát triển Đô thị Kinh Bắc',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 28.4,
-    marketCap: 21800,
+    basePrice: 27.05,
+    marketCap: 20700,
     pe: 14.5,
     pb: 1.1,
     eps: 2020,
@@ -578,7 +578,7 @@ const RAW_STOCKS: RawStockSeed[] = [
     aiVerdict: 'MUA',
     aiScore: 80,
     aiTarget: 34.5,
-    aiStop: 25.0,
+    aiStop: 24.5,
     aiReasoning: 'Hưởng lợi từ làn sóng dịch chuyển FDI công nghệ cao vào Việt Nam, chuẩn bị bàn giao quỹ đất khu công nghiệp Nam Sơn Hạp Lĩnh.',
   },
   {
@@ -586,10 +586,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Vincom Retail',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 26.4,
-    marketCap: 59900,
-    pe: 10.2,
-    pb: 1.15,
+    basePrice: 24.4,
+    marketCap: 55400,
+    pe: 13.0,
+    pb: 1.5,
     eps: 1910,
     roe: 11.5,
     roa: 8.2,
@@ -602,8 +602,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 0.0,
     aiVerdict: 'THEO DÕI',
     aiScore: 74,
-    aiTarget: 31.0,
-    aiStop: 23.0,
+    aiTarget: 30.0,
+    aiStop: 22.0,
     aiReasoning: 'Hệ thống TTTM lấp đầy >85% tạo dòng tiền cho thuê bền vững.',
   },
   {
@@ -611,10 +611,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Công Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 31.85,
-    marketCap: 171000,
-    pe: 8.4,
-    pb: 1.3,
+    basePrice: 31.55,
+    marketCap: 169000,
+    pe: 6.2,
+    pb: 1.1,
     eps: 4330,
     roe: 17.2,
     roa: 1.5,
@@ -636,10 +636,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Á Châu',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 22.45,
-    marketCap: 100300,
-    pe: 6.8,
-    pb: 1.35,
+    basePrice: 21.65,
+    marketCap: 84000,
+    pe: 5.8,
+    pb: 1.15,
     eps: 3700,
     roe: 22.8,
     roa: 2.4,
@@ -652,8 +652,8 @@ const RAW_STOCKS: RawStockSeed[] = [
     dividendYield: 6.0,
     aiVerdict: 'MUA MẠNH',
     aiScore: 91,
-    aiTarget: 28.0,
-    aiStop: 20.0,
+    aiTarget: 27.5,
+    aiStop: 19.5,
     aiReasoning: 'Ngân hàng quản trị rủi ro tốt nhất hệ thống, không có nợ xấu trái phiếu hay bất động sản đầu cơ. Cổ tức cổ phiếu + tiền mặt đều đặn.',
   },
 ];
@@ -662,43 +662,54 @@ const RAW_STOCKS: RawStockSeed[] = [
 const candleStore: Record<string, Candle[]> = {};
 const stockStore: Record<string, StockData> = {};
 
-// Helper to generate simulated 750 historical daily candles (3 years) for TradingView
-function generateHistoricalCandles(basePrice: number): Candle[] {
-  const candles: Candle[] = [];
-  let price = basePrice * 0.7; // Start 3 years ago at lower price
+// Helper to generate deterministic historical daily candles (3 years) that GUARANTEE ending at targetPrice
+function generateHistoricalCandles(targetPrice: number, changePercent: number = 0): Candle[] {
   const now = new Date();
-  const daysToGenerate = 1095; // 3 years
+  const daysToGenerate = 750; // ~3 years of trading days
 
-  for (let i = daysToGenerate; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    // Skip weekends
+  // Work BACKWARDS from targetPrice so that the most recent candle (index length-1) is EXACTLY targetPrice!
+  let currentClose = targetPrice;
+
+  const dates: string[] = [];
+  let dayOffset = 0;
+  while (dates.length < daysToGenerate) {
+    const d = new Date(now.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+    dayOffset++;
     if (d.getDay() === 0 || d.getDay() === 6) continue;
-
-    const dateStr = d.toISOString().split('T')[0];
-
-    // Daily volatility -1.8% to +2.0%
-    const changePct = (Math.random() - 0.47) * 0.035;
-    const open = price;
-    const close = Math.max(1, open * (1 + changePct));
-    const high = Math.max(open, close) * (1 + Math.random() * 0.015);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.015);
-    const volume = Math.floor(1000000 + Math.random() * 12000000);
-
-    price = close;
-    candles.push({
-      time: dateStr,
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
-      volume,
-    });
+    dates.push(d.toISOString().split('T')[0]);
   }
 
-  // Deduplicate by time and sort ascending
-  const map = new Map<string, Candle>();
-  candles.forEach((c) => map.set(c.time, c));
-  return Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+  const backwardsCandles: Candle[] = [];
+
+  for (let i = 0; i < dates.length; i++) {
+    const dateStr = dates[i];
+    const dailyChange = i === 0
+      ? (changePercent / 100)
+      : ((Math.random() - 0.485) * 0.032);
+
+    const open = Math.max(0.5, Number((currentClose / (1 + dailyChange)).toFixed(2)));
+    const high = Number((Math.max(open, currentClose) * (1 + Math.random() * 0.015)).toFixed(2));
+    const low = Number((Math.min(open, currentClose) * (1 - Math.random() * 0.015)).toFixed(2));
+    const volume = Math.floor(1500000 + Math.random() * 10000000);
+
+    backwardsCandles.push({
+      time: dateStr,
+      open,
+      high,
+      low,
+      close: Number(currentClose.toFixed(2)),
+      volume,
+    });
+
+    currentClose = Math.max(0.5, open * (1 + (Math.random() - 0.5) * 0.005));
+  }
+
+  // Reverse so chronological order: oldest to newest
+  const sorted = backwardsCandles.reverse();
+  if (sorted.length > 0) {
+    sorted[sorted.length - 1].close = targetPrice;
+  }
+  return sorted;
 }
 
 // Initialize Stock Database
@@ -707,9 +718,9 @@ RAW_STOCKS.forEach((raw) => {
   candleStore[raw.symbol] = candles;
 
   const lastCandle = candles[candles.length - 1];
-  const prevCandle = candles[candles.length - 2];
+  const prevCandle = candles[candles.length - 2] || lastCandle;
   const change = Number((lastCandle.close - prevCandle.close).toFixed(2));
-  const changePercent = Number(((change / prevCandle.close) * 100).toFixed(2));
+  const changePercent = prevCandle.close > 0 ? Number(((change / prevCandle.close) * 100).toFixed(2)) : 0;
 
   const referencePrice = prevCandle.close;
   const ceilingPrice = Number((referencePrice * (raw.exchange === 'HOSE' ? 1.07 : raw.exchange === 'HNX' ? 1.1 : 1.15)).toFixed(2));
@@ -755,7 +766,7 @@ RAW_STOCKS.forEach((raw) => {
     name: raw.name,
     exchange: raw.exchange,
     sector: raw.sector,
-    price: lastCandle.close,
+    price: raw.basePrice,
     change,
     changePercent,
     openPrice: lastCandle.open,
@@ -765,10 +776,10 @@ RAW_STOCKS.forEach((raw) => {
     ceilingPrice,
     floorPrice,
     volume: lastCandle.volume,
-    value: Number(((lastCandle.close * lastCandle.volume) / 10000000).toFixed(1)), // Tỷ VNĐ
+    value: Number(((raw.basePrice * lastCandle.volume) / 10000000).toFixed(1)), // Tỷ VNĐ
     foreignBuyVol: Math.floor(lastCandle.volume * 0.15),
     foreignSellVol: Math.floor(lastCandle.volume * 0.08),
-    foreignNetVal: Number(((lastCandle.volume * 0.07 * lastCandle.close) / 1000000).toFixed(1)),
+    foreignNetVal: Number(((lastCandle.volume * 0.07 * raw.basePrice) / 1000000).toFixed(1)),
     technical,
     fundamental,
     financialStatements,
@@ -1454,13 +1465,22 @@ export async function syncRealMarketData() {
           stock.changePercent = Number((item.pctChange ?? 0).toFixed(2));
           stock.volume = item.nmVolume;
           stock.value = Number(((item.nmValue ?? 0) / 1000000000).toFixed(1));
+
+          // Synchronize latest candle with live quote
+          if (candleStore[sym] && candleStore[sym].length > 0) {
+            const lastC = candleStore[sym][candleStore[sym].length - 1];
+            lastC.close = item.close;
+            lastC.high = Math.max(lastC.high, item.high || item.close);
+            lastC.low = Math.min(lastC.low, item.low || item.close);
+            lastC.volume = item.nmVolume || lastC.volume;
+          }
         }
       });
     }
 
     // 2. Fetch candle histories for active stocks to keep technical indicators exact
     const now = Math.floor(Date.now() / 1000);
-    const from = now - 3600 * 24 * 120; // 120 days of historical candles
+    const from = now - 3600 * 24 * 750; // 750 days of historical daily candles
 
     for (const sym of symbols) {
       try {
@@ -1477,10 +1497,20 @@ export async function syncRealMarketData() {
               close: cData.c[idx],
               volume: cData.v[idx],
             }));
-            candleStore[sym] = realCandles;
+            
+            // Deduplicate and ensure last candle matches live stock price
+            const map = new Map<string, Candle>();
+            realCandles.forEach((c) => map.set(c.time, c));
+            const sortedCandles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+            
             const stock = stockStore[sym];
+            if (stock && sortedCandles.length > 0) {
+              sortedCandles[sortedCandles.length - 1].close = stock.price;
+            }
+            
+            candleStore[sym] = sortedCandles;
             if (stock) {
-              stock.technical = computeTechnicalIndicators(realCandles);
+              stock.technical = computeTechnicalIndicators(sortedCandles);
               stock.smartMoney = analyzeSmartMoneySignal(stock);
             }
           }

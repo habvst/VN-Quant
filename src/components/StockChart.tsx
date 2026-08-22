@@ -140,7 +140,14 @@ function buildFormattedCandles(
 
   const map = new Map<number, any>();
   result.forEach((b) => map.set(b.time, b));
-  return Array.from(map.values()).sort((a, b) => a.time - b.time);
+  const sorted = Array.from(map.values()).sort((a, b) => a.time - b.time);
+  if (sorted.length > 0 && recentDays.length > 0) {
+    const lastDay = recentDays[recentDays.length - 1];
+    sorted[sorted.length - 1].close = lastDay.close;
+    sorted[sorted.length - 1].high = Math.max(sorted[sorted.length - 1].high, lastDay.close);
+    sorted[sorted.length - 1].low = Math.min(sorted[sorted.length - 1].low, lastDay.close);
+  }
+  return sorted;
 }
 
 export const StockChart: React.FC<StockChartProps> = ({
