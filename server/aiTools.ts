@@ -10,6 +10,7 @@ import {
 } from './marketDataService';
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
 import { ToolCallExecution } from '../src/types';
+import { getVietnamTimeString } from './timeUtils';
 
 /**
  * AI Function Declarations for Gemini Function Calling
@@ -103,7 +104,7 @@ export const internalFunctionDeclarations: FunctionDeclaration[] = [
  * Internal Tool Execution Handler
  */
 export async function executeInternalTool(toolName: string, rawArgs: Record<string, any> = {}): Promise<ToolCallExecution> {
-  const timestamp = new Date().toLocaleTimeString('vi-VN');
+  const timestamp = getVietnamTimeString();
   const cleanSym = (rawArgs.symbol || 'HPG').toString().toUpperCase().trim();
 
   try {

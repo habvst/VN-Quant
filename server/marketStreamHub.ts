@@ -8,6 +8,7 @@ import {
   getTradeTicks,
 } from './marketDataService';
 import { OrderBook, StockData, TradeTick, MarketIndex } from '../src/types';
+import { getVietnamTimeString } from './timeUtils';
 
 export interface StreamClient {
   id: string;
@@ -194,8 +195,7 @@ class MarketStreamHub {
       if (this.clients.size === 0) return;
 
       this.simulatedTickSeq++;
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('vi-VN');
+      const timeStr = getVietnamTimeString();
 
       // 1. Group active symbols being observed by connected clients
       const activeSymbols = new Set<string>();
@@ -243,7 +243,7 @@ class MarketStreamHub {
               stock: update.stock,
               orderBook: update.orderBook,
               latestTick: update.latestTick,
-              timestamp: now.toISOString(),
+              timestamp: timeStr,
             });
           }
         }
@@ -252,7 +252,7 @@ class MarketStreamHub {
         if (this.simulatedTickSeq % 3 === 0 && client.channels.has('indices')) {
           this.sendEvent(client, 'INDICES_UPDATE', {
             indices,
-            timestamp: now.toISOString(),
+            timestamp: timeStr,
           });
         }
       });

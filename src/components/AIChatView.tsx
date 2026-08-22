@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { AIChatMessage, ToolCallExecution } from '../types';
+import { getVietnamTimeString } from '../utils/timeUtils';
 
 interface AIChatViewProps {
   initialPrompt?: string;
@@ -50,7 +51,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
 - 🌐 **Tool Vĩ Mô:** Phân tích Tỷ giá USD/VND, Lãi suất SBV, GDP, tương quan VN-Index.
 
 *Hãy thử nhấn các gợi ý bên dưới hoặc gõ bất kỳ câu hỏi nào để quan sát AI gọi công cụ nội bộ thời gian thực!*`,
-      timestamp: new Date().toLocaleTimeString('vi-VN'),
+      timestamp: getVietnamTimeString(),
       confidenceScore: 92,
       confidenceLevel: 'HIGH',
       counterThesis: [
@@ -64,7 +65,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
           toolDisplayName: 'Tổng quan Vĩ mô & Thị trường',
           args: {},
           summary: 'VN-Index 1.248,65 điểm (+0.68%), Tỷ giá USD/VND 25.420, Lãi suất SBV 4.5%',
-          executedAt: new Date().toLocaleTimeString('vi-VN'),
+          executedAt: getVietnamTimeString(),
           status: 'SUCCESS',
         },
         {
@@ -72,7 +73,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
           toolDisplayName: 'Bộ lọc Quant Top cổ phiếu',
           args: { criteria: 'SMART_MONEY_ACCUMULATION', limit: 5 },
           summary: 'Đã tìm thấy 5 mã thỏa mãn tiêu chí Cá mập gom ngầm: HPG, SSI, FPT, VNM, MWG',
-          executedAt: new Date().toLocaleTimeString('vi-VN'),
+          executedAt: getVietnamTimeString(),
           status: 'SUCCESS',
         },
       ],
@@ -114,7 +115,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       sender: 'USER',
       text,
-      timestamp: new Date().toLocaleTimeString('vi-VN'),
+      timestamp: getVietnamTimeString(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -136,7 +137,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         sender: 'AI',
         text: data.text,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        timestamp: getVietnamTimeString(),
         confidenceScore: data.confidenceScore || data.dataCard?.confidenceScore,
         confidenceLevel: data.confidenceLevel || data.dataCard?.confidenceLevel,
         counterThesis: data.counterThesis || data.dataCard?.counterThesis,
@@ -154,7 +155,7 @@ Mọi yêu cầu phân tích của bạn được tôi **tự động gọi các
           id: `err-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           sender: 'AI',
           text: 'Rất tiếc, đã có lỗi kết nối tới máy chủ Quant AI. Đang kích hoạt chế độ phân tích định lượng offline...',
-          timestamp: new Date().toLocaleTimeString('vi-VN'),
+          timestamp: getVietnamTimeString(),
         },
       ]);
     } finally {

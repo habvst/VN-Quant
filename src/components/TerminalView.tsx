@@ -9,6 +9,7 @@ import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
 import { AlertsDrawer } from './AlertsDrawer';
 import { AlertToast } from './AlertToast';
+import { getVietnamTimeString } from '../utils/timeUtils';
 
 interface TerminalViewProps {
   stock: StockData;
@@ -64,7 +65,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
         triggerType: 'PRICE_THRESHOLD',
         title: `⭐ ĐÃ THÊM VÀO WATCHLIST: ${stock.symbol}`,
         message: `Mã ${stock.symbol} đã được thêm vào Danh mục theo dõi và kích hoạt Sentinel giám sát tự động 24/7!`,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        timestamp: getVietnamTimeString(),
         channel: 'IN_APP',
         severity: 'SUCCESS',
         read: false,
@@ -79,7 +80,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
         triggerType: 'PRICE_THRESHOLD',
         title: `🗑️ ĐÃ XÓA KHỎI WATCHLIST: ${stock.symbol}`,
         message: `Đã hủy theo dõi mã ${stock.symbol} khỏi danh mục.`,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        timestamp: getVietnamTimeString(),
         channel: 'IN_APP',
         severity: 'INFO',
         read: false,
@@ -173,7 +174,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
       triggerType: newAlert.triggerType,
       title: `🔔 ĐÃ THIẾT LẬP CẢNH BÁO: ${newAlert.symbol}`,
       message: `Tín hiệu ${newAlert.triggerType} đã được khởi tạo thành công. Giám sát tự động qua [${newAlert.channel}].`,
-      timestamp: new Date().toLocaleTimeString('vi-VN'),
+      timestamp: getVietnamTimeString(),
       channel: newAlert.channel,
       severity: 'INFO',
       read: false,
@@ -206,7 +207,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     const notif: MockNotification = {
       ...notifData,
       id: `notif-${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString('vi-VN'),
+      timestamp: getVietnamTimeString(),
       read: false,
     };
 

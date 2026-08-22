@@ -4,6 +4,7 @@ import { MarketIndex, StockData } from '../types';
 import { auth } from '../lib/firebase';
 import { portfolioCloudSync, CloudSyncStatus } from '../services/portfolioCloudSync';
 import { User } from 'firebase/auth';
+import { getVietnamDateTimeString } from '../utils/timeUtils';
 
 interface HeaderNavProps {
   indices: MarketIndex[];
@@ -49,31 +50,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     };
   }, []);
 
-  const [lastUpdated, setLastUpdated] = useState<string>(() =>
-    new Date().toLocaleString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  );
+  const [lastUpdated, setLastUpdated] = useState<string>(() => getVietnamDateTimeString());
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          setLastUpdated(
-            new Date().toLocaleString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })
-          );
+          setLastUpdated(getVietnamDateTimeString());
           return 300;
         }
         return prev - 1;

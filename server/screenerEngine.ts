@@ -1,10 +1,12 @@
 import { AIRecommendation } from '../src/types';
 import { getAllStocks } from './marketDataService';
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
+import { getVietnamTimeString } from './timeUtils';
 
 export function generateScreenerRecommendations(): AIRecommendation[] {
   const stocks = getAllStocks();
   const recommendations: AIRecommendation[] = [];
+  const timeNow = getVietnamTimeString();
 
   stocks.forEach((stk) => {
     const tech = stk.technical;
@@ -35,7 +37,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Biên độ tích lũy nén chặt, sẵn sàng kích hoạt sóng bùng nổ vượt đỉnh.`,
         ],
         risks: ['Kiên nhẫn chờ đợi điểm kích hoạt bùng nổ thanh khoản từ nhà cái.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -63,7 +65,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Chỉ báo xung lượng RSI(14) đạt ${tech.rsi14}, bước vào chu kỳ tăng tốc.`,
         ],
         risks: ['Tránh mua đuổi giá quá gần trần, ưu tiên canh nhịp võng trong phiên.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -91,7 +93,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Định giá hấp dẫn với P/E = ${fund.pe}x (Thấp hơn trung bình ngành ${fund.industryAvgPE}x).`,
         ],
         risks: ['Cần xác nhận khi giá đóng nến vượt qua đường trung bình MA20.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -119,7 +121,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Áp lực xả hàng quyết liệt từ khối ngoại/tổ chức (${stk.foreignNetVal} tỷ VNĐ).`,
         ],
         risks: ['Rủi ro kẹp hàng T+2.5 nếu mua đuổi ở vùng giá hưng phấn.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -147,7 +149,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Lợi nhuận YoY tăng trưởng ${fund.profitGrowthYoY}%.`,
         ],
         risks: ['Thị trường chung điều chỉnh bất ngờ.', 'Áp lực chốt lời tại vùng kháng cự lịch sử.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -175,7 +177,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Tỷ lệ ROE ấn tượng đạt ${fund.roe}%.`,
         ],
         risks: ['Tín hiệu giao cắt giả nếu thanh khoản suy giảm.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -203,7 +205,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
           `Khuyến nghị AI: ${stk.aiVerdict}.`,
         ],
         risks: ['Khối ngoại quay đầu bán ròng khi tỷ giá USD/VND biến động.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
 
@@ -227,7 +229,7 @@ export function generateScreenerRecommendations(): AIRecommendation[] {
         timeframe: '1 - 6 Tháng',
         reasons: [stk.aiReasoning, `Định giá P/E = ${fund.pe}x so với trung bình ngành ${fund.industryAvgPE}x.`, `Chỉ báo Ichimoku & Moving Average đồng thuận xu hướng tăng.`],
         risks: ['Rủi ro biến động thị trường chung VN-Index.'],
-        updatedAt: new Date().toLocaleTimeString('vi-VN'),
+        updatedAt: timeNow,
       });
     }
   });

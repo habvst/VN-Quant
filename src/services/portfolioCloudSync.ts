@@ -2,6 +2,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { decryptData, encryptData, EncryptedPayloadBundle } from './cryptoEngine';
 import { PortfolioPosition } from '../types';
+import { getVietnamTimeString } from '../utils/timeUtils';
 
 export type CloudSyncStatus =
   | 'LOCAL_ONLY' // Not logged in, saving locally
@@ -97,7 +98,7 @@ class PortfolioCloudSyncService {
         } else {
           // Cloud doc doesn't exist yet -> upload initial local data
           this.status = 'SYNCED';
-          this.lastSyncedTime = new Date().toLocaleTimeString('vi-VN');
+          this.lastSyncedTime = getVietnamTimeString();
           this.notify();
         }
       },
@@ -116,7 +117,7 @@ class PortfolioCloudSyncService {
     try {
       const data = await decryptData<PortfolioDataModel>(bundle, pin);
       this.status = 'SYNCED';
-      this.lastSyncedTime = updatedAt ? new Date(updatedAt).toLocaleTimeString('vi-VN') : new Date().toLocaleTimeString('vi-VN');
+      this.lastSyncedTime = updatedAt ? getVietnamTimeString(updatedAt) : getVietnamTimeString();
       this.notify();
 
       // Trigger custom window event for App to rehydrate
@@ -163,7 +164,7 @@ class PortfolioCloudSyncService {
       await setDoc(docRef, payload, { merge: true });
 
       this.status = 'SYNCED';
-      this.lastSyncedTime = new Date().toLocaleTimeString('vi-VN');
+      this.lastSyncedTime = getVietnamTimeString();
       this.notify();
       return true;
     } catch (error) {

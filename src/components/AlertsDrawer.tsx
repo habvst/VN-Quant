@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { StockData } from '../types';
 import { MockNotification, StockAlert } from '../types/alert';
 import { checkAlertTrigger, formatConditionLabel, playAlertSound } from '../services/alertService';
+import { getVietnamTimeString } from '../utils/timeUtils';
 
 interface AlertsDrawerProps {
   isOpen: boolean;
@@ -266,7 +267,7 @@ export const AlertsDrawer: React.FC<AlertsDrawerProps> = ({
                       {/* Action Bar */}
                       <div className="flex items-center justify-between pt-1 border-t border-gray-800/60 text-[10px]">
                         <span className="text-gray-500">
-                          Tạo lúc: {new Date(alt.createdAt).toLocaleTimeString('vi-VN')}
+                          Tạo lúc: {getVietnamTimeString(alt.createdAt)}
                         </span>
 
                         <button

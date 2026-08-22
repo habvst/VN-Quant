@@ -2,6 +2,7 @@ import { Candle, FundamentalData, MacroData, MarketIndex, MarketType, NewsItem, 
 import { computeTechnicalIndicators } from '../src/utils/technicalEngine';
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
 import { enrichNewsItemWithDeepScoring } from './newsSentimentEngine';
+import { getVietnamDateString, getVietnamTimeShort, getVietnamTimeString } from './timeUtils';
 
 // Seed raw stock universe info with realistic base prices
 interface RawStockSeed {
@@ -1011,7 +1012,7 @@ export function getTradeTicks(symbol: string): TradeTick[] {
   const now = new Date();
 
   for (let i = 0; i < 15; i++) {
-    const time = new Date(now.getTime() - i * 15 * 1000).toLocaleTimeString('vi-VN');
+    const time = getVietnamTimeString(new Date(now.getTime() - i * 15 * 1000));
     const type = Math.random() > 0.45 ? 'BUY' : 'SELL';
     const delta = type === 'BUY' ? 0.05 : -0.05;
     ticks.push({
@@ -1244,8 +1245,8 @@ export async function fetchLiveNewsFromRSS(): Promise<NewsItem[]> {
           try {
             const d = new Date(pubDateStr);
             if (!isNaN(d.getTime())) {
-              const dayStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-              const timeFormatted = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const dayStr = getVietnamDateString(d);
+              const timeFormatted = getVietnamTimeShort(d);
               timeStr = `${dayStr} ${timeFormatted}`;
             }
           } catch {

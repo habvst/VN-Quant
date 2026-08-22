@@ -1,4 +1,5 @@
 import { SmartMoneySignal, StockData } from '../src/types';
+import { getVietnamTimeShort } from './timeUtils';
 
 /**
  * Intelligent Smart Money & Market Anomaly Detection Engine
@@ -11,7 +12,7 @@ import { SmartMoneySignal, StockData } from '../src/types';
 export function analyzeSmartMoneySignal(stock: StockData): SmartMoneySignal {
   const tech = stock.technical;
   const fund = stock.fundamental;
-  const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const now = getVietnamTimeShort();
 
   // 1. Phân tích Tỷ lệ Khối Lượng Phiên Sáng & Đột Biến (Morning Volume Ratio)
   // Giả định volume hiện tại so với benchmark trung bình
