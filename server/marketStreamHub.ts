@@ -211,11 +211,10 @@ class MarketStreamHub {
         const ob = getOrderBook(sym);
         const currentPrice = stock ? stock.price : 25.0;
 
-        // Generate dynamic micro tick
+        // Generate dynamic micro tick strictly anchored to real market execution price
         const isBuy = Math.random() > 0.45;
-        const tickDelta = (Math.random() - 0.5) * 0.1;
-        const matchPrice = Number((currentPrice + (Math.random() > 0.7 ? tickDelta : 0)).toFixed(2));
-        const matchVol = Math.floor(500 + Math.random() * 25000);
+        const matchPrice = currentPrice;
+        const matchVol = Math.floor(1000 + Math.random() * 15000);
 
         const latestTick: TradeTick = {
           id: `live-tick-${this.simulatedTickSeq}-${Date.now()}`,

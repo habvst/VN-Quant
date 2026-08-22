@@ -136,13 +136,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Chứng khoán SSI',
     exchange: 'HOSE',
     sector: 'Chứng khoán',
-    basePrice: 19.5,
-    marketCap: 48200,
+    basePrice: 20.75,
+    marketCap: 52400,
     pe: 16.5,
     pb: 1.7,
     eps: 1848,
-    roe: 12.5,
-    roa: 5.8,
+    roe: 14.5,
+    roa: 6.2,
     debtToEquity: 1.1,
     grossMargin: 52.0,
     operatingMargin: 42.0,
@@ -150,10 +150,10 @@ const RAW_STOCKS: RawStockSeed[] = [
     revenueGrowthYoY: 28.4,
     profitGrowthYoY: 41.2,
     dividendYield: 3.0,
-    aiVerdict: 'MUA',
-    aiScore: 84,
+    aiVerdict: 'MUA MẠNH',
+    aiScore: 92,
     aiTarget: 26.0,
-    aiStop: 18.0,
+    aiStop: 19.0,
     aiReasoning: 'Hưởng lợi trực tiếp từ thanh khoản thị trường bùng nổ và hệ thống KRX vận hành chính thức, tiến tới nâng hạng thị trường FTSE KRX.',
   },
   {
@@ -1484,35 +1484,63 @@ export async function syncRealMarketData() {
 
     for (const sym of symbols) {
       try {
-        const dchartUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${sym}&from=${from}&to=${now}`;
-        const cRes = await fetch(dchartUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (cRes.ok) {
-          const cData = await cRes.json();
-          if (cData && cData.t && cData.t.length > 0) {
-            const realCandles: Candle[] = cData.t.map((ts: number, idx: number) => ({
-              time: new Date(ts * 1000).toISOString().split('T')[0],
-              open: cData.o[idx],
-              high: cData.h[idx],
-              low: cData.l[idx],
-              close: cData.c[idx],
-              volume: cData.v[idx],
-            }));
-            
-            // Deduplicate and ensure last candle matches live stock price
-            const map = new Map<string, Candle>();
-            realCandles.forEach((c) => map.set(c.time, c));
-            const sortedCandles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
-            
-            const stock = stockStore[sym];
-            if (stock && sortedCandles.length > 0) {
-              sortedCandles[sortedCandles.length - 1].close = stock.price;
+        let realCandles: Candle[] | null = null;
+
+        // Provider 1: VNDirect Dchart
+        try {
+          const dchartUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${sym}&from=${from}&to=${now}`;
+          const cRes = await fetch(dchartUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            if (cData && cData.t && cData.t.length > 0) {
+              realCandles = cData.t.map((ts: number, idx: number) => ({
+                time: new Date(ts * 1000).toISOString().split('T')[0],
+                open: cData.o[idx],
+                high: cData.h[idx],
+                low: cData.l[idx],
+                close: cData.c[idx],
+                volume: cData.v[idx],
+              }));
             }
-            
-            candleStore[sym] = sortedCandles;
-            if (stock) {
-              stock.technical = computeTechnicalIndicators(sortedCandles);
-              stock.smartMoney = analyzeSmartMoneySignal(stock);
+          }
+        } catch {}
+
+        // Provider 2 Fallback: DNSE Entrade Chart API (Reliable internationally on Render/AWS)
+        if (!realCandles || realCandles.length === 0) {
+          try {
+            const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${from}&to=${now}&resolution=1D`;
+            const dnseRes = await fetch(dnseUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (dnseRes.ok) {
+              const dData = await dnseRes.json();
+              if (dData && dData.t && dData.t.length > 0) {
+                realCandles = dData.t.map((ts: number, idx: number) => ({
+                  time: new Date(ts * 1000).toISOString().split('T')[0],
+                  open: dData.o[idx],
+                  high: dData.h[idx],
+                  low: dData.l[idx],
+                  close: dData.c[idx],
+                  volume: dData.v[idx],
+                }));
+              }
             }
+          } catch {}
+        }
+
+        if (realCandles && realCandles.length > 0) {
+          // Deduplicate and ensure last candle matches live stock price
+          const map = new Map<string, Candle>();
+          realCandles.forEach((c) => map.set(c.time, c));
+          const sortedCandles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+          
+          const stock = stockStore[sym];
+          if (stock && sortedCandles.length > 0) {
+            sortedCandles[sortedCandles.length - 1].close = stock.price;
+          }
+          
+          candleStore[sym] = sortedCandles;
+          if (stock) {
+            stock.technical = computeTechnicalIndicators(sortedCandles);
+            stock.smartMoney = analyzeSmartMoneySignal(stock);
           }
         }
       } catch (e) {}
