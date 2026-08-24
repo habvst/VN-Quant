@@ -141,33 +141,56 @@ async function startServer() {
     res.json(result);
   });
 
-  // Send Test Message for Specific Priority Tier (P1, P2, P3, P4)
-  app.post('/api/telegram/test-tier', async (req, res) => {
+  // Send Test Message for Specific Priority Tier (P1, P2, P3, P4) - handler function
+  const handleTestTierAlert = async (req: express.Request, res: express.Response) => {
     try {
-      const { tier, symbol } = req.body;
+      const { tier = 'P1', symbol, position: customPosition } = req.body;
       const targetSymbol = (symbol || (tier === 'P1' ? 'HPG' : tier === 'P2' ? 'SSI' : tier === 'P4' ? 'FPT' : 'VCB')).toUpperCase();
       const stock = (await getOrFetchStockBySymbol(targetSymbol)) || getAllStocks()[0];
 
       if (!stock) {
-        return res.status(404).json({ status: 'error', message: `Stock ${targetSymbol} not found` });
+        return res.status(404).json({ success: false, status: 'error', message: `Không tìm thấy thông tin mã cổ phiếu ${targetSymbol}` });
       }
+
+      // Check telegram config
+      const tgConfig = getTelegramConfig();
+      if (!tgConfig.botToken || !tgConfig.chatId) {
+        return res.status(200).json({
+          success: false,
+          status: 'error',
+          error: 'Chưa cấu hình Telegram Bot Token hoặc Chat ID! Vui lòng vào Cài Đặt Telegram (biểu tượng máy bay giấy) để lưu Bot Token và Chat ID của bạn.',
+          message: 'Chưa cấu hình Telegram Bot Token hoặc Chat ID! Vui lòng vào Cài Đặt Telegram để kết nối.',
+        });
+      }
+
+      // Retrieve holding position if available
+      const storedPositions = getPortfolioPositionsStore();
+      const existingPos = storedPositions.find((p) => p.symbol.toUpperCase() === targetSymbol);
+      const posData = customPosition || existingPos || {
+        symbol: stock.symbol,
+        buyPrice: Number((stock.price * 1.08).toFixed(2)),
+        quantity: 2500,
+        stopLossPrice: Number((stock.price * 1.01).toFixed(2)),
+        targetPrice: Number((stock.price * 1.25).toFixed(2)),
+      };
 
       let formattedHtml = '';
       if (tier === 'P1') {
         const samplePos = {
           symbol: stock.symbol,
-          buyPrice: Number((stock.price * 1.08).toFixed(2)),
-          quantity: 2500,
-          stopLossPrice: Number((stock.price * 1.01).toFixed(2)),
-          targetPrice: Number((stock.price * 1.25).toFixed(2)),
+          buyPrice: posData.buyPrice || Number((stock.price * 1.08).toFixed(2)),
+          quantity: posData.quantity || 1000,
+          stopLossPrice: posData.stopLossPrice || Number((stock.price * 1.01).toFixed(2)),
+          targetPrice: posData.targetPrice || Number((stock.price * 1.25).toFixed(2)),
         };
+        const pnlPct = samplePos.buyPrice > 0 ? (((stock.price - samplePos.buyPrice) / samplePos.buyPrice) * 100).toFixed(1) : '-7.4';
         const sampleSignal = {
           symbol: stock.symbol,
           tier: 'P1' as const,
           type: 'PORTFOLIO_STOP_LOSS' as const,
           headerBadge: '🚨 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CẢNH BÁO VI PHẠM CẮT LỖ KHẨN CẤP!</b>',
-          indicatorName: `Chạm ngưỡng Cắt Lỗ: Thị giá ${stock.price.toFixed(2)}k &le; Ngưỡng SL ${samplePos.stopLossPrice}k (Lỗ: -7.4%)`,
-          description: `Cổ phiếu #${stock.symbol} trong danh mục thực tế của bạn đã vi phạm ngưỡng cắt lỗ bảo toàn vốn. Khối lượng nắm giữ: 2,500 CP.`,
+          indicatorName: `Chạm ngưỡng Cắt Lỗ: Thị giá ${stock.price.toFixed(2)}k &le; Ngưỡng SL ${samplePos.stopLossPrice}k (Lãi/Lỗ: ${pnlPct}%)`,
+          description: `Cổ phiếu #${stock.symbol} trong danh mục thực tế của bạn đã vi phạm ngưỡng cắt lỗ bảo toàn vốn. Khối lượng nắm giữ: ${(samplePos.quantity || 0).toLocaleString('vi-VN')} CP.`,
           severity: 'DANGER' as const,
           recommendation: `KÍCH HOẠT LỆNH BÁN CẮT LỖ NGAY để bảo vệ tổng NAV. Tuyệt đối không gồng lỗ hoặc bắt đáy trung bình giá xuống!`,
           signature: `TEST_P1_${stock.symbol}`,
@@ -193,7 +216,7 @@ async function startServer() {
           tier: 'P3' as const,
           type: 'RSI_CROSSOVER' as const,
           headerBadge: '✨ <b>[P3 - DANH MỤC QUAN TÂM] RSI ĐẢO CHIỀU TẠO ĐÁY (BULLISH REVERSAL)</b>',
-          indicatorName: `RSI(14) = ${stock.technical.rsi14.toFixed(1)} (Bứt phá cắt lên mốc Quá Bán 30)`,
+          indicatorName: `RSI(14) = ${stock.technical?.rsi14?.toFixed(1) || '32.0'} (Bứt phá cắt lên mốc Quá Bán 30)`,
           description: `RSI(14) vừa bứt phá cắt lên trên mốc 30 kèm xung lực hồi phục (+${stock.changePercent.toFixed(2)}%). Đây là điểm đảo chiều tạo đáy chuẩn theo trường phái Phân tích Kỹ thuật Quant.`,
           severity: 'SUCCESS' as const,
           recommendation: `Mở vị thế mua gom thăm dò 40% NAV quanh vùng giá hiện tại. Đặt mục tiêu TP1 (+12%) và quản trị rủi ro cắt lỗ nếu gãy đáy ngắn hạn.`,
@@ -204,17 +227,24 @@ async function startServer() {
 
       const sendRes = await sendTelegramMessage(formattedHtml);
       res.json({
-        status: 'success',
+        status: sendRes.success ? 'success' : 'error',
+        success: sendRes.success,
         tier,
         symbol: stock.symbol,
         telegramResult: sendRes,
+        error: sendRes.error,
+        message: sendRes.success ? 'Gửi tin nhắn Telegram thành công' : sendRes.error,
         previewMessage: formattedHtml,
       });
     } catch (err: any) {
       console.error('[TEST TIER ALERT ERROR]:', err);
-      res.status(500).json({ status: 'error', message: err.message });
+      res.status(500).json({ success: false, status: 'error', message: err.message, error: err.message });
     }
-  });
+  };
+
+  // Register both endpoint aliases
+  app.post('/api/telegram/test-tier', handleTestTierAlert);
+  app.post('/api/test-tier-alert', handleTestTierAlert);
 
   // Portfolio Positions Server Endpoints (For P1 Sentinel Integration)
   app.get('/api/portfolio/positions', (req, res) => {

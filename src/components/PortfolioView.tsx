@@ -207,22 +207,39 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   };
 
   // Test Telegram dispatch for holding
-  const handleTestHoldingTelegramAlert = async (pos: PortfolioPosition) => {
-    setTestingTelegramSymbol(pos.symbol);
+  const handleTestHoldingTelegramAlert = async (posOrSymbol: PortfolioPosition | string) => {
+    const symbol = typeof posOrSymbol === 'string' ? posOrSymbol : posOrSymbol?.symbol || 'HPG';
+    const pos = typeof posOrSymbol === 'object' ? posOrSymbol : positions.find((p) => p.symbol === symbol);
+
+    setTestingTelegramSymbol(symbol);
     try {
-      const res = await fetch('/api/test-tier-alert', {
+      const res = await fetch('/api/telegram/test-tier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tier: 'P1',
-          symbol: pos.symbol,
+          symbol,
+          position: pos
+            ? {
+                symbol: pos.symbol,
+                buyPrice: pos.buyPrice,
+                quantity: pos.quantity,
+                stopLossPrice: pos.stopLossPrice,
+                targetPrice: pos.targetPrice,
+              }
+            : undefined,
         }),
       });
+
+      if (!res.ok) {
+        throw new Error(`Server phản hồi lỗi HTTP ${res.status}`);
+      }
+
       const data = await res.json();
-      if (data.success) {
-        alert(`✅ Đã gửi thành công tin nhắn cảnh báo P1 cho #${pos.symbol} về Telegram!`);
+      if (data.success || data.status === 'success') {
+        alert(`✅ Đã gửi thành công tin nhắn cảnh báo P1 cho #${symbol} về Telegram!\n\nVui lòng kiểm tra ứng dụng Telegram.`);
       } else {
-        alert(`⚠️ Gửi thất bại: ${data.error || 'Vui lòng kiểm tra Bot Token & Chat ID'}`);
+        alert(`⚠️ Gửi thất bại: ${data.error || data.message || 'Vui lòng kiểm tra Bot Token & Chat ID trong Cài đặt Telegram'}`);
       }
     } catch (e: any) {
       alert(`❌ Lỗi kết nối: ${e.message}`);
