@@ -141,6 +141,7 @@ export interface StockData {
   aiStopLoss: number;
   aiReasoning: string;
   smartMoney?: SmartMoneySignal;
+  lastUpdated?: number;
 }
 
 export interface SmartMoneySignal {

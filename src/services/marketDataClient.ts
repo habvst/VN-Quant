@@ -138,6 +138,80 @@ async function safeParseJson<T>(res: Response): Promise<T | null> {
 }
 
 /**
+ * Client-Side Direct Live Quote Fetcher (Fallback if server proxy is delayed or blocked)
+ */
+export async function fetchDirectLiveQuote(symbol: string): Promise<Partial<StockData> | null> {
+  const sym = symbol.toUpperCase().trim();
+  const now = Math.floor(Date.now() / 1000);
+
+  // 1. Direct VNDirect Finfo
+  try {
+    const res = await fetch(`https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${sym}&size=1`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.data && json.data.length > 0) {
+        const item = json.data[0];
+        if (typeof item.close === 'number' && item.close > 0) {
+          const ref = item.basicPrice || item.close;
+          const change = item.change ?? Number((item.close - ref).toFixed(2));
+          const pct = item.pctChange ?? (ref > 0 ? Number(((change / ref) * 100).toFixed(2)) : 0);
+          return {
+            price: item.close,
+            referencePrice: ref,
+            ceilingPrice: item.ceilingPrice || Number((ref * 1.07).toFixed(2)),
+            floorPrice: item.floorPrice || Number((ref * 0.93).toFixed(2)),
+            openPrice: item.open || item.close,
+            highPrice: item.high || item.close,
+            lowPrice: item.low || item.close,
+            change,
+            changePercent: Number(pct.toFixed(2)),
+            volume: item.nmVolume || 0,
+            value: Number(((item.nmValue || item.close * (item.nmVolume || 0) * 1000) / 1e9).toFixed(1)),
+            lastUpdated: Date.now(),
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Direct DNSE Entrade
+  try {
+    const res = await fetch(`https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${now - 86400 * 10}&to=${now}&resolution=1D`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.c && d.c.length > 0) {
+        const len = d.c.length - 1;
+        const close = d.c[len];
+        const prev = len > 0 ? d.c[len - 1] : close;
+        const change = Number((close - prev).toFixed(2));
+        const pct = prev > 0 ? Number(((change / prev) * 100).toFixed(2)) : 0;
+        const vol = d.v?.[len] || 0;
+        return {
+          price: close,
+          referencePrice: prev,
+          ceilingPrice: Number((prev * 1.07).toFixed(2)),
+          floorPrice: Number((prev * 0.93).toFixed(2)),
+          openPrice: d.o?.[len] || close,
+          highPrice: d.h?.[len] || close,
+          lowPrice: d.l?.[len] || close,
+          change,
+          changePercent: pct,
+          volume: vol,
+          value: Number(((close * vol * 1000) / 1e9).toFixed(1)),
+          lastUpdated: Date.now(),
+        };
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
  * Fetch Stock Detail Bundle with Stale-While-Revalidate & AbortController
  */
 export async function fetchStockDetailWithSWR(
@@ -167,18 +241,42 @@ export async function fetchStockDetailWithSWR(
   try {
     const signal = controller.signal;
     const [stockRes, candleRes, obRes, ticksRes] = await Promise.all([
-      fetch(`/api/market/stock/${sym}`, { signal }),
-      fetch(`/api/market/candles/${sym}`, { signal }),
-      fetch(`/api/market/orderbook/${sym}`, { signal }),
-      fetch(`/api/market/ticks/${sym}`, { signal }),
+      fetch(`/api/market/stock/${sym}`, { signal }).catch(() => null),
+      fetch(`/api/market/candles/${sym}`, { signal }).catch(() => null),
+      fetch(`/api/market/orderbook/${sym}`, { signal }).catch(() => null),
+      fetch(`/api/market/ticks/${sym}`, { signal }).catch(() => null),
     ]);
 
     if (signal.aborted) return;
 
-    const stockData = await safeParseJson<StockData>(stockRes);
-    const candleData = await safeParseJson<Candle[]>(candleRes);
-    const obData = await safeParseJson<OrderBook>(obRes);
-    const ticksData = await safeParseJson<TradeTick[]>(ticksRes);
+    let stockData = stockRes ? await safeParseJson<StockData>(stockRes) : null;
+    const candleData = candleRes ? await safeParseJson<Candle[]>(candleRes) : null;
+    const obData = obRes ? await safeParseJson<OrderBook>(obRes) : null;
+    const ticksData = ticksRes ? await safeParseJson<TradeTick[]>(ticksRes) : null;
+
+    // Direct Browser Live Patch if backend stock data is missing or needs live quote verification
+    if (!stockData && cached?.stock) {
+      stockData = { ...cached.stock };
+    }
+
+    const directQuote = await fetchDirectLiveQuote(sym);
+    if (directQuote && stockData) {
+      stockData = {
+        ...stockData,
+        price: directQuote.price ?? stockData.price,
+        referencePrice: directQuote.referencePrice ?? stockData.referencePrice,
+        ceilingPrice: directQuote.ceilingPrice ?? stockData.ceilingPrice,
+        floorPrice: directQuote.floorPrice ?? stockData.floorPrice,
+        openPrice: directQuote.openPrice ?? stockData.openPrice,
+        highPrice: directQuote.highPrice ?? stockData.highPrice,
+        lowPrice: directQuote.lowPrice ?? stockData.lowPrice,
+        change: directQuote.change ?? stockData.change,
+        changePercent: directQuote.changePercent ?? stockData.changePercent,
+        volume: directQuote.volume ?? stockData.volume,
+        value: directQuote.value ?? stockData.value,
+        lastUpdated: Date.now(),
+      };
+    }
 
     if (stockData) {
       const defaultOrderBook: OrderBook = {
@@ -193,9 +291,9 @@ export async function fetchStockDetailWithSWR(
 
       const bundle: CachedStockBundle = {
         stock: stockData,
-        candles: Array.isArray(candleData) ? candleData : cached?.candles || [],
+        candles: Array.isArray(candleData) && candleData.length > 0 ? candleData : cached?.candles || [],
         orderBook: obData || cached?.orderBook || defaultOrderBook,
-        tradeTicks: Array.isArray(ticksData) ? ticksData : cached?.tradeTicks || [],
+        tradeTicks: Array.isArray(ticksData) && ticksData.length > 0 ? ticksData : cached?.tradeTicks || [],
         timestamp: Date.now(),
       };
 
@@ -204,10 +302,11 @@ export async function fetchStockDetailWithSWR(
 
       // Trigger success callback
       callbacks.onSuccess(bundle);
+    } else if (cached) {
+      callbacks.onSuccess(cached);
     }
   } catch (err: any) {
     if (err.name === 'AbortError') {
-      // Intentional abort due to rapid symbol switching - silent ignore
       return;
     }
     console.warn(`[MarketDataClient] Fallback to cached state for ${sym}:`, err?.message || err);

@@ -43,16 +43,16 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tập đoàn Hòa Phát',
     exchange: 'HOSE',
     sector: 'Thép',
-    basePrice: 21.7,
-    referencePrice: 21.15,
-    ceilingPrice: 22.6,
-    floorPrice: 19.7,
-    change: 0.55,
-    changePercent: 2.6,
-    volume: 25138400,
-    marketCap: 128900,
-    pe: 13.8,
-    pb: 1.5,
+    basePrice: 22.2,
+    referencePrice: 21.7,
+    ceilingPrice: 23.2,
+    floorPrice: 20.2,
+    change: 0.5,
+    changePercent: 2.3,
+    volume: 22949500,
+    marketCap: 133200,
+    pe: 14.1,
+    pb: 1.55,
     eps: 2017,
     roe: 12.8,
     roa: 7.4,
@@ -74,14 +74,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần FPT',
     exchange: 'HOSE',
     sector: 'Công nghệ',
-    basePrice: 72.0,
-    referencePrice: 69.8,
-    ceilingPrice: 74.6,
-    floorPrice: 65.0,
-    change: 2.2,
-    changePercent: 3.15,
-    volume: 7035800,
-    marketCap: 108000,
+    basePrice: 71.6,
+    referencePrice: 72.0,
+    ceilingPrice: 77.0,
+    floorPrice: 67.0,
+    change: -0.4,
+    changePercent: -0.56,
+    volume: 3636900,
+    marketCap: 107400,
     pe: 24.2,
     pb: 5.1,
     eps: 5423,
@@ -105,13 +105,13 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Sữa Việt Nam',
     exchange: 'HOSE',
     sector: 'Bán lẻ',
-    basePrice: 63.8,
-    referencePrice: 64.0,
-    ceilingPrice: 68.4,
-    floorPrice: 59.6,
+    basePrice: 63.6,
+    referencePrice: 63.8,
+    ceilingPrice: 68.2,
+    floorPrice: 59.4,
     change: -0.2,
     changePercent: -0.31,
-    volume: 3581800,
+    volume: 2528100,
     marketCap: 124300,
     pe: 15.2,
     pb: 4.0,
@@ -136,14 +136,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Quân Đội',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 20.85,
-    referencePrice: 20.3,
-    ceilingPrice: 21.7,
-    floorPrice: 18.9,
-    change: 0.55,
-    changePercent: 2.71,
-    volume: 15698000,
-    marketCap: 129000,
+    basePrice: 20.75,
+    referencePrice: 20.85,
+    ceilingPrice: 22.3,
+    floorPrice: 19.4,
+    change: -0.1,
+    changePercent: -0.48,
+    volume: 8980200,
+    marketCap: 128500,
     pe: 5.9,
     pb: 1.1,
     eps: 4000,
@@ -167,14 +167,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Chứng khoán SSI',
     exchange: 'HOSE',
     sector: 'Chứng khoán',
-    basePrice: 20.75,
-    referencePrice: 19.4,
-    ceilingPrice: 20.75,
-    floorPrice: 18.05,
-    change: 1.35,
-    changePercent: 6.96,
-    volume: 38706800,
-    marketCap: 52400,
+    basePrice: 21.3,
+    referencePrice: 20.75,
+    ceilingPrice: 22.2,
+    floorPrice: 19.3,
+    change: 0.55,
+    changePercent: 2.65,
+    volume: 28110300,
+    marketCap: 53800,
     pe: 16.5,
     pb: 1.7,
     eps: 1848,
@@ -198,14 +198,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 31.65,
-    referencePrice: 31.0,
-    ceilingPrice: 33.15,
-    floorPrice: 28.85,
-    change: 0.65,
-    changePercent: 2.1,
-    volume: 9772000,
-    marketCap: 208000,
+    basePrice: 31.55,
+    referencePrice: 31.65,
+    ceilingPrice: 33.85,
+    floorPrice: 29.45,
+    change: -0.1,
+    changePercent: -0.32,
+    volume: 8118100,
+    marketCap: 207500,
     pe: 6.8,
     pb: 1.05,
     eps: 3310,
@@ -230,12 +230,12 @@ const RAW_STOCKS: RawStockSeed[] = [
     exchange: 'HOSE',
     sector: 'Bán lẻ',
     basePrice: 75.0,
-    referencePrice: 72.7,
-    ceilingPrice: 77.7,
-    floorPrice: 67.7,
-    change: 2.3,
-    changePercent: 3.16,
-    volume: 4995900,
+    referencePrice: 75.0,
+    ceilingPrice: 80.2,
+    floorPrice: 69.8,
+    change: 0.0,
+    changePercent: 0.0,
+    volume: 1724000,
     marketCap: 105400,
     pe: 22.0,
     pb: 3.3,
@@ -260,14 +260,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Công ty Cổ phần Vinhomes',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 71.7,
-    referencePrice: 69.5,
-    ceilingPrice: 74.3,
-    floorPrice: 64.7,
-    change: 2.2,
-    changePercent: 3.17,
-    volume: 5100800,
-    marketCap: 301000,
+    basePrice: 72.8,
+    referencePrice: 71.7,
+    ceilingPrice: 76.7,
+    floorPrice: 66.7,
+    change: 1.1,
+    changePercent: 1.53,
+    volume: 4325400,
+    marketCap: 305000,
     pe: 8.2,
     pb: 1.02,
     eps: 4950,
@@ -291,14 +291,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Tập đoàn Vingroup',
     exchange: 'HOSE',
     sector: 'Bất động sản',
-    basePrice: 205.0,
-    referencePrice: 202.0,
-    ceilingPrice: 216.1,
-    floorPrice: 187.9,
-    change: 3.0,
-    changePercent: 1.49,
-    volume: 3196900,
-    marketCap: 760000,
+    basePrice: 214.0,
+    referencePrice: 205.0,
+    ceilingPrice: 219.3,
+    floorPrice: 190.7,
+    change: 9.0,
+    changePercent: 4.39,
+    volume: 2687400,
+    marketCap: 795000,
     pe: 32.0,
     pb: 1.35,
     eps: 1284,
@@ -322,14 +322,14 @@ const RAW_STOCKS: RawStockSeed[] = [
     name: 'Ngân hàng TMCP Ngoại Thương Việt Nam',
     exchange: 'HOSE',
     sector: 'Ngân hàng',
-    basePrice: 59.1,
-    referencePrice: 57.8,
-    ceilingPrice: 61.8,
-    floorPrice: 53.8,
-    change: 1.3,
-    changePercent: 2.25,
-    volume: 4695200,
-    marketCap: 324000,
+    basePrice: 59.5,
+    referencePrice: 59.1,
+    ceilingPrice: 63.2,
+    floorPrice: 55.0,
+    change: 0.4,
+    changePercent: 0.68,
+    volume: 4225700,
+    marketCap: 326000,
     pe: 13.5,
     pb: 2.4,
     eps: 6250,
@@ -1472,18 +1472,171 @@ export function getStockBySymbol(symbol: string): StockData | undefined {
   return stockStore[symbol.toUpperCase()];
 }
 
-export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData | undefined> {
+/**
+ * Universal Multi-source Live Stock Quote Fetcher
+ * Tries VNDirect Finfo -> DNSE Entrade -> VNDirect Dchart
+ */
+export async function fetchLiveQuoteFromExchange(symbol: string): Promise<{
+  price: number;
+  referencePrice: number;
+  ceilingPrice: number;
+  floorPrice: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  value: number;
+} | null> {
+  const sym = symbol.toUpperCase().trim();
+  const headers = { 'User-Agent': 'Mozilla/5.0' };
+  const now = Math.floor(Date.now() / 1000);
+
+  // Source 1: VNDirect Finfo real-time snapshot
+  try {
+    const res = await fetch(`https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${sym}&size=1`, {
+      headers,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.data && json.data.length > 0) {
+        const item = json.data[0];
+        if (typeof item.close === 'number' && item.close > 0) {
+          const ref = item.basicPrice || item.close;
+          const change = item.change ?? Number((item.close - ref).toFixed(2));
+          const pctChange = item.pctChange ?? (ref > 0 ? Number(((change / ref) * 100).toFixed(2)) : 0);
+          return {
+            price: item.close,
+            referencePrice: ref,
+            ceilingPrice: item.ceilingPrice || Number((ref * 1.07).toFixed(2)),
+            floorPrice: item.floorPrice || Number((ref * 0.93).toFixed(2)),
+            openPrice: item.open || item.close,
+            highPrice: item.high || item.close,
+            lowPrice: item.low || item.close,
+            change,
+            changePercent: Number(pctChange.toFixed(2)),
+            volume: item.nmVolume || 0,
+            value: Number(((item.nmValue || item.close * (item.nmVolume || 0) * 1000) / 1e9).toFixed(1)),
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // Source 2: DNSE Entrade OHLCV live snapshot
+  try {
+    const res = await fetch(`https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${now - 86400 * 10}&to=${now}&resolution=1D`, {
+      headers,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.c && d.c.length > 0) {
+        const len = d.c.length - 1;
+        const close = d.c[len];
+        const prev = len > 0 ? d.c[len - 1] : close;
+        const change = Number((close - prev).toFixed(2));
+        const pctChange = prev > 0 ? Number(((change / prev) * 100).toFixed(2)) : 0;
+        const vol = d.v?.[len] || 0;
+        return {
+          price: close,
+          referencePrice: prev,
+          ceilingPrice: Number((prev * 1.07).toFixed(2)),
+          floorPrice: Number((prev * 0.93).toFixed(2)),
+          openPrice: d.o?.[len] || close,
+          highPrice: d.h?.[len] || close,
+          lowPrice: d.l?.[len] || close,
+          change,
+          changePercent: pctChange,
+          volume: vol,
+          value: Number(((close * vol * 1000) / 1e9).toFixed(1)),
+        };
+      }
+    }
+  } catch {}
+
+  // Source 3: VNDirect Dchart Daily History
+  try {
+    const res = await fetch(`https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${sym}&from=${now - 86400 * 10}&to=${now}`, {
+      headers,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.c && d.c.length > 0) {
+        const len = d.c.length - 1;
+        const close = d.c[len];
+        const prev = len > 0 ? d.c[len - 1] : close;
+        const change = Number((close - prev).toFixed(2));
+        const pctChange = prev > 0 ? Number(((change / prev) * 100).toFixed(2)) : 0;
+        const vol = d.v?.[len] || 0;
+        return {
+          price: close,
+          referencePrice: prev,
+          ceilingPrice: Number((prev * 1.07).toFixed(2)),
+          floorPrice: Number((prev * 0.93).toFixed(2)),
+          openPrice: d.o?.[len] || close,
+          highPrice: d.h?.[len] || close,
+          lowPrice: d.l?.[len] || close,
+          change,
+          changePercent: pctChange,
+          volume: vol,
+          value: Number(((close * vol * 1000) / 1e9).toFixed(1)),
+        };
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+export async function getOrFetchStockBySymbol(symbol: string, forceRefresh = false): Promise<StockData | undefined> {
   const sym = symbol.toUpperCase().trim();
   if (!sym) return undefined;
 
-  if (stockStore[sym]) {
-    return stockStore[sym];
+  // If already in memory store and fresh (< 15 seconds), return immediately
+  const existing = stockStore[sym];
+  if (existing && !forceRefresh && existing.lastUpdated && Date.now() - existing.lastUpdated < 15_000) {
+    return existing;
   }
 
+  // If in store but stale, refresh quote in real time
+  if (existing) {
+    try {
+      const liveQuote = await fetchLiveQuoteFromExchange(sym);
+      if (liveQuote) {
+        existing.price = liveQuote.price;
+        existing.referencePrice = liveQuote.referencePrice;
+        existing.ceilingPrice = liveQuote.ceilingPrice;
+        existing.floorPrice = liveQuote.floorPrice;
+        existing.openPrice = liveQuote.openPrice;
+        existing.highPrice = liveQuote.highPrice;
+        existing.lowPrice = liveQuote.lowPrice;
+        existing.change = liveQuote.change;
+        existing.changePercent = liveQuote.changePercent;
+        existing.volume = liveQuote.volume || existing.volume;
+        existing.value = liveQuote.value || existing.value;
+        existing.lastUpdated = Date.now();
+
+        if (candleStore[sym] && candleStore[sym].length > 0) {
+          const lastC = candleStore[sym][candleStore[sym].length - 1];
+          lastC.close = liveQuote.price;
+          lastC.high = Math.max(lastC.high, liveQuote.highPrice);
+          lastC.low = Math.min(lastC.low, liveQuote.lowPrice);
+          lastC.volume = liveQuote.volume || lastC.volume;
+        }
+      }
+    } catch {}
+    return existing;
+  }
+
+  // Dynamic Lookup for newly searched stock
   try {
     const safeFetchJson = async (url: string) => {
       try {
-        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(4000) });
         if (!res.ok) return null;
         const text = await res.text();
         if (!text || !text.trim()) return null;
@@ -1507,13 +1660,8 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
       if (info.industryName) sector = info.industryName;
     }
 
-    // 2. Fetch current price
-    const priceUrl = `https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${sym}&size=1`;
-    const priceJson = await safeFetchJson(priceUrl);
-    let priceItem: any = null;
-    if (priceJson && priceJson.data && priceJson.data.length > 0) {
-      priceItem = priceJson.data[0];
-    }
+    // 2. Fetch live quote
+    const liveQuote = await fetchLiveQuoteFromExchange(sym);
 
     // 3. Fetch daily candles (3 years history)
     const now = Math.floor(Date.now() / 1000);
@@ -1538,8 +1686,24 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
       candles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
     }
 
+    // Fallback candles from DNSE if VNDirect dchart empty
     if (candles.length === 0) {
-      const basePrice = priceItem ? priceItem.close : 15.0;
+      const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${from}&to=${now}&resolution=1D`;
+      const dnseData = await safeFetchJson(dnseUrl);
+      if (dnseData && dnseData.t && dnseData.t.length > 0) {
+        candles = dnseData.t.map((ts: number, idx: number) => ({
+          time: new Date(ts * 1000).toISOString().split('T')[0],
+          open: dnseData.o[idx],
+          high: dnseData.h[idx],
+          low: dnseData.l[idx],
+          close: dnseData.c[idx],
+          volume: dnseData.v[idx],
+        }));
+      }
+    }
+
+    if (candles.length === 0) {
+      const basePrice = liveQuote ? liveQuote.price : 15.0;
       candles = generateHistoricalCandles(basePrice);
     }
 
@@ -1548,14 +1712,14 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
     const lastCandle = candles[candles.length - 1];
     const prevCandle = candles.length > 1 ? candles[candles.length - 2] : lastCandle;
 
-    const price = priceItem ? priceItem.close : lastCandle.close;
-    const referencePrice = priceItem ? priceItem.basicPrice : prevCandle.close;
-    const ceilingPrice = priceItem ? priceItem.ceilingPrice : Number((referencePrice * 1.07).toFixed(2));
-    const floorPrice = priceItem ? priceItem.floorPrice : Number((referencePrice * 0.93).toFixed(2));
-    const change = priceItem ? priceItem.change : Number((price - referencePrice).toFixed(2));
-    const changePercent = priceItem ? Number((priceItem.pctChange ?? 0).toFixed(2)) : Number(((change / referencePrice) * 100).toFixed(2));
-    const volume = priceItem ? priceItem.nmVolume : lastCandle.volume;
-    const value = priceItem ? Number(((priceItem.nmValue ?? 0) / 1000000000).toFixed(1)) : Number(((price * volume) / 10000000).toFixed(1));
+    const price = liveQuote ? liveQuote.price : lastCandle.close;
+    const referencePrice = liveQuote ? liveQuote.referencePrice : prevCandle.close;
+    const ceilingPrice = liveQuote ? liveQuote.ceilingPrice : Number((referencePrice * (exchange === 'HNX' ? 1.1 : exchange === 'UPCOM' ? 1.15 : 1.07)).toFixed(2));
+    const floorPrice = liveQuote ? liveQuote.floorPrice : Number((referencePrice * (exchange === 'HNX' ? 0.9 : exchange === 'UPCOM' ? 0.85 : 0.93)).toFixed(2));
+    const change = liveQuote ? liveQuote.change : Number((price - referencePrice).toFixed(2));
+    const changePercent = liveQuote ? liveQuote.changePercent : Number(((change / referencePrice) * 100).toFixed(2));
+    const volume = liveQuote ? liveQuote.volume : lastCandle.volume;
+    const value = liveQuote ? liveQuote.value : Number(((price * volume) / 10000000).toFixed(1));
 
     const technical = computeTechnicalIndicators(candles);
 
@@ -1605,9 +1769,9 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
       price,
       change,
       changePercent,
-      openPrice: priceItem ? priceItem.open : lastCandle.open,
-      highPrice: priceItem ? priceItem.high : lastCandle.high,
-      lowPrice: priceItem ? priceItem.low : lastCandle.low,
+      openPrice: liveQuote ? liveQuote.openPrice : lastCandle.open,
+      highPrice: liveQuote ? liveQuote.highPrice : lastCandle.high,
+      lowPrice: liveQuote ? liveQuote.lowPrice : lastCandle.low,
       referencePrice,
       ceilingPrice,
       floorPrice,
@@ -1625,6 +1789,7 @@ export async function getOrFetchStockBySymbol(symbol: string): Promise<StockData
       aiTargetPrice,
       aiStopLoss,
       aiReasoning: `Mã cổ phiếu ${sym} (${companyName}) giao dịch thực tế trên sàn ${exchange} với khối lượng ${volume.toLocaleString('vi-VN')} CP. Tín hiệu kỹ thuật RSI=${technical.rsi14}, hỗ trợ ${technical.supportLevel}, kháng cự ${technical.resistanceLevel}.`,
+      lastUpdated: Date.now(),
     };
 
     stockStore[sym] = newStock;
@@ -1645,154 +1810,43 @@ export async function syncRealMarketData() {
     const symbols = Object.keys(stockStore);
     if (symbols.length === 0) return;
 
-    // 1. Fetch real-time stock prices from exchange API
-    const priceUrl = `https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${symbols.join(',')}&size=100`;
-    let quoteSuccess = false;
-    try {
-      const res = await fetch(priceUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (res.ok) {
-        const json = await res.json();
-        const rawList = json.data || [];
-        const latestMap: Record<string, any> = {};
-        rawList.forEach((item: any) => {
-          if (!latestMap[item.code]) {
-            latestMap[item.code] = item;
-          }
-        });
+    // 1. Fetch real-time stock prices for all tracked symbols using parallel requests with fallback
+    const quoteResults = await Promise.allSettled(
+      symbols.map((sym) => fetchLiveQuoteFromExchange(sym))
+    );
 
-        if (Object.keys(latestMap).length > 0) {
-          quoteSuccess = true;
-          symbols.forEach((sym) => {
-            const item = latestMap[sym];
-            const stock = stockStore[sym];
-            if (item && stock) {
-              stock.price = item.close;
-              stock.referencePrice = item.basicPrice;
-              stock.ceilingPrice = item.ceilingPrice;
-              stock.floorPrice = item.floorPrice;
-              stock.openPrice = item.open;
-              stock.highPrice = item.high;
-              stock.lowPrice = item.low;
-              stock.change = item.change;
-              stock.changePercent = Number((item.pctChange ?? 0).toFixed(2));
-              stock.volume = item.nmVolume;
-              stock.value = Number(((item.nmValue ?? 0) / 1000000000).toFixed(1));
+    quoteResults.forEach((res, idx) => {
+      const sym = symbols[idx];
+      const stock = stockStore[sym];
+      if (res.status === 'fulfilled' && res.value && stock) {
+        const item = res.value;
+        stock.price = item.price;
+        stock.referencePrice = item.referencePrice;
+        stock.ceilingPrice = item.ceilingPrice;
+        stock.floorPrice = item.floorPrice;
+        stock.openPrice = item.openPrice;
+        stock.highPrice = item.highPrice;
+        stock.lowPrice = item.lowPrice;
+        stock.change = item.change;
+        stock.changePercent = item.changePercent;
+        stock.volume = item.volume || stock.volume;
+        stock.value = item.value || stock.value;
+        stock.lastUpdated = Date.now();
 
-              // Synchronize latest candle with live quote
-              if (candleStore[sym] && candleStore[sym].length > 0) {
-                const lastC = candleStore[sym][candleStore[sym].length - 1];
-                lastC.close = item.close;
-                lastC.high = Math.max(lastC.high, item.high || item.close);
-                lastC.low = Math.min(lastC.low, item.low || item.close);
-                lastC.volume = item.nmVolume || lastC.volume;
-              }
-            }
-          });
+        // Synchronize latest candle with live quote
+        if (candleStore[sym] && candleStore[sym].length > 0) {
+          const lastC = candleStore[sym][candleStore[sym].length - 1];
+          lastC.close = item.price;
+          lastC.high = Math.max(lastC.high, item.highPrice);
+          lastC.low = Math.min(lastC.low, item.lowPrice);
+          lastC.volume = item.volume || lastC.volume;
         }
       }
-    } catch {}
+    });
 
-    // Fallback: If VNDirect is blocked/fails on Render cloud host, sync latest price from DNSE
-    if (!quoteSuccess) {
-      const dnseNow = Math.floor(Date.now() / 1000);
-      for (const sym of symbols) {
-        try {
-          const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${dnseNow - 86400 * 10}&to=${dnseNow}&resolution=1D`;
-          const dRes = await fetch(dnseUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (dRes.ok) {
-            const dJson = await dRes.json();
-            if (dJson && dJson.c && dJson.c.length > 0) {
-              const len = dJson.c.length - 1;
-              const close = dJson.c[len];
-              const prevClose = len > 0 ? dJson.c[len - 1] : close;
-              const change = Number((close - prevClose).toFixed(2));
-              const pct = prevClose > 0 ? Number(((change / prevClose) * 100).toFixed(2)) : 0;
-              const stock = stockStore[sym];
-              if (stock) {
-                stock.price = close;
-                stock.referencePrice = prevClose;
-                stock.change = change;
-                stock.changePercent = pct;
-                stock.volume = dJson.v?.[len] || stock.volume;
-                stock.highPrice = dJson.h?.[len] || close;
-                stock.lowPrice = dJson.l?.[len] || close;
-                stock.openPrice = dJson.o?.[len] || close;
-              }
-            }
-          }
-        } catch {}
-      }
-    }
-
-    // 2. Fetch candle histories for active stocks to keep technical indicators exact
+    // 2. Fetch Market Indices (VNINDEX, VN30, HNX, UPCOM)
     const now = Math.floor(Date.now() / 1000);
-    const from = now - 3600 * 24 * 750; // 750 days of historical daily candles
-
-    for (const sym of symbols) {
-      try {
-        let realCandles: Candle[] | null = null;
-
-        // Provider 1: VNDirect Dchart
-        try {
-          const dchartUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${sym}&from=${from}&to=${now}`;
-          const cRes = await fetch(dchartUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (cRes.ok) {
-            const cData = await cRes.json();
-            if (cData && cData.t && cData.t.length > 0) {
-              realCandles = cData.t.map((ts: number, idx: number) => ({
-                time: new Date(ts * 1000).toISOString().split('T')[0],
-                open: cData.o[idx],
-                high: cData.h[idx],
-                low: cData.l[idx],
-                close: cData.c[idx],
-                volume: cData.v[idx],
-              }));
-            }
-          }
-        } catch {}
-
-        // Provider 2 Fallback: DNSE Entrade Chart API (Reliable internationally on Render/AWS)
-        if (!realCandles || realCandles.length === 0) {
-          try {
-            const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${from}&to=${now}&resolution=1D`;
-            const dnseRes = await fetch(dnseUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-            if (dnseRes.ok) {
-              const dData = await dnseRes.json();
-              if (dData && dData.t && dData.t.length > 0) {
-                realCandles = dData.t.map((ts: number, idx: number) => ({
-                  time: new Date(ts * 1000).toISOString().split('T')[0],
-                  open: dData.o[idx],
-                  high: dData.h[idx],
-                  low: dData.l[idx],
-                  close: dData.c[idx],
-                  volume: dData.v[idx],
-                }));
-              }
-            }
-          } catch {}
-        }
-
-        if (realCandles && realCandles.length > 0) {
-          // Deduplicate and ensure last candle matches live stock price
-          const map = new Map<string, Candle>();
-          realCandles.forEach((c) => map.set(c.time, c));
-          const sortedCandles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
-          
-          const stock = stockStore[sym];
-          if (stock && sortedCandles.length > 0) {
-            sortedCandles[sortedCandles.length - 1].close = stock.price;
-          }
-          
-          candleStore[sym] = sortedCandles;
-          if (stock) {
-            stock.technical = computeTechnicalIndicators(sortedCandles);
-            stock.smartMoney = analyzeSmartMoneySignal(stock);
-          }
-        }
-      } catch (e) {}
-    }
-
-    // 3. Fetch Market Indices (VNINDEX, VN30, HNX, UPCOM)
+    const from = now - 3600 * 24 * 750; // 750 days
     const idxMap: Record<string, string> = {
       VNINDEX: 'VNINDEX',
       VN30: 'VN30',
@@ -1803,9 +1857,10 @@ export async function syncRealMarketData() {
     for (const [key, dchartSymbol] of Object.entries(idxMap)) {
       try {
         let matched = false;
+        // Provider 1: VNDirect Dchart
         try {
           const iUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${dchartSymbol}&from=${from}&to=${now}`;
-          const iRes = await fetch(iUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          const iRes = await fetch(iUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(3500) });
           if (iRes.ok) {
             const iData = await iRes.json();
             if (iData && iData.t && iData.t.length > 0) {
@@ -1821,17 +1876,18 @@ export async function syncRealMarketData() {
                 targetIdx.price = currentPrice;
                 targetIdx.change = change;
                 targetIdx.changePercent = changePercent;
-                targetIdx.totalVolume = iData.v[len];
+                targetIdx.totalVolume = iData.v[len] || targetIdx.totalVolume;
                 matched = true;
               }
             }
           }
         } catch {}
 
+        // Provider 2: DNSE Entrade index endpoint fallback
         if (!matched) {
           try {
             const dnseIdxUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/index?symbol=${dchartSymbol}&from=${now - 86400 * 10}&to=${now}&resolution=1D`;
-            const dnseRes = await fetch(dnseIdxUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const dnseRes = await fetch(dnseIdxUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(3500) });
             if (dnseRes.ok) {
               const dData = await dnseRes.json();
               if (dData && dData.t && dData.t.length > 0) {
@@ -1847,7 +1903,7 @@ export async function syncRealMarketData() {
                   targetIdx.price = currentPrice;
                   targetIdx.change = change;
                   targetIdx.changePercent = changePercent;
-                  targetIdx.totalVolume = dData.v[len];
+                  targetIdx.totalVolume = dData.v[len] || targetIdx.totalVolume;
                 }
               }
             }
