@@ -96,6 +96,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
   // High-Throughput SSE Market Stream & Latency Subscription
   useEffect(() => {
+    // Switch active symbol on stream client
+    marketStreamClient.switchSymbol(stock.symbol);
+
     const unsubStatus = marketStreamClient.onStatusChange((status, latency) => {
       setStreamConnected(status === 'CONNECTED');
       setLiveLatency(latency);
@@ -112,6 +115,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
       unsubTick();
     };
   }, [stock.symbol]);
+
+  const currentSession = getMarketSessionInfo();
 
   const [isPinging, setIsPinging] = useState(false);
   const handleTestPing = async () => {
@@ -363,7 +368,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                   <RefreshCw className={`w-2.5 h-2.5 text-gray-400 ${isPinging ? 'animate-spin text-blue-400' : ''}`} />
                 </button>
                 <span className="text-gray-500">|</span>
-                <span className="text-gray-400">Ticks: <strong className="text-blue-400">{liveTickCount}</strong></span>
+                <span 
+                  className="text-gray-400"
+                  title={currentSession.canMatchOrders ? "Số tick khớp lệnh nhận qua luồng SSE trong phiên trực tiếp" : `Thị trường đang ${currentSession.label.toLowerCase()} (15:00 - 09:00). Ticks tạm dừng khớp lệnh theo quy định sàn HOSE/HNX.`}
+                >
+                  Ticks: <strong className={currentSession.canMatchOrders ? "text-blue-400 animate-pulse" : "text-gray-400"}>{liveTickCount}</strong>
+                  {!currentSession.canMatchOrders && (
+                    <span className="ml-1 text-[9px] text-amber-400 font-normal">({currentSession.label.includes('ĐÓNG') ? 'Đã đóng phiên' : 'Nghỉ trưa'})</span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
