@@ -224,6 +224,16 @@ export interface PortfolioPosition {
   expectedSettlementDate?: string; // Ngày giờ dự kiến cổ phiếu khả dụng
   feePercent: number; // %
   taxPercent: number; // %
+  stopLossPrice?: number; // Giá cắt lỗ cố định (k VNĐ)
+  stopLossPercent?: number; // % Cắt lỗ so với giá vốn (VD: -7%)
+  targetPrice?: number; // Giá chốt lời mục tiêu TP1 (k VNĐ)
+  targetPercent?: number; // % Chốt lời kỳ vọng (VD: +15%)
+  targetPrice2?: number; // Giá chốt lời mục tiêu mở rộng TP2 (k VNĐ)
+  trailingStopPercent?: number; // % Trailing stop động bám đỉnh
+  highestPriceSinceBuy?: number; // Đỉnh cao nhất đạt được kể từ khi mua
+  alertEnabled?: boolean; // Bật/tắt cảnh báo tự động cho vị thế này
+  alertChannel?: 'IN_APP' | 'TELEGRAM' | 'EMAIL';
+  lastAlertTriggered?: string;
   note?: string;
 }
 
@@ -261,6 +271,15 @@ export interface PortfolioSummary {
     kellyOptimalShares: number; // Cổ phiếu khuyên dùng
     atr: number; // Giá trị ATR biến động (VNĐ)
     atrStopLossPrice: number; // Giá cắt lỗ ATR động (1.8 * ATR)
+    effectiveStopLossPrice: number; // Giá cắt lỗ hiệu lực
+    effectiveTargetPrice: number; // Giá chốt lời hiệu lực
+    trailingStopPrice?: number; // Mốc giá Trailing Stop kích hoạt
+    distanceToStopLossPct: number; // Khoảng cách % tới Cắt Lỗ
+    distanceToTargetPct: number; // Khoảng cách % tới Chốt Lời
+    riskAlertStatus: 'BREACHED_STOP_LOSS' | 'NEAR_STOP_LOSS' | 'HIT_TAKE_PROFIT' | 'TRAILING_STOP_BREACH' | 'SAFE_PROFIT' | 'SAFE_HOLD';
+    riskRewardRatio: string; // Tỷ lệ R:R (VD: "1 : 2.14")
+    capitalAtRiskVnd: number; // Số tiền rủi ro tối đa nếu chạm SL (VNĐ)
+    capitalAtRiskNavPct: number; // Tác động tối đa lên NAV (%)
   })[];
 }
 

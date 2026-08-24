@@ -21,12 +21,19 @@ export interface TelegramConfig {
 }
 
 export interface PortfolioPositionStoreItem {
+  id?: string;
   symbol: string;
   buyPrice: number;
   quantity: number;
   stopLossPrice?: number;
+  stopLossPercent?: number;
   targetPrice?: number;
+  targetPercent?: number;
+  targetPrice2?: number;
   trailingStopPercent?: number;
+  highestPriceSinceBuy?: number;
+  alertEnabled?: boolean;
+  alertChannel?: string;
   tradeDate?: string;
 }
 

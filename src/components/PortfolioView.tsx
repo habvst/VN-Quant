@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle, Clock, Cloud, Database, Dices, DollarSign, Flame, Grid, History, Lock, MinusCircle, PieChart, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Trash2, TrendingUp, Wallet, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, CheckCircle, Clock, Cloud, Crosshair, Database, Dices, DollarSign, Flame, Grid, History, Lock, MinusCircle, PieChart, Plus, RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, Sliders, Sparkles, Target, Trash2, TrendingUp, Wallet, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { PortfolioPosition, StockData } from '../types';
 import { BetaTimeframe, calculateCorrelationMatrix, calculatePortfolioMetrics, getSectorConcentrationAnalysis } from '../utils/riskEngine';
@@ -9,6 +9,8 @@ import { portfolioCloudSync, CloudSyncStatus, PortfolioDataModel } from '../serv
 import { CloudSyncModal } from './CloudSyncModal';
 import { StressTestingModule } from './StressTestingModule';
 import { MonteCarloModule } from './MonteCarloModule';
+import { PortfolioRiskAlertModal } from './PortfolioRiskAlertModal';
+import { evaluateClientPortfolioRiskAlerts, syncPortfolioToServer } from '../services/portfolioAlertEngine';
 
 interface PortfolioViewProps {
   stocks: StockData[];
@@ -119,6 +121,115 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
   // Cloud Sync Modal & Status State
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('LOCAL_ONLY');
+
+  // Risk Alert Configuration Modal States
+  const [selectedRiskPosition, setSelectedRiskPosition] = useState<PortfolioPosition | null>(null);
+  const [isRiskAlertModalOpen, setIsRiskAlertModalOpen] = useState<boolean>(false);
+  const [isBatchRiskModalOpen, setIsBatchRiskModalOpen] = useState<boolean>(false);
+  const [batchPreset, setBatchPreset] = useState<'CONSERVATIVE' | 'QUANT_SWING' | 'MOMENTUM' | 'ATR_DYNAMIC'>('QUANT_SWING');
+  const [riskViewFilter, setRiskViewFilter] = useState<'ALL' | 'ALERT_ONLY' | 'NEAR_SL' | 'PROFIT'>('ALL');
+  const [testingTelegramSymbol, setTestingTelegramSymbol] = useState<string | null>(null);
+
+  // Client-side real-time risk alert trigger loop
+  useEffect(() => {
+    if (positions.length > 0 && stocks.length > 0) {
+      evaluateClientPortfolioRiskAlerts(positions, stockMap);
+    }
+  }, [stocks, positions]);
+
+  // Handler to save Risk Settings for a position
+  const handleSaveRiskSettings = async (updatedPos: PortfolioPosition) => {
+    const updatedPositions = positions.map((p) => (p.id === updatedPos.id ? updatedPos : p));
+    setPositions(updatedPositions);
+    localStorage.setItem('vnquant_portfolio_positions', JSON.stringify(updatedPositions));
+    await syncPortfolioToServer(updatedPositions);
+    setIsRiskAlertModalOpen(false);
+    setSelectedRiskPosition(null);
+  };
+
+  // Handler to apply Batch Quant Presets to all positions
+  const handleApplyBatchRiskPreset = async (preset: 'CONSERVATIVE' | 'QUANT_SWING' | 'MOMENTUM' | 'ATR_DYNAMIC') => {
+    const updated = positions.map((pos) => {
+      const stock = stockMap[pos.symbol];
+      const curPrice = stock?.price || pos.buyPrice;
+      const atr = stock?.technical?.atr14 || Number((curPrice * 0.035).toFixed(2));
+
+      let slPct = 7;
+      let tpPct = 15;
+      let trailingPct = 0;
+      let slPrice = Number((pos.buyPrice * 0.93).toFixed(2));
+      let tpPrice = Number((pos.buyPrice * 1.15).toFixed(2));
+
+      if (preset === 'CONSERVATIVE') {
+        slPct = 5;
+        tpPct = 10;
+        trailingPct = 4;
+        slPrice = Number((pos.buyPrice * 0.95).toFixed(2));
+        tpPrice = Number((pos.buyPrice * 1.10).toFixed(2));
+      } else if (preset === 'QUANT_SWING') {
+        slPct = 7;
+        tpPct = 15;
+        trailingPct = 5;
+        slPrice = Number((pos.buyPrice * 0.93).toFixed(2));
+        tpPrice = Number((pos.buyPrice * 1.15).toFixed(2));
+      } else if (preset === 'MOMENTUM') {
+        slPct = 8;
+        tpPct = 25;
+        trailingPct = 7;
+        slPrice = Number((pos.buyPrice * 0.92).toFixed(2));
+        tpPrice = Number((pos.buyPrice * 1.25).toFixed(2));
+      } else if (preset === 'ATR_DYNAMIC') {
+        slPrice = Number((pos.buyPrice - 2 * atr).toFixed(2));
+        slPct = Number((((pos.buyPrice - slPrice) / pos.buyPrice) * 100).toFixed(1));
+        tpPrice = Number((pos.buyPrice + 3.5 * atr).toFixed(2));
+        tpPct = Number((((tpPrice - pos.buyPrice) / pos.buyPrice) * 100).toFixed(1));
+        trailingPct = 5;
+      }
+
+      return {
+        ...pos,
+        stopLossPrice: slPrice,
+        stopLossPercent: slPct,
+        targetPrice: tpPrice,
+        targetPercent: tpPct,
+        targetPrice2: Number((tpPrice * 1.08).toFixed(2)),
+        trailingStopPercent: trailingPct,
+        highestPriceSinceBuy: Math.max(pos.highestPriceSinceBuy || pos.buyPrice, curPrice),
+        alertEnabled: true,
+        alertChannel: pos.alertChannel || 'TELEGRAM',
+      };
+    });
+
+    setPositions(updated);
+    localStorage.setItem('vnquant_portfolio_positions', JSON.stringify(updated));
+    await syncPortfolioToServer(updated);
+    setIsBatchRiskModalOpen(false);
+  };
+
+  // Test Telegram dispatch for holding
+  const handleTestHoldingTelegramAlert = async (pos: PortfolioPosition) => {
+    setTestingTelegramSymbol(pos.symbol);
+    try {
+      const res = await fetch('/api/test-tier-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: 'P1',
+          symbol: pos.symbol,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Đã gửi thành công tin nhắn cảnh báo P1 cho #${pos.symbol} về Telegram!`);
+      } else {
+        alert(`⚠️ Gửi thất bại: ${data.error || 'Vui lòng kiểm tra Bot Token & Chat ID'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Lỗi kết nối: ${e.message}`);
+    } finally {
+      setTestingTelegramSymbol(null);
+    }
+  };
 
   useEffect(() => {
     const unsub = portfolioCloudSync.onStatusChange((st) => {
@@ -1149,34 +1260,76 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
             </div>
 
             {portfolioTab === 'POSITIONS' && (
-              <div className="flex items-center space-x-1 bg-[#050505] p-1 rounded border border-gray-800 text-[11px]">
-                <span className="text-gray-500 font-bold px-1 uppercase text-[10px]">LỌC:</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-[#050505] p-2 rounded border border-gray-800 text-[11px]">
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-gray-500 font-bold px-1 uppercase text-[10px]">LỌC T+2.5:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettlementFilter('ALL')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      settlementFilter === 'ALL' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Tất cả ({portfolioSummary.positions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettlementFilter('SETTLED')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      settlementFilter === 'SETTLED' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Khả Dụng ({portfolioSummary.positions.filter((p) => p.settlementStatus === 'SETTLED' || (p.availableQuantity && p.availableQuantity > 0)).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettlementFilter('PENDING')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      settlementFilter === 'PENDING' ? 'bg-amber-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Kẹp T+2.5 ({portfolioSummary.positions.filter((p) => p.settlementStatus !== 'SETTLED' || p.availableQuantity === 0).length})
+                  </button>
+
+                  <span className="text-gray-600 px-1">|</span>
+
+                  <span className="text-gray-500 font-bold px-1 uppercase text-[10px]">LỌC RỦI RO:</span>
+                  <button
+                    type="button"
+                    onClick={() => setRiskViewFilter('ALL')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      riskViewFilter === 'ALL' ? 'bg-indigo-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRiskViewFilter('ALERT_ONLY')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      riskViewFilter === 'ALERT_ONLY' ? 'bg-red-600 text-white font-bold animate-pulse' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🚨 Cần xử lý ({portfolioSummary.positions.filter((p) => p.riskAlertStatus === 'BREACHED_STOP_LOSS' || p.riskAlertStatus === 'TRAILING_STOP_BREACH' || p.riskAlertStatus === 'NEAR_STOP_LOSS').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRiskViewFilter('PROFIT')}
+                    className={`px-2 py-0.5 rounded transition ${
+                      riskViewFilter === 'PROFIT' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🎯 Đạt TP ({portfolioSummary.positions.filter((p) => p.riskAlertStatus === 'HIT_TAKE_PROFIT').length})
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setSettlementFilter('ALL')}
-                  className={`px-2 py-0.5 rounded transition ${
-                    settlementFilter === 'ALL' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={() => setIsBatchRiskModalOpen(true)}
+                  className="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/80 px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
                 >
-                  Tất cả ({portfolioSummary.positions.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSettlementFilter('SETTLED')}
-                  className={`px-2 py-0.5 rounded transition ${
-                    settlementFilter === 'SETTLED' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Khả Dụng ({portfolioSummary.positions.filter((p) => p.settlementStatus === 'SETTLED' || (p.availableQuantity && p.availableQuantity > 0)).length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSettlementFilter('PENDING')}
-                  className={`px-2 py-0.5 rounded transition ${
-                    settlementFilter === 'PENDING' ? 'bg-amber-600 text-white font-bold' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Kẹp T+2.5 ({portfolioSummary.positions.filter((p) => p.settlementStatus !== 'SETTLED' || p.availableQuantity === 0).length})
+                  <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>🛡️ CÀI SL/TP HÀNG LOẠT (QUANT PRESET)</span>
                 </button>
               </div>
             )}
@@ -1185,29 +1338,132 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
           {/* TAB 1: POSITIONS TABLE */}
           {portfolioTab === 'POSITIONS' && (
             <>
+              {/* EMERGENCY STOP-LOSS & TAKE-PROFIT NOTIFICATION BANNER */}
+              {(() => {
+                const urgentBreached = portfolioSummary.positions.filter(
+                  (p) => p.riskAlertStatus === 'BREACHED_STOP_LOSS' || p.riskAlertStatus === 'TRAILING_STOP_BREACH'
+                );
+                const nearSlList = portfolioSummary.positions.filter((p) => p.riskAlertStatus === 'NEAR_STOP_LOSS');
+                const hitTpList = portfolioSummary.positions.filter((p) => p.riskAlertStatus === 'HIT_TAKE_PROFIT');
+
+                if (urgentBreached.length === 0 && nearSlList.length === 0 && hitTpList.length === 0) return null;
+
+                return (
+                  <div className="space-y-2 mb-3">
+                    {/* 1. Stop-Loss Breached Alerts */}
+                    {urgentBreached.length > 0 && (
+                      <div className="bg-red-950/95 border-2 border-red-500 rounded-sm p-3.5 text-xs text-red-100 font-mono shadow-2xl space-y-2 animate-pulse">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 font-black text-red-300">
+                            <ShieldAlert className="w-5 h-5 text-red-400 animate-bounce" />
+                            <span className="text-sm uppercase tracking-wide">🚨 BÁO ĐỘNG ĐỎ: PHÁT HIỆN {urgentBreached.length} MÃ VI PHẠM NGƯỠNG CẮT LỖ / TRAILING STOP!</span>
+                          </div>
+                          <span className="bg-red-900 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-red-400">
+                            HÀNH ĐỘNG KHẨN CẤP
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-red-200 leading-relaxed">
+                          Thị giá hiện tại đã xuyên thủng ngưỡng cắt lỗ được thiết lập. Theo kỷ luật quản trị vốn Quant, hãy thực thi lệnh bán ngay để bảo toàn vốn danh mục:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
+                          {urgentBreached.map((p) => (
+                            <div key={p.id} className="bg-black/80 border border-red-600 p-2.5 rounded text-xs flex flex-col justify-between space-y-2 shadow-lg">
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-white text-sm">#{p.symbol}</span>
+                                <span className="text-red-400 font-bold bg-red-950/80 px-2 py-0.5 rounded border border-red-700">
+                                  {p.pnlPercent}% ({(p.pnl / 1000000).toFixed(2)} tr)
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-gray-300 space-y-0.5">
+                                <div>Giá hiện tại: <strong className="text-white">{p.currentPrice}k</strong> • Giá vốn: {p.buyPrice}k</div>
+                                <div>Ngưỡng SL: <strong className="text-red-400">{p.effectiveStopLossPrice}k</strong> {p.trailingStopPrice ? `• Trailing: ${p.trailingStopPrice}k` : ''}</div>
+                                <div>KL Khả dụng: <strong className="text-emerald-400">{(p.availableQuantity || 0).toLocaleString('vi-VN')}</strong> / {(p.quantity || 0).toLocaleString('vi-VN')} CP</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openSellModal(p)}
+                                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-[11px] flex items-center justify-center gap-1 transition"
+                                >
+                                  <DollarSign className="w-3.5 h-3.5" />
+                                  <span>BÁN CẮT LỖ NGAY</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRiskPosition(p);
+                                    setIsRiskAlertModalOpen(true);
+                                  }}
+                                  className="bg-gray-800 hover:bg-gray-700 text-gray-200 p-1.5 rounded"
+                                  title="Chỉnh sửa ngưỡng SL/TP"
+                                >
+                                  <Settings className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Take-Profit Hit Alerts */}
+                    {hitTpList.length > 0 && (
+                      <div className="bg-emerald-950/90 border-2 border-emerald-500 rounded-sm p-3.5 text-xs text-emerald-100 font-mono shadow-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 font-black text-emerald-300">
+                            <Target className="w-5 h-5 text-emerald-400 animate-pulse" />
+                            <span className="text-sm uppercase tracking-wide">🎯 TÍN HIỆU CHỐT LỜI: {hitTpList.length} MÃ ĐẠT MỤC TIÊU TAKE-PROFIT!</span>
+                          </div>
+                          <span className="bg-emerald-900 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-emerald-400">
+                            HIỆU SUẤT XUẤT SẮC
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {hitTpList.map((p) => (
+                            <div key={p.id} className="bg-black/80 border border-emerald-600/80 px-3 py-2 rounded text-xs flex items-center space-x-3 shadow">
+                              <div>
+                                <span className="font-bold text-white text-sm">#{p.symbol}</span>
+                                <div className="text-[10px] text-gray-400">Giá: {p.currentPrice}k (TP: {p.effectiveTargetPrice}k)</div>
+                              </div>
+                              <span className="text-emerald-400 font-black text-sm">+{p.pnlPercent}%</span>
+                              <button
+                                type="button"
+                                onClick={() => openSellModal(p)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[11px] flex items-center gap-1 transition"
+                              >
+                                <span>CHỐT LỜI 50%</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div className="bg-[#0a0a0a] rounded-sm border border-gray-800 overflow-x-auto shadow-xl">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-mono text-left min-w-[1000px]">
+                  <table className="w-full text-xs font-mono text-left min-w-[1250px]">
                     <thead className="bg-[#050505] text-gray-400 border-b border-gray-800 uppercase text-[10px] tracking-wider whitespace-nowrap">
                       <tr>
                         <th className="p-3">Mã CP</th>
                         <th className="p-3 text-center">Trạng Thái T+2.5</th>
                         <th className="p-3 text-right">Giá Vốn</th>
                         <th className="p-3 text-right">Giá Hiện Tại</th>
-                        <th className="p-3 text-right">Cắt Lỗ ATR (Dynamic)</th>
+                        <th className="p-3 text-left">Quản Trị Rủi Ro SL / TP / Trailing Stop</th>
+                        <th className="p-3 text-center">Trạng Thái Cảnh Báo</th>
                         <th className="p-3 text-right">Khả Dụng / Tổng CP</th>
                         <th className="p-3 text-right">Giá Trị NAV (%)</th>
-                        <th className="p-3 text-center">Kelly Tối Ưu</th>
                         <th className="p-3 text-right">Lãi / Lỗ (PnL)</th>
-                        <th className="p-3 text-center">Đề Xuất AI</th>
-                        <th className="p-3 text-center">Hành Động</th>
+                        <th className="p-3 text-center">Quản Trị Lệnh</th>
                         <th className="p-3 text-center">Xóa</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {portfolioSummary.positions.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="p-8 text-center text-gray-400 font-mono space-y-2">
+                          <td colSpan={11} className="p-8 text-center text-gray-400 font-mono space-y-2">
                             <div className="w-12 h-12 rounded-full bg-blue-950/60 border border-blue-800/80 flex items-center justify-center mx-auto text-blue-400 mb-2">
                               <BarChart3 className="w-6 h-6" />
                             </div>
@@ -1220,21 +1476,34 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                       ) : (
                         portfolioSummary.positions
                           .filter((pos) => {
-                            if (settlementFilter === 'SETTLED') return pos.settlementStatus === 'SETTLED' || (pos.availableQuantity && pos.availableQuantity > 0);
-                            if (settlementFilter === 'PENDING') return pos.settlementStatus !== 'SETTLED' || pos.availableQuantity === 0;
+                            if (settlementFilter === 'SETTLED' && !(pos.settlementStatus === 'SETTLED' || (pos.availableQuantity && pos.availableQuantity > 0))) return false;
+                            if (settlementFilter === 'PENDING' && !(pos.settlementStatus !== 'SETTLED' || pos.availableQuantity === 0)) return false;
+                            
+                            if (riskViewFilter === 'ALERT_ONLY' && !(pos.riskAlertStatus === 'BREACHED_STOP_LOSS' || pos.riskAlertStatus === 'TRAILING_STOP_BREACH' || pos.riskAlertStatus === 'NEAR_STOP_LOSS')) return false;
+                            if (riskViewFilter === 'NEAR_SL' && pos.riskAlertStatus !== 'NEAR_STOP_LOSS') return false;
+                            if (riskViewFilter === 'PROFIT' && pos.riskAlertStatus !== 'HIT_TAKE_PROFIT') return false;
                             return true;
                           })
                           .map((pos) => {
                             const isPos = pos.pnl >= 0;
                             const isSettled = pos.settlementStatus === 'SETTLED' || (pos.availableQuantity !== undefined && pos.availableQuantity > 0);
-                            const isAtrBreached = pos.atrStopLossPrice && pos.currentPrice <= pos.atrStopLossPrice;
+                            const isBreached = pos.riskAlertStatus === 'BREACHED_STOP_LOSS' || pos.riskAlertStatus === 'TRAILING_STOP_BREACH';
+                            const isNearSl = pos.riskAlertStatus === 'NEAR_STOP_LOSS';
+                            const isHitTp = pos.riskAlertStatus === 'HIT_TAKE_PROFIT';
 
                             return (
-                              <tr key={pos.id} className="hover:bg-gray-900/50 transition whitespace-nowrap">
+                              <tr key={pos.id} className={`hover:bg-gray-900/50 transition whitespace-nowrap ${isBreached ? 'bg-red-950/20' : isNearSl ? 'bg-amber-950/20' : ''}`}>
                                 <td className="p-3 font-bold text-white">
-                                  <button onClick={() => onSelectStock(pos.symbol)} className="hover:text-blue-400 transition">
-                                    {pos.symbol}
-                                  </button>
+                                  <div className="flex items-center space-x-1.5">
+                                    <button onClick={() => onSelectStock(pos.symbol)} className="hover:text-blue-400 transition font-black text-sm">
+                                      {pos.symbol}
+                                    </button>
+                                    {pos.alertEnabled !== false ? (
+                                      <Bell className="w-3 h-3 text-amber-400" title="Đang kích hoạt giám sát Sentinel 24/7" />
+                                    ) : (
+                                      <MinusCircle className="w-3 h-3 text-gray-600" title="Đã tắt cảnh báo" />
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3 text-center">
                                   {isSettled ? (
@@ -1253,18 +1522,63 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                                 </td>
                                 <td className="p-3 text-right text-gray-300">{pos.buyPrice}</td>
                                 <td className="p-3 text-right font-bold text-gray-100">{pos.currentPrice}</td>
-                                <td className="p-3 text-right">
-                                  {pos.atrStopLossPrice ? (
-                                    <div className="flex flex-col items-end">
-                                      <span className={`font-bold ${isAtrBreached ? 'text-red-400 underline animate-pulse' : 'text-gray-300'}`}>
-                                        {pos.atrStopLossPrice}
+
+                                {/* QUANT RISK MATRIX: SL, TP, TRAILING STOP & DISTANCES */}
+                                <td className="p-3 text-left">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 text-[11px]">
+                                      <span className={`px-1.5 py-0.2 rounded font-bold ${isBreached ? 'bg-red-600 text-white animate-pulse' : 'bg-red-950/80 text-red-300 border border-red-800/80'}`}>
+                                        SL: {pos.effectiveStopLossPrice}k
                                       </span>
-                                      <span className="text-[9px] text-gray-500">ATR: {pos.atr}</span>
+                                      <span className="text-gray-400 text-[10px]">
+                                        (Cách: <strong className={pos.distanceToStopLossPct <= 1.5 ? 'text-red-400' : 'text-gray-300'}>{pos.distanceToStopLossPct}%</strong>)
+                                      </span>
+                                      <span className="text-emerald-300 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.2 rounded font-bold">
+                                        TP: {pos.effectiveTargetPrice}k
+                                      </span>
                                     </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                      {pos.trailingStopPrice ? (
+                                        <span className="text-amber-300">Trailing: <strong>{pos.trailingStopPrice}k</strong></span>
+                                      ) : (
+                                        <span>R:R = <strong>1 : {pos.riskRewardRatio || '2.0'}</strong></span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedRiskPosition(pos);
+                                          setIsRiskAlertModalOpen(true);
+                                        }}
+                                        className="text-blue-400 hover:text-blue-300 underline text-[10px] flex items-center gap-0.5 ml-auto"
+                                      >
+                                        <Settings className="w-3 h-3" />
+                                        <span>Cài SL/TP</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* RISK ALERT STATUS BADGE */}
+                                <td className="p-3 text-center">
+                                  {isBreached ? (
+                                    <span className="inline-block px-2 py-1 rounded text-[10px] font-black bg-red-600 text-white animate-bounce shadow-lg whitespace-nowrap">
+                                      🚨 VI PHẠM CẮT LỖ
+                                    </span>
+                                  ) : isNearSl ? (
+                                    <span className="inline-block px-2 py-1 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-600 animate-pulse whitespace-nowrap">
+                                      ⚠️ CẬN CẮT LỖ (&lt;1.5%)
+                                    </span>
+                                  ) : isHitTp ? (
+                                    <span className="inline-block px-2 py-1 rounded text-[10px] font-bold bg-emerald-600 text-white shadow whitespace-nowrap">
+                                      🎯 ĐẠT MỤC TIÊU TP1
+                                    </span>
                                   ) : (
-                                    <span className="text-gray-500">-</span>
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-[#050505] text-gray-300 border border-gray-800 whitespace-nowrap">
+                                      🟢 VÙNG AN TOÀN
+                                    </span>
                                   )}
                                 </td>
+
                                 <td className="p-3 text-right font-mono">
                                   <span className={isSettled ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
                                     {(pos.availableQuantity ?? 0).toLocaleString('vi-VN')}
@@ -1275,40 +1589,48 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                                   <div>{(pos.currentValue ?? 0).toLocaleString('vi-VN')}</div>
                                   <div className="text-[10px] text-blue-400 font-bold">{pos.weight}% NAV</div>
                                 </td>
-                                <td className="p-3 text-center">
-                                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/80 whitespace-nowrap" title={`Số tiền Kelly khuyên dùng: ${(pos.kellyOptimalVnd ?? 0).toLocaleString('vi-VN')} VNĐ`}>
-                                    {pos.kellyOptimalWeight}% NAV
-                                  </span>
-                                </td>
                                 <td className={`p-3 text-right font-bold ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {isPos ? '+' : ''}
                                   {(pos.pnl ?? 0).toLocaleString('vi-VN')} ({isPos ? '+' : ''}
                                   {pos.pnlPercent}%)
                                 </td>
+
+                                {/* ACTION BUTTONS */}
                                 <td className="p-3 text-center">
-                                  <span
-                                    className={`inline-block px-2 py-0.5 rounded-sm text-[10px] font-bold border whitespace-nowrap ${
-                                      pos.aiRecommendation === 'CHỐT LỜI'
-                                        ? 'bg-blue-950/60 text-blue-400 border-blue-800'
-                                        : pos.aiRecommendation === 'CẮT LỖ'
-                                        ? 'bg-red-950 text-red-400 border-red-800'
-                                        : pos.aiRecommendation === 'MUA THÊM'
-                                        ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                                        : 'bg-[#050505] text-gray-300 border-gray-800'
-                                    }`}
-                                  >
-                                    {pos.aiRecommendation}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-center">
-                                  <button
-                                    onClick={() => openSellModal(pos)}
-                                    className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/50 px-2.5 py-1 rounded text-[10px] font-bold inline-flex items-center justify-center gap-1 mx-auto transition whitespace-nowrap"
-                                    title="Bán chốt lời hoặc cắt lỗ vị thế này"
-                                  >
-                                    <DollarSign className="w-3 h-3" />
-                                    <span>BÁN CP</span>
-                                  </button>
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => openSellModal(pos)}
+                                      className={`px-2 py-1 rounded text-[10px] font-bold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+                                        isBreached
+                                          ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                                          : 'bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/50'
+                                      }`}
+                                      title="Bán chốt lời hoặc cắt lỗ vị thế này"
+                                    >
+                                      <DollarSign className="w-3 h-3" />
+                                      <span>BÁN CP</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRiskPosition(pos);
+                                        setIsRiskAlertModalOpen(true);
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-indigo-300 hover:bg-indigo-950/60 rounded border border-gray-800"
+                                      title="Cấu hình cảnh báo Rủi ro & SL/TP"
+                                    >
+                                      <Crosshair className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => handleTestHoldingTelegramAlert(pos)}
+                                      disabled={testingTelegramSymbol === pos.symbol}
+                                      className="p-1 text-gray-400 hover:text-sky-300 hover:bg-sky-950/60 rounded border border-gray-800"
+                                      title="Gửi thử nghiệm cảnh báo P1 về Telegram"
+                                    >
+                                      <Send className={`w-3.5 h-3.5 ${testingTelegramSymbol === pos.symbol ? 'animate-spin' : ''}`} />
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="p-3 text-center">
                                   <button onClick={() => handleRemovePosition(pos.id)} className="text-red-400 hover:text-red-300 p-1">
@@ -2044,6 +2366,179 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
           </div>
         );
       })()}
+
+      {/* PORTFOLIO INDIVIDUAL RISK ALERT MODAL */}
+      {selectedRiskPosition && (
+        <PortfolioRiskAlertModal
+          isOpen={isRiskAlertModalOpen}
+          onClose={() => {
+            setIsRiskAlertModalOpen(false);
+            setSelectedRiskPosition(null);
+          }}
+          position={selectedRiskPosition}
+          stock={
+            stockMap[selectedRiskPosition.symbol] || (({
+              symbol: selectedRiskPosition.symbol,
+              name: selectedRiskPosition.symbol,
+              exchange: 'HOSE',
+              sector: 'Chung',
+              price: selectedRiskPosition.currentPrice || selectedRiskPosition.buyPrice,
+              change: 0,
+              changePercent: selectedRiskPosition.pnlPercent || 0,
+              openPrice: selectedRiskPosition.buyPrice,
+              highPrice: selectedRiskPosition.currentPrice * 1.02,
+              lowPrice: selectedRiskPosition.currentPrice * 0.98,
+              referencePrice: selectedRiskPosition.buyPrice,
+              ceilingPrice: selectedRiskPosition.buyPrice * 1.07,
+              floorPrice: selectedRiskPosition.buyPrice * 0.93,
+              volume: selectedRiskPosition.quantity,
+              value: 0,
+              foreignBuyVol: 0,
+              foreignSellVol: 0,
+              foreignNetVal: 0,
+              technical: {
+                rsi: 50,
+                rsi14: 50,
+                macd: { macd: 0, signal: 0, histogram: 0 },
+                ma20: selectedRiskPosition.buyPrice,
+                ma50: selectedRiskPosition.buyPrice,
+                ma100: selectedRiskPosition.buyPrice,
+                ma200: selectedRiskPosition.buyPrice,
+                ema20: selectedRiskPosition.buyPrice,
+                vwap: selectedRiskPosition.buyPrice,
+                atr14: selectedRiskPosition.atr || Number((selectedRiskPosition.currentPrice * 0.03).toFixed(2)),
+                supportLevel: Number((selectedRiskPosition.currentPrice * 0.94).toFixed(2)),
+                resistanceLevel: Number((selectedRiskPosition.currentPrice * 1.12).toFixed(2)),
+                bollingerBands: { upper: 0, middle: 0, lower: 0 },
+                trend: 'SIDEWAY',
+                stochastic: { k: 50, d: 50 },
+                obv: 0,
+              },
+              fundamental: {
+                pe: 12,
+                pb: 1.5,
+                roe: 15,
+                roa: 8,
+                eps: 2000,
+                marketCap: 10000,
+                dividendYield: 2,
+                debtToEquity: 0.5,
+                grossMargin: 20,
+                netMargin: 10,
+                revenueGrowthYoY: 10,
+                profitGrowthYoY: 10,
+              },
+              financialStatements: [],
+              aiScore: 70,
+              aiVerdict: 'THEO DÕI',
+              aiConfidence: 80,
+              aiTargetPrice: selectedRiskPosition.effectiveTargetPrice || selectedRiskPosition.buyPrice * 1.15,
+              aiStopLoss: selectedRiskPosition.effectiveStopLossPrice || selectedRiskPosition.buyPrice * 0.93,
+              aiReasoning: 'Vị thế danh mục đang được giám sát bởi hệ thống Quant Sentinel.',
+            } as unknown) as StockData)
+          }
+          totalNav={portfolioSummary.nav}
+          onSaveRiskSettings={handleSaveRiskSettings}
+          onTriggerTestTelegram={handleTestHoldingTelegramAlert}
+        />
+      )}
+
+      {/* BATCH RISK PRESET MODAL */}
+      {isBatchRiskModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0a0a0a] border border-indigo-700/80 rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl font-mono text-xs animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+              <div className="flex items-center space-x-2 text-indigo-400">
+                <Sliders className="w-5 h-5" />
+                <span className="font-bold text-sm text-white uppercase">CÀI ĐẶT SL / TP HÀNG LOẠT CHO TOÀN BỘ DANH MỤC</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBatchRiskModalOpen(false)}
+                className="text-gray-500 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-gray-300 leading-relaxed text-[11px]">
+              Hệ thống sẽ tự động tính toán lại toàn bộ ngưỡng Cắt Lỗ (Stop-Loss), Chốt Lời (Take-Profit) và Trailing Stop cho tất cả <strong className="text-blue-400">{portfolioSummary.positions.length} mã cổ phiếu</strong> đang nắm giữ theo mô hình quản trị rủi ro Quant chuyên nghiệp:
+            </p>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              {/* Preset 1: Standard Quant Swing */}
+              <button
+                type="button"
+                onClick={() => handleApplyBatchRiskPreset('QUANT_SWING')}
+                className="bg-black/60 hover:bg-indigo-950/40 border border-gray-800 hover:border-indigo-500/80 p-3 rounded text-left transition flex items-start space-x-3 group"
+              >
+                <div className="w-8 h-8 rounded bg-indigo-950/80 border border-indigo-800 flex items-center justify-center shrink-0 text-indigo-400 font-bold">
+                  1
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white group-hover:text-indigo-300">Chuẩn Kỷ Luật Quant (SL -7% | TP1 +15% | TP2 +25%)</span>
+                    <span className="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded font-bold border border-indigo-800">R:R = 1:2.1</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Phù hợp đại đa số nhà đầu tư tăng trưởng. Cắt lỗ dứt khoát tại -7%, chốt lời 50% tại +15% và kích hoạt Trailing Stop bảo vệ lợi nhuận.
+                  </p>
+                </div>
+              </button>
+
+              {/* Preset 2: Conservative Defense */}
+              <button
+                type="button"
+                onClick={() => handleApplyBatchRiskPreset('CONSERVATIVE')}
+                className="bg-black/60 hover:bg-red-950/40 border border-gray-800 hover:border-red-500/80 p-3 rounded text-left transition flex items-start space-x-3 group"
+              >
+                <div className="w-8 h-8 rounded bg-red-950/80 border border-red-800 flex items-center justify-center shrink-0 text-red-400 font-bold">
+                  2
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white group-hover:text-red-300">Phòng Thủ Nghiêm Ngặt (SL -5% | TP1 +10% | TP2 +18%)</span>
+                    <span className="text-[10px] bg-red-950 text-red-300 px-1.5 py-0.5 rounded font-bold border border-red-800">R:R = 1:2.0</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Dành cho thị trường biến động mạnh hoặc downtrend. Khống chế mức sụt giảm tối đa (drawdown) ở mức thấp nhất.
+                  </p>
+                </div>
+              </button>
+
+              {/* Preset 3: ATR Dynamic */}
+              <button
+                type="button"
+                onClick={() => handleApplyBatchRiskPreset('ATR_DYNAMIC')}
+                className="bg-black/60 hover:bg-emerald-950/40 border border-gray-800 hover:border-emerald-500/80 p-3 rounded text-left transition flex items-start space-x-3 group"
+              >
+                <div className="w-8 h-8 rounded bg-emerald-950/80 border border-emerald-800 flex items-center justify-center shrink-0 text-emerald-400 font-bold">
+                  3
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white group-hover:text-emerald-300">Dynamic ATR Volatility (SL = Giá - 2.0xATR | TP = Giá + 4.0xATR)</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded font-bold border border-emerald-800">Quant AI</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Tự động co giãn biên độ theo độ biến động từng cổ phiếu (cổ phiếu biến động mạnh cho biên độ rộng, cổ phiếu ổn định biên độ hẹp).
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={() => setIsBatchRiskModalOpen(false)}
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 font-bold rounded text-xs border border-gray-800 transition"
+              >
+                ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -225,17 +225,24 @@ async function startServer() {
     const { positions } = req.body;
     if (Array.isArray(positions)) {
       const sanitized = positions.map((p) => ({
+        id: p.id ? String(p.id) : undefined,
         symbol: String(p.symbol || '').toUpperCase(),
         buyPrice: Number(p.buyPrice || p.avgPrice || p.price || 0),
         quantity: Number(p.quantity || p.shares || 100),
         stopLossPrice: p.stopLossPrice ? Number(p.stopLossPrice) : undefined,
+        stopLossPercent: p.stopLossPercent ? Number(p.stopLossPercent) : undefined,
         targetPrice: p.targetPrice ? Number(p.targetPrice) : undefined,
+        targetPercent: p.targetPercent ? Number(p.targetPercent) : undefined,
+        targetPrice2: p.targetPrice2 ? Number(p.targetPrice2) : undefined,
         trailingStopPercent: p.trailingStopPercent ? Number(p.trailingStopPercent) : undefined,
+        highestPriceSinceBuy: p.highestPriceSinceBuy ? Number(p.highestPriceSinceBuy) : undefined,
+        alertEnabled: p.alertEnabled !== false,
+        alertChannel: p.alertChannel ? String(p.alertChannel) : 'TELEGRAM',
         tradeDate: p.tradeDate || new Date().toISOString(),
       })).filter((p) => p.symbol.length > 0 && p.buyPrice > 0);
 
       const updated = updatePortfolioPositionsStore(sanitized);
-      console.log(`[PORTFOLIO SYNC] 💼 Đã đồng bộ ${updated.length} vị thế nắm giữ lên Server Sentinel.`);
+      console.log(`[PORTFOLIO SYNC] 💼 Đã đồng bộ ${updated.length} vị thế nắm giữ kèm ngưỡng SL/TP lên Server Sentinel.`);
       res.json({ status: 'success', count: updated.length, positions: updated });
     } else {
       res.status(400).json({ status: 'error', message: 'positions array is required' });

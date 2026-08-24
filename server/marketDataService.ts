@@ -1589,6 +1589,44 @@ export async function fetchLiveQuoteFromExchange(symbol: string): Promise<{
     }
   } catch {}
 
+  // Source 4: TCBS Stock Insight (Highly reliable on Cloud/Render/AWS IP)
+  try {
+    const res = await fetch(`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${now - 86400 * 10}&to=${now}`, {
+      headers,
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.data && d.data.length > 0) {
+        const len = d.data.length - 1;
+        const item = d.data[len];
+        const prevItem = len > 0 ? d.data[len - 1] : item;
+        // Normalize price: if > 1000, convert to thousands (e.g. 28500 -> 28.5)
+        const close = item.close > 1000 ? Number((item.close / 1000).toFixed(2)) : item.close;
+        const prev = prevItem.close > 1000 ? Number((prevItem.close / 1000).toFixed(2)) : prevItem.close;
+        const open = item.open > 1000 ? Number((item.open / 1000).toFixed(2)) : item.open;
+        const high = item.high > 1000 ? Number((item.high / 1000).toFixed(2)) : item.high;
+        const low = item.low > 1000 ? Number((item.low / 1000).toFixed(2)) : item.low;
+        const change = Number((close - prev).toFixed(2));
+        const pctChange = prev > 0 ? Number(((change / prev) * 100).toFixed(2)) : 0;
+        const vol = item.volume || 0;
+        return {
+          price: close,
+          referencePrice: prev,
+          ceilingPrice: Number((prev * 1.07).toFixed(2)),
+          floorPrice: Number((prev * 0.93).toFixed(2)),
+          openPrice: open,
+          highPrice: high,
+          lowPrice: low,
+          change,
+          changePercent: pctChange,
+          volume: vol,
+          value: Number(((close * vol * 1000) / 1e9).toFixed(1)),
+        };
+      }
+    }
+  } catch {}
+
   return null;
 }
 

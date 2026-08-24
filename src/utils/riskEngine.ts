@@ -396,10 +396,46 @@ export function calculatePortfolioMetrics(
       }
     }
 
+    // Lead Quant Stop Loss, Take Profit & Trailing Stop Evaluation
+    const effectiveStopLossPrice = pos.stopLossPrice || Number((pos.buyPrice * 0.93).toFixed(2));
+    const effectiveTargetPrice = pos.targetPrice || Number((pos.buyPrice * 1.15).toFixed(2));
+    const highestPriceSinceBuy = Math.max(pos.highestPriceSinceBuy || pos.buyPrice, currentPrice);
+
+    let trailingStopPrice: number | undefined = undefined;
+    if (pos.trailingStopPercent && pos.trailingStopPercent > 0) {
+      trailingStopPrice = Number((highestPriceSinceBuy * (1 - pos.trailingStopPercent / 100)).toFixed(2));
+    }
+
+    const distanceToStopLossPct = currentPrice > 0 ? Number((((currentPrice - effectiveStopLossPrice) / currentPrice) * 100).toFixed(2)) : 0;
+    const distanceToTargetPct = currentPrice > 0 ? Number((((effectiveTargetPrice - currentPrice) / currentPrice) * 100).toFixed(2)) : 0;
+
+    // Risk Alert Status Determination
+    let riskAlertStatus: 'BREACHED_STOP_LOSS' | 'NEAR_STOP_LOSS' | 'HIT_TAKE_PROFIT' | 'TRAILING_STOP_BREACH' | 'SAFE_PROFIT' | 'SAFE_HOLD' = 'SAFE_HOLD';
+    if (currentPrice <= effectiveStopLossPrice) {
+      riskAlertStatus = 'BREACHED_STOP_LOSS';
+    } else if (trailingStopPrice && currentPrice <= trailingStopPrice && highestPriceSinceBuy > pos.buyPrice * 1.05) {
+      riskAlertStatus = 'TRAILING_STOP_BREACH';
+    } else if (currentPrice >= effectiveTargetPrice) {
+      riskAlertStatus = 'HIT_TAKE_PROFIT';
+    } else if (distanceToStopLossPct <= 1.5 && distanceToStopLossPct > 0) {
+      riskAlertStatus = 'NEAR_STOP_LOSS';
+    } else if (pnlPercent > 3.0) {
+      riskAlertStatus = 'SAFE_PROFIT';
+    }
+
+    // Capital At Risk
+    const slLossPerShare = Math.max(0, pos.buyPrice - effectiveStopLossPrice);
+    const capitalAtRiskVnd = Math.round(slLossPerShare * 1000 * pos.quantity);
+
+    // Risk / Reward Ratio
+    const slDist = Math.max(0.01, pos.buyPrice - effectiveStopLossPrice);
+    const tpDist = Math.max(0.01, effectiveTargetPrice - pos.buyPrice);
+    const riskRewardRatio = `1 : ${(tpDist / slDist).toFixed(2)}`;
+
     let aiRecommendation: 'GIỮ' | 'MUA THÊM' | 'CHỐT LỜI' | 'CẮT LỖ' = 'GIỮ';
-    if (pnlPercent <= -7.5 || currentPrice <= atrStopLossPrice) {
+    if (riskAlertStatus === 'BREACHED_STOP_LOSS' || pnlPercent <= -7.5 || currentPrice <= atrStopLossPrice) {
       aiRecommendation = 'CẮT LỖ';
-    } else if (pnlPercent >= 20.0 && stock.technical?.rsi14 > 72) {
+    } else if (riskAlertStatus === 'HIT_TAKE_PROFIT' || (pnlPercent >= 20.0 && stock.technical?.rsi14 > 72)) {
       aiRecommendation = 'CHỐT LỜI';
     } else if (stock.aiVerdict === 'MUA MẠNH' && pnlPercent > -3 && pnlPercent < 10) {
       aiRecommendation = 'MUA THÊM';
@@ -411,6 +447,7 @@ export function calculatePortfolioMetrics(
       pendingQuantity,
       settlementStatus,
       expectedSettlementDate,
+      highestPriceSinceBuy,
       currentPrice,
       currentValue: Number(currentValue.toFixed(0)),
       costBasis: Number(costBasis.toFixed(0)),
@@ -424,6 +461,15 @@ export function calculatePortfolioMetrics(
       kellyOptimalShares: 0,
       atr,
       atrStopLossPrice,
+      effectiveStopLossPrice,
+      effectiveTargetPrice,
+      trailingStopPrice,
+      distanceToStopLossPct,
+      distanceToTargetPct,
+      riskAlertStatus,
+      riskRewardRatio,
+      capitalAtRiskVnd,
+      capitalAtRiskNavPct: 0,
     };
   });
 
@@ -446,6 +492,7 @@ export function calculatePortfolioMetrics(
     pos.kellyOptimalVnd = recommendedVnd;
     const shares = Math.floor(recommendedVnd / (pos.currentPrice * 1000) / 100) * 100;
     pos.kellyOptimalShares = Math.max(100, shares);
+    pos.capitalAtRiskNavPct = nav > 0 ? Number(((pos.capitalAtRiskVnd / nav) * 100).toFixed(2)) : 0;
   });
 
   // Sector diversification calculation

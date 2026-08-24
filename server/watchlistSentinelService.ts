@@ -59,14 +59,18 @@ export function evaluatePortfolioHoldingSignals(
   stock: StockData
 ): WatchlistTriggerSignal[] {
   const signals: WatchlistTriggerSignal[] = [];
+  if (position.alertEnabled === false) return signals;
+
   const price = stock.price;
   const buyPrice = position.buyPrice || price;
+  const quantity = position.quantity || 100;
   const pnlPercent = ((price - buyPrice) / buyPrice) * 100;
-  const pnlAmount = (price - buyPrice) * (position.quantity || 100) * 1000;
+  const pnlAmount = (price - buyPrice) * quantity * 1000;
   const pnlStr = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}% (${pnlAmount >= 0 ? '+' : ''}${(pnlAmount / 1000000).toFixed(2)} tr)`;
+  const highestPrice = Math.max(position.highestPriceSinceBuy || buyPrice, price);
 
   // 1. Vi phạm ngưỡng Cắt Lỗ (Stop-Loss Breach)
-  const stopLossThreshold = position.stopLossPrice || buyPrice * 0.93; // Mặc định cắt lỗ -7% nếu chưa đặt
+  const stopLossThreshold = position.stopLossPrice || Number((buyPrice * 0.93).toFixed(2));
   if (price <= stopLossThreshold) {
     signals.push({
       symbol: stock.symbol,
@@ -74,24 +78,60 @@ export function evaluatePortfolioHoldingSignals(
       type: 'PORTFOLIO_STOP_LOSS',
       headerBadge: '🚨 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CẢNH BÁO VI PHẠM CẮT LỖ KHẨN CẤP!</b>',
       indicatorName: `Chạm ngưỡng Cắt Lỗ: Thị giá ${price.toFixed(2)}k ≤ Ngưỡng SL ${stopLossThreshold.toFixed(2)}k (Lỗ: ${pnlPercent.toFixed(2)}%)`,
-      description: `Cổ phiếu #${stock.symbol} trong danh mục sở hữu đã vi phạm ngưỡng cắt lỗ bảo toàn vốn. Mức lỗ hiện tại: ${pnlStr}. Khối lượng nắm giữ: ${(position.quantity || 100).toLocaleString('vi-VN')} CP.`,
+      description: `Cổ phiếu #${stock.symbol} trong danh mục sở hữu đã vi phạm ngưỡng cắt lỗ bảo toàn vốn. Mức lỗ hiện tại: ${pnlStr}. Khối lượng nắm giữ: ${quantity.toLocaleString('vi-VN')} CP.`,
       severity: 'DANGER',
       recommendation: `KÍCH HOẠT LỆNH BÁN CẮT LỖ NGAY để bảo vệ tổng NAV. Tuyệt đối không gồng lỗ hoặc bắt đáy trung bình giá xuống!`,
       signature: `P1_STOPLOSS_${stock.symbol}_${stopLossThreshold.toFixed(2)}`,
-      cooldownMinutes: 60, // Nhắc lại sau 60 phút nếu chưa xử lý
+      cooldownMinutes: 60,
     });
+  } else {
+    // 1b. Cảnh báo sớm sắp chạm ngưỡng Cắt Lỗ (Near Stop-Loss <= 1.5%)
+    const distToSlPct = ((price - stopLossThreshold) / price) * 100;
+    if (distToSlPct > 0 && distToSlPct <= 1.5) {
+      signals.push({
+        symbol: stock.symbol,
+        tier: 'P1',
+        type: 'PORTFOLIO_STOP_LOSS',
+        headerBadge: '⚠️ <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CẢNH BÁO SẮP CHẠM NGƯỠNG CẮT LỖ</b>',
+        indicatorName: `Cách ngưỡng SL chỉ còn ${distToSlPct.toFixed(2)}% (Thị giá: ${price.toFixed(2)}k | SL: ${stopLossThreshold.toFixed(2)}k)`,
+        description: `Cổ phiếu #${stock.symbol} đang trượt về sát ngưỡng cắt lỗ. Trạng thái: ${pnlStr}. Khối lượng: ${quantity.toLocaleString('vi-VN')} CP.`,
+        severity: 'WARNING',
+        recommendation: `Chuẩn bị sẵn sàng kịch bản bán cắt lỗ nếu giá tiếp tục bị đè thủng mốc ${stopLossThreshold.toFixed(2)}k.`,
+        signature: `P1_NEAR_SL_${stock.symbol}_${stopLossThreshold.toFixed(2)}`,
+        cooldownMinutes: 90,
+      });
+    }
   }
 
-  // 2. Chạm mục tiêu Chốt Lời (Take-Profit Target)
-  const targetThreshold = position.targetPrice || buyPrice * 1.15; // Mặc định chốt lời +15% nếu chưa đặt
+  // 2. Trailing Stop Breach (Vi phạm điểm dừng lãi động)
+  if (position.trailingStopPercent && position.trailingStopPercent > 0) {
+    const trailingStopPrice = Number((highestPrice * (1 - position.trailingStopPercent / 100)).toFixed(2));
+    if (price <= trailingStopPrice && highestPrice >= buyPrice * 1.05) {
+      signals.push({
+        symbol: stock.symbol,
+        tier: 'P1',
+        type: 'PORTFOLIO_STOP_LOSS',
+        headerBadge: '📉 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] VI PHẠM MỐC TRAILING STOP BẢO VỆ LÃI</b>',
+        indicatorName: `Thị giá ${price.toFixed(2)}k thủng mốc Trailing Stop ${trailingStopPrice.toFixed(2)}k (Lùi ${position.trailingStopPercent}% từ đỉnh ${highestPrice.toFixed(2)}k)`,
+        description: `Cổ phiếu #${stock.symbol} đã điều chỉnh lùi từ vùng đỉnh ngắn hạn. Lãi hiện tại: ${pnlStr}.`,
+        severity: 'WARNING',
+        recommendation: `Bán chốt lời chủ động để bảo toàn phần lợi nhuận đã đạt được trước khi bị thị trường cuốn trôi!`,
+        signature: `P1_TRAILING_STOP_${stock.symbol}_${trailingStopPrice.toFixed(2)}`,
+        cooldownMinutes: 120,
+      });
+    }
+  }
+
+  // 3. Chạm mục tiêu Chốt Lời TP1 & TP2 (Take-Profit Targets)
+  const targetThreshold = position.targetPrice || Number((buyPrice * 1.15).toFixed(2));
   if (price >= targetThreshold) {
     signals.push({
       symbol: stock.symbol,
       tier: 'P1',
       type: 'PORTFOLIO_TAKE_PROFIT',
-      headerBadge: '🎯 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CHẠM MỤC TIÊU CHỐT LỜI KỲ VỌNG</b>',
-      indicatorName: `Đạt mục tiêu TP: Thị giá ${price.toFixed(2)}k ≥ Ngưỡng TP ${targetThreshold.toFixed(2)}k (Lãi: ${pnlPercent.toFixed(2)}%)`,
-      description: `Cổ phiếu #${stock.symbol} đã đạt mục tiêu lợi nhuận kỳ vọng. Lãi tạm tính: ${pnlStr}. Khối lượng nắm giữ: ${(position.quantity || 100).toLocaleString('vi-VN')} CP.`,
+      headerBadge: '🎯 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CHẠM MỤC TIÊU CHỐT LỜI KỲ VỌNG TP1</b>',
+      indicatorName: `Đạt mục tiêu TP1: Thị giá ${price.toFixed(2)}k ≥ Ngưỡng TP1 ${targetThreshold.toFixed(2)}k (Lãi: ${pnlPercent.toFixed(2)}%)`,
+      description: `Cổ phiếu #${stock.symbol} đã đạt mục tiêu lợi nhuận kỳ vọng. Lãi tạm tính: ${pnlStr}. Khối lượng nắm giữ: ${quantity.toLocaleString('vi-VN')} CP.`,
       severity: 'SUCCESS',
       recommendation: `Hiện thực hóa lợi nhuận: Chủ động bán chốt lời 50% - 70% vị thế, nâng Trailing Stop phần còn lại để tối đa hóa hiệu suất!`,
       signature: `P1_TAKEPROFIT_${stock.symbol}_${targetThreshold.toFixed(2)}`,
@@ -99,7 +139,22 @@ export function evaluatePortfolioHoldingSignals(
     });
   }
 
-  // 3. Biến động giảm sốc bất thường trong phiên (Panic Drop / Flash Dump)
+  if (position.targetPrice2 && price >= position.targetPrice2) {
+    signals.push({
+      symbol: stock.symbol,
+      tier: 'P1',
+      type: 'PORTFOLIO_TAKE_PROFIT',
+      headerBadge: '🚀 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] ĐẠT SIÊU MỤC TIÊU CHỐT LỜI TP2</b>',
+      indicatorName: `Bứt phá vượt TP2: Thị giá ${price.toFixed(2)}k ≥ Ngưỡng TP2 ${position.targetPrice2.toFixed(2)}k (Lãi: ${pnlPercent.toFixed(2)}%)`,
+      description: `Cổ phiếu #${stock.symbol} bùng nổ vượt mục tiêu mở rộng TP2. Lãi tạm tính: ${pnlStr}.`,
+      severity: 'SUCCESS',
+      recommendation: `Cân nhắc tất toán toàn bộ vị thế hoặc giữ 20% trailing sát đỉnh để gồng lãi tối đa.`,
+      signature: `P1_TAKEPROFIT2_${stock.symbol}_${position.targetPrice2.toFixed(2)}`,
+      cooldownMinutes: 180,
+    });
+  }
+
+  // 4. Biến động giảm sốc bất thường trong phiên (Panic Drop / Flash Dump)
   if (stock.changePercent <= -3.5) {
     signals.push({
       symbol: stock.symbol,
@@ -346,9 +401,14 @@ export function formatPortfolioTelegramAlert(
   const tvUrl = `https://www.tradingview.com/chart/?symbol=${tvExchange}:${stock.symbol}`;
 
   const buyPrice = position.buyPrice || stock.price;
+  const quantity = position.quantity || 100;
   const pnlPercent = ((stock.price - buyPrice) / buyPrice) * 100;
-  const pnlAmount = (stock.price - buyPrice) * (position.quantity || 100) * 1000;
+  const pnlAmount = (stock.price - buyPrice) * quantity * 1000;
   const pnlSign = pnlPercent >= 0 ? '+' : '';
+
+  const stopLoss = position.stopLossPrice || Number((buyPrice * 0.93).toFixed(2));
+  const tp1 = position.targetPrice || Number((buyPrice * 1.15).toFixed(2));
+  const tp2 = position.targetPrice2 || Number((tp1 * 1.08).toFixed(2));
 
   const safeStockName = escapeTelegramHtml(stock.name);
   const safeSector = escapeTelegramHtml(stock.sector);
@@ -360,11 +420,15 @@ export function formatPortfolioTelegramAlert(
 ━━━━━━━━━━━━━━━━━━━━━
 💼 <b>DANH MỤC ĐANG NẮM GIỮ: #${stock.symbol}</b> (${safeStockName})
 🏢 <b>Sàn:</b> ${stock.exchange} | <b>Ngành:</b> ${safeSector}
-📦 <b>Khối lượng sở hữu:</b> <b>${(position.quantity || 100).toLocaleString('vi-VN')} CP</b>
+📦 <b>Khối lượng sở hữu:</b> <b>${quantity.toLocaleString('vi-VN')} CP</b>
 💰 <b>Giá vốn trung bình:</b> <code>${buyPrice.toFixed(2)}k VNĐ</code>
 💲 <b>Thị giá hiện tại:</b> <b>${stock.price.toFixed(2)}k VNĐ</b> (${changeSign}${stock.changePercent.toFixed(2)}%)
 📊 <b>Hiệu suất vị thế:</b> <b>${pnlSign}${pnlPercent.toFixed(2)}%</b> (${pnlSign}${(pnlAmount / 1000000).toFixed(2)} triệu VNĐ)
 
+🛡️ <b>CẤU HÌNH RỦI RO QUANT:</b>
+• Ngưỡng Cắt Lỗ (SL): <code>${stopLoss.toFixed(2)}k</code> (${(((stopLoss - buyPrice) / buyPrice) * 100).toFixed(1)}%)
+• Mục tiêu Chốt Lời (TP1): <code>${tp1.toFixed(2)}k</code> (+${(((tp1 - buyPrice) / buyPrice) * 100).toFixed(1)}%) | <b>TP2:</b> <code>${tp2.toFixed(2)}k</code>
+${position.trailingStopPercent ? `• Trailing Stop động: <code>${position.trailingStopPercent}% từ đỉnh</code>\n` : ''}
 ⚡ <b>TÌNH TRẠNG KÍCH HOẠT:</b>
 • <b>Sự kiện:</b> <code>${safeIndicator}</code>
 • <b>Mô tả:</b> ${safeDescription}
