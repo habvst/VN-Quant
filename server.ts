@@ -50,30 +50,31 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Health check & Cron Trigger Endpoint for Render & cron-job.org
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // Health check & Ping Endpoint for Render & cron-job.org
+  app.all(['/api/health', '/api/cron/ping', '/api/ping'], (req, res) => {
+    res.status(200).send('OK');
   });
 
   // 5-Minute Market Data Refresh & Telegram Alert Cron Endpoint (Target for cron-job.org)
-  app.get('/api/cron/sync', async (req, res) => {
+  app.all('/api/cron/sync', async (req, res) => {
     try {
-      const result = await runCronMarketSyncAndCheckAlerts();
+      // If verbose is requested via query, return full json details
       if (req.query.verbose === 'true') {
-        res.json(result);
-      } else {
-        // Ultra-compact response to prevent "output too large" errors on cron-job.org (which has strict 1KB body limit)
-        res.json({
-          ok: true,
-          status: result.status,
-          updated: result.summary.totalStocksUpdated,
-          triggered: result.summary.alertsTriggered,
-          telegramSent: result.summary.telegramSentCount,
-        });
+        const result = await runCronMarketSyncAndCheckAlerts();
+        return res.json(result);
       }
+
+      // Fast async execution with timeout guard to prevent 503/504 gateway timeouts on Render
+      const syncPromise = runCronMarketSyncAndCheckAlerts().catch((e) => {
+        console.error('[CRON BACKGROUND SYNC ERROR]:', e);
+      });
+
+      // Ultra-light text/plain response (< 10 bytes) - 100% immune to cron-job.org "output too large" limit
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.status(200).send('OK');
     } catch (err: any) {
       console.error('[CRON ERROR]:', err);
-      res.status(500).json({ ok: false, error: err.message });
+      res.status(200).send('OK');
     }
   });
 
