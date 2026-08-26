@@ -138,16 +138,56 @@ async function safeParseJson<T>(res: Response): Promise<T | null> {
 }
 
 /**
- * Client-Side Direct Live Quote Fetcher (Fallback if server proxy is delayed or blocked)
+ * Client-Side Direct Live Quote Fetcher (Resilient Direct-to-Exchange Fallback)
  */
 export async function fetchDirectLiveQuote(symbol: string): Promise<Partial<StockData> | null> {
   const sym = symbol.toUpperCase().trim();
-  const now = Math.floor(Date.now() / 1000);
 
-  // 1. Direct VNDirect Finfo
+  // 1. Direct VPS Priceboard API (Supports CORS natively)
+  try {
+    const res = await fetch(`https://bgapidatafeed.vps.com.vn/getliststockdata/${sym}`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list) && list.length > 0) {
+        const item = list[0];
+        const ref = Number(item.r || item.lastPrice || 0);
+        const lastPrice = Number(item.lastPrice) > 0 ? Number(item.lastPrice) : ref;
+        const openPrice = Number(item.openPrice) > 0 ? Number(item.openPrice) : lastPrice;
+        const highPrice = Number(item.highPrice) > 0 ? Number(item.highPrice) : lastPrice;
+        const lowPrice = Number(item.lowPrice) > 0 ? Number(item.lowPrice) : lastPrice;
+        const ceilingPrice = Number(item.c) || Number((ref * 1.07).toFixed(2));
+        const floorPrice = Number(item.f) || Number((ref * 0.93).toFixed(2));
+        const change = Number(item.ot) || Number((lastPrice - ref).toFixed(2));
+        const pct = Number(item.changePc) || (ref > 0 ? Number(((change / ref) * 100).toFixed(2)) : 0);
+        const volume = Number(item.lot || 0) * 10;
+        const value = Number(((lastPrice * volume) / 10000000).toFixed(1));
+
+        return {
+          price: lastPrice,
+          referencePrice: ref,
+          ceilingPrice,
+          floorPrice,
+          openPrice,
+          highPrice,
+          lowPrice,
+          change,
+          changePercent: pct,
+          volume,
+          value,
+          foreignBuyVol: Number(item.fBVol || 0) * 10,
+          foreignSellVol: Number(item.fSVolume || 0) * 10,
+          lastUpdated: Date.now(),
+        };
+      }
+    }
+  } catch {}
+
+  // 2. Direct VNDirect Finfo Fallback
   try {
     const res = await fetch(`https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date:desc&q=code:${sym}&size=1`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(2500),
     });
     if (res.ok) {
       const json = await res.json();
@@ -172,38 +212,6 @@ export async function fetchDirectLiveQuote(symbol: string): Promise<Partial<Stoc
             lastUpdated: Date.now(),
           };
         }
-      }
-    }
-  } catch {}
-
-  // 2. Direct DNSE Entrade
-  try {
-    const res = await fetch(`https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${sym}&from=${now - 86400 * 10}&to=${now}&resolution=1D`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const d = await res.json();
-      if (d && d.c && d.c.length > 0) {
-        const len = d.c.length - 1;
-        const close = d.c[len];
-        const prev = len > 0 ? d.c[len - 1] : close;
-        const change = Number((close - prev).toFixed(2));
-        const pct = prev > 0 ? Number(((change / prev) * 100).toFixed(2)) : 0;
-        const vol = d.v?.[len] || 0;
-        return {
-          price: close,
-          referencePrice: prev,
-          ceilingPrice: Number((prev * 1.07).toFixed(2)),
-          floorPrice: Number((prev * 0.93).toFixed(2)),
-          openPrice: d.o?.[len] || close,
-          highPrice: d.h?.[len] || close,
-          lowPrice: d.l?.[len] || close,
-          change,
-          changePercent: pct,
-          volume: vol,
-          value: Number(((close * vol * 1000) / 1e9).toFixed(1)),
-          lastUpdated: Date.now(),
-        };
       }
     }
   } catch {}

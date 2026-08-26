@@ -222,6 +222,13 @@ class MarketStreamHub {
         if (c.activeSymbol) activeSymbols.add(c.activeSymbol);
       });
 
+      // Proactively refresh active symbols from live exchange every 2 seconds
+      if (this.simulatedTickSeq % 2 === 0) {
+        activeSymbols.forEach((sym) => {
+          getOrFetchStockBySymbol(sym).catch(() => {});
+        });
+      }
+
       // 2. Compute live OrderBook and Tick updates for active symbols
       const symbolUpdates = new Map<string, { stock: StockData | undefined; orderBook: OrderBook; latestTick: TradeTick }>();
 

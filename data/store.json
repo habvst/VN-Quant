@@ -2,8 +2,60 @@
   "telegramConfig": {
     "botToken": "7187437454:AAEGPhBIvlKe4J6U8XUvrELaTly6x6OtRQA",
     "chatId": "-5366040852",
-    "enabled": true
+    "enabled": true,
+    "enableP1Portfolio": true,
+    "enableP2CustomAlerts": true,
+    "enableP3Watchlist": true,
+    "enableP4MarketOpportunities": false,
+    "cooldownMinutes": 120
   },
+  "watchlistSentinelConfig": {
+    "enabled": true,
+    "autoScanIntervalSeconds": 60,
+    "monitorRsi": true,
+    "monitorMa": true,
+    "monitorMacd": true,
+    "monitorVolumeSurge": true,
+    "monitorBreakout": true,
+    "rsiOversoldThreshold": 30,
+    "rsiOverboughtThreshold": 70
+  },
+  "watchlistSignatures": {},
+  "cooldownEntries": {
+    "P3_VNINDEX_P3_MACD_BULLISH_VNINDEX": {
+      "lastSentAt": "2026-08-26T03:11:47.592Z",
+      "stateKey": "SENT"
+    },
+    "P3_FPT_P3_PRICE_CROSS_ABOVE_MA20_FPT": {
+      "lastSentAt": "2026-08-26T03:11:49.099Z",
+      "stateKey": "SENT"
+    },
+    "P3_FPT_P3_MACD_BULLISH_FPT": {
+      "lastSentAt": "2026-08-26T03:11:49.971Z",
+      "stateKey": "SENT"
+    },
+    "P3_HPG_P3_GOLDEN_CROSS_HPG": {
+      "lastSentAt": "2026-08-26T03:11:50.427Z",
+      "stateKey": "SENT"
+    },
+    "P3_MWG_P3_MACD_BULLISH_MWG": {
+      "lastSentAt": "2026-08-26T03:11:50.846Z",
+      "stateKey": "SENT"
+    },
+    "P3_VHM_P3_GOLDEN_CROSS_VHM": {
+      "lastSentAt": "2026-08-26T03:11:54.495Z",
+      "stateKey": "SENT"
+    },
+    "P3_VHM_P3_BREAKOUT_RES_VHM_72.47": {
+      "lastSentAt": "2026-08-26T03:11:54.929Z",
+      "stateKey": "SENT"
+    },
+    "P2_srv-alt-3_SSI_MA_CROSSOVER_PRICE_CROSS_ABOVE_MA20_36": {
+      "lastSentAt": "2026-08-26T03:15:47.321Z",
+      "stateKey": "SENT"
+    }
+  },
+  "portfolioPositions": [],
   "serverAlerts": [
     {
       "id": "srv-alt-1",
@@ -39,9 +91,9 @@
       "channel": "TELEGRAM",
       "isActive": true,
       "createdAt": "2026-08-07T00:59:06.189Z",
-      "triggerCount": 1,
-      "lastSentSignature": "srv-alt-3_SSI_MA_CROSSOVER_PRICE_CROSS_ABOVE_MA20_36_Tín hiệu bứt phá: SSI (24.30) vượt lên đường trung bình MA20 (24.01).",
-      "lastTriggeredAt": "2026-08-07T00:59:09.924Z"
+      "triggerCount": 2,
+      "lastSentSignature": "srv-alt-3_SSI_MA_CROSSOVER_PRICE_CROSS_ABOVE_MA20_36",
+      "lastTriggeredAt": "2026-08-26T03:15:47.321Z"
     }
   ],
   "watchlistSymbols": [
@@ -58,11 +110,83 @@
     {
       "symbol": "SSI",
       "alertId": "srv-alt-3",
+      "tier": "P2",
+      "message": "[P2 ĐÃ ĐẶT] Tín hiệu bứt phá: SSI (21.15) vượt lên đường trung bình MA20 (20.85).",
+      "telegramSuccess": true,
+      "id": "hist-1787714147322-548",
+      "timestamp": "2026-08-26T03:15:47.322Z"
+    },
+    {
+      "symbol": "VHM",
+      "alertId": "p3-breakout",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] Vượt Kháng cự 72.47k (Thị giá: 73.00k)",
+      "telegramSuccess": true,
+      "id": "hist-1787713914929-671",
+      "timestamp": "2026-08-26T03:11:54.929Z"
+    },
+    {
+      "symbol": "VHM",
+      "alertId": "p3-ma_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] MA20 (71.09k) cắt lên MA50 (70.75k)",
+      "telegramSuccess": true,
+      "id": "hist-1787713914496-326",
+      "timestamp": "2026-08-26T03:11:54.496Z"
+    },
+    {
+      "symbol": "MWG",
+      "alertId": "p3-macd_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] MACD Histogram = +0.06 (Cắt lên mức 0)",
+      "telegramSuccess": true,
+      "id": "hist-1787713910847-457",
+      "timestamp": "2026-08-26T03:11:50.847Z"
+    },
+    {
+      "symbol": "HPG",
+      "alertId": "p3-ma_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] MA20 (22.41k) cắt lên MA50 (22.39k)",
+      "telegramSuccess": true,
+      "id": "hist-1787713910427-259",
+      "timestamp": "2026-08-26T03:11:50.427Z"
+    },
+    {
+      "symbol": "FPT",
+      "alertId": "p3-macd_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] MACD Histogram = +0.12 (Cắt lên mức 0)",
+      "telegramSuccess": true,
+      "id": "hist-1787713909971-705",
+      "timestamp": "2026-08-26T03:11:49.971Z"
+    },
+    {
+      "symbol": "FPT",
+      "alertId": "p3-ma_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] Thị giá (71.30k) cắt lên MA20 (71.17k)",
+      "telegramSuccess": true,
+      "id": "hist-1787713909099-837",
+      "timestamp": "2026-08-26T03:11:49.099Z"
+    },
+    {
+      "symbol": "VNINDEX",
+      "alertId": "p3-macd_crossover",
+      "tier": "P3",
+      "message": "[P3 WATCHLIST] MACD Histogram = +0.23 (Cắt lên mức 0)",
+      "telegramSuccess": true,
+      "id": "hist-1787713907593-733",
+      "timestamp": "2026-08-26T03:11:47.593Z"
+    },
+    {
+      "symbol": "SSI",
+      "alertId": "srv-alt-3",
       "message": "Tín hiệu bứt phá: SSI (24.30) vượt lên đường trung bình MA20 (24.01).",
       "telegramSuccess": true,
       "id": "hist-1786064349924-597",
       "timestamp": "2026-08-07T00:59:09.924Z"
     }
   ],
-  "lastUpdated": "2026-08-07T00:59:09.924Z"
+  "lastUpdated": "2026-08-26T03:15:47.322Z"
 }
