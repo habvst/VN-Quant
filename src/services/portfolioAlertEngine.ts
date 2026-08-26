@@ -62,10 +62,15 @@ export function evaluateClientPortfolioRiskAlerts(
     const currentPrice = stock.price;
     const buyPrice = pos.buyPrice;
     const quantity = pos.quantity;
-    const effectiveStopLoss = pos.stopLossPrice || Number((buyPrice * 0.93).toFixed(2));
-    const effectiveTarget = pos.targetPrice || Number((buyPrice * 1.15).toFixed(2));
+    const effectiveStopLoss = pos.stopLossPrice || (pos.stopLossPercent ? Number((buyPrice * (1 - pos.stopLossPercent / 100)).toFixed(2)) : Number((buyPrice * 0.93).toFixed(2)));
+    const effectiveTarget = pos.targetPrice || (pos.targetPercent ? Number((buyPrice * (1 + pos.targetPercent / 100)).toFixed(2)) : Number((buyPrice * 1.15).toFixed(2)));
     const effectiveTarget2 = pos.targetPrice2 || Number((effectiveTarget * 1.08).toFixed(2));
     const highestPrice = Math.max(pos.highestPriceSinceBuy || buyPrice, currentPrice);
+
+    // Update highestPriceSinceBuy if currentPrice breaks higher
+    if (currentPrice > (pos.highestPriceSinceBuy || buyPrice)) {
+      pos.highestPriceSinceBuy = currentPrice;
+    }
 
     const pnlPercent = ((currentPrice - buyPrice) / buyPrice) * 100;
     const pnlAmount = (currentPrice - buyPrice) * quantity * 1000;

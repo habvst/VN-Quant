@@ -274,6 +274,8 @@ async function startServer() {
 
       const updated = updatePortfolioPositionsStore(sanitized);
       console.log(`[PORTFOLIO SYNC] 💼 Đã đồng bộ ${updated.length} vị thế nắm giữ kèm ngưỡng SL/TP lên Server Sentinel.`);
+      // Immediately trigger P1 sentinel evaluation in background
+      runWatchlistSentinelScan().catch((err) => console.warn('[SENTINEL SYNC TRIGGER]:', err));
       res.json({ status: 'success', count: updated.length, positions: updated });
     } else {
       res.status(400).json({ status: 'error', message: 'positions array is required' });

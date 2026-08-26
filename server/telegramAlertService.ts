@@ -48,10 +48,109 @@ export function escapeTelegramHtml(text: any): string {
     .replace(/>/g, '&gt;');
 }
 
+// Telegram Message Queue to respect Telegram rate-limits (1 msg/sec per chat)
+let telegramQueuePromise = Promise.resolve();
+let lastTelegramSendTime = 0;
+const MIN_TELEGRAM_INTERVAL_MS = 1100; // Minimum 1.1s between consecutive messages
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * Send a message via Telegram Bot API with automatic HTML validation and fallback
+ * Low-level direct Telegram sender with exponential retry and 429 rate-limit backoff
  */
-export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Markdown' = 'HTML'): Promise<{ success: boolean; error?: string }> {
+async function sendTelegramDirect(
+  url: string,
+  cleanChatId: string,
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  retryCount = 0,
+  maxRetries = 3
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: cleanChatId,
+        text,
+        parse_mode: parseMode,
+        disable_web_page_preview: false,
+      }),
+    });
+
+    const data: any = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.ok) {
+      const errorCode = data?.error_code || response.status;
+      const description = data?.description || response.statusText || 'Unknown Telegram Error';
+
+      // 1. Handle HTTP 429 (Too Many Requests / Rate Limiting)
+      if (errorCode === 429) {
+        const retryAfterSec = Math.max(Number(data?.parameters?.retry_after || 3), 1);
+        console.warn(
+          `[TELEGRAM RATE LIMIT] ⏳ Đạt giới hạn gửi tin của Telegram (429: Too Many Requests). Đang đợi ${retryAfterSec}s để thử lại (Lần thử ${retryCount + 1}/${maxRetries})...`
+        );
+
+        if (retryCount < maxRetries) {
+          await sleep((retryAfterSec + 1) * 1000);
+          return sendTelegramDirect(url, cleanChatId, text, parseMode, retryCount + 1, maxRetries);
+        }
+
+        return {
+          success: false,
+          error: `Telegram đang bị giới hạn tốc độ (429: ${description}). Vui lòng thử lại sau ${retryAfterSec} giây.`,
+        };
+      }
+
+      // 2. Handle HTML Parse Error (400) by falling back to plain-text
+      if (errorCode === 400 && parseMode === 'HTML') {
+        console.warn('[TELEGRAM] ⚠️ HTML parse failed (400), trying plain text fallback without HTML tags...');
+        const plainText = text.replace(/<[^>]*>/g, '');
+        const retryResponse = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: cleanChatId,
+            text: plainText,
+            disable_web_page_preview: false,
+          }),
+        });
+        const retryData: any = await retryResponse.json().catch(() => null);
+        if (retryResponse.ok && retryData?.ok) {
+          console.log('[TELEGRAM] ✅ Gửi tin nhắn thành công qua Plain-text fallback');
+          return { success: true };
+        }
+      }
+
+      console.error(`[TELEGRAM ERROR] (${errorCode}): ${description}`);
+      return {
+        success: false,
+        error: description,
+      };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    if (retryCount < maxRetries) {
+      console.warn(`[TELEGRAM RETRY] ⚠️ Lỗi kết nối mạng, thử lại sau 2s (Lần ${retryCount + 1}/${maxRetries}):`, err.message);
+      await sleep(2000);
+      return sendTelegramDirect(url, cleanChatId, text, parseMode, retryCount + 1, maxRetries);
+    }
+    console.error('Failed to send Telegram message after retries:', err);
+    return {
+      success: false,
+      error: err.message || 'Lỗi kết nối tới Telegram API',
+    };
+  }
+}
+
+/**
+ * Send a message via Telegram Bot API with automatic rate-limit queuing and 429 backoff
+ */
+export async function sendTelegramMessage(
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML'
+): Promise<{ success: boolean; error?: string }> {
   const cfg = getTelegramConfig();
   if (!cfg.botToken || !cfg.chatId) {
     return {
@@ -63,60 +162,21 @@ export async function sendTelegramMessage(text: string, parseMode: 'HTML' | 'Mar
   // Clean botToken and chatId (handle accidental 'bot' prefix or whitespace)
   const cleanToken = cfg.botToken.trim().replace(/^bot/i, '');
   const cleanChatId = cfg.chatId.trim();
+  const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
 
-  try {
-    const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: cleanChatId,
-        text,
-        parse_mode: parseMode,
-        disable_web_page_preview: false,
-      }),
-    });
-
-    const data: any = await response.json();
-    if (!response.ok || !data.ok) {
-      console.error('Telegram API error:', data);
-
-      // If Telegram failed due to HTML parse error (code 400), automatically fallback to plain text
-      if (data.error_code === 400 && parseMode === 'HTML') {
-        console.warn('[TELEGRAM] ⚠️ HTML parse failed, trying plain text fallback without HTML tags...');
-        const plainText = text.replace(/<[^>]*>/g, '');
-        const retryResponse = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: cleanChatId,
-            text: plainText,
-            disable_web_page_preview: false,
-          }),
-        });
-        const retryData: any = await retryResponse.json();
-        if (retryResponse.ok && retryData.ok) {
-          console.log('[TELEGRAM] ✅ Gửi tin nhắn thành công qua Plain-text fallback');
-          return { success: true };
-        }
-      }
-
-      return {
-        success: false,
-        error: data.description || 'Lỗi gửi tin nhắn Telegram',
-      };
+  // Queue dispatch sequentially to enforce >= 1.1s between sends
+  const executeSend = async () => {
+    const elapsedSinceLastSend = Date.now() - lastTelegramSendTime;
+    if (elapsedSinceLastSend < MIN_TELEGRAM_INTERVAL_MS) {
+      await sleep(MIN_TELEGRAM_INTERVAL_MS - elapsedSinceLastSend);
     }
+    lastTelegramSendTime = Date.now();
+    return sendTelegramDirect(url, cleanChatId, text, parseMode);
+  };
 
-    return { success: true };
-  } catch (err: any) {
-    console.error('Failed to send Telegram message:', err);
-    return {
-      success: false,
-      error: err.message || 'Lỗi kết nối tới Telegram API',
-    };
-  }
+  const currentTask = telegramQueuePromise.then(executeSend, executeSend);
+  telegramQueuePromise = currentTask.then(() => {}).catch(() => {});
+  return currentTask;
 }
 
 /**

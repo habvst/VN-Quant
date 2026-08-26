@@ -68,9 +68,12 @@ export function evaluatePortfolioHoldingSignals(
   const pnlAmount = (price - buyPrice) * quantity * 1000;
   const pnlStr = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}% (${pnlAmount >= 0 ? '+' : ''}${(pnlAmount / 1000000).toFixed(2)} tr)`;
   const highestPrice = Math.max(position.highestPriceSinceBuy || buyPrice, price);
+  if (price > (position.highestPriceSinceBuy || buyPrice)) {
+    position.highestPriceSinceBuy = price;
+  }
 
   // 1. Vi phạm ngưỡng Cắt Lỗ (Stop-Loss Breach)
-  const stopLossThreshold = position.stopLossPrice || Number((buyPrice * 0.93).toFixed(2));
+  const stopLossThreshold = position.stopLossPrice || (position.stopLossPercent ? Number((buyPrice * (1 - position.stopLossPercent / 100)).toFixed(2)) : Number((buyPrice * 0.93).toFixed(2)));
   if (price <= stopLossThreshold) {
     signals.push({
       symbol: stock.symbol,
@@ -123,7 +126,7 @@ export function evaluatePortfolioHoldingSignals(
   }
 
   // 3. Chạm mục tiêu Chốt Lời TP1 & TP2 (Take-Profit Targets)
-  const targetThreshold = position.targetPrice || Number((buyPrice * 1.15).toFixed(2));
+  const targetThreshold = position.targetPrice || (position.targetPercent ? Number((buyPrice * (1 + position.targetPercent / 100)).toFixed(2)) : Number((buyPrice * 1.15).toFixed(2)));
   if (price >= targetThreshold) {
     signals.push({
       symbol: stock.symbol,

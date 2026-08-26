@@ -13,10 +13,11 @@ import { RecommendationView } from './components/RecommendationView';
 import { TelegramSettingsModal } from './components/TelegramSettingsModal';
 import { TerminalView } from './components/TerminalView';
 import { WatchlistView } from './components/WatchlistView';
-import { Candle, MarketIndex, OrderBook, StockData, TradeTick } from './types';
+import { Candle, MarketIndex, OrderBook, PortfolioPosition, StockData, TradeTick } from './types';
 import { getAutoLockTimeout } from './utils/security';
 import { fetchStockDetailWithSWR, getVietnamMarketSession, CachedStockBundle } from './services/marketDataClient';
 import { marketStreamClient, StreamConnectionStatus } from './services/marketStreamClient';
+import { evaluateClientPortfolioRiskAlerts, syncPortfolioToServer } from './services/portfolioAlertEngine';
 import { Lock, Shield, Activity, Wifi } from 'lucide-react';
 
 export function App() {
@@ -84,6 +85,31 @@ export function App() {
       clearInterval(checkInactivity);
     };
   }, [isLocked, handleLockApp]);
+
+  // Global Real-time Portfolio Risk & SL/TP Sentinel Evaluation across all views/tabs
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vnquant_portfolio_positions');
+      if (saved) {
+        const positions: PortfolioPosition[] = JSON.parse(saved);
+        if (Array.isArray(positions) && positions.length > 0) {
+          // 1. Initial boot sync to server
+          syncPortfolioToServer(positions).catch(() => {});
+
+          // 2. Global Real-time Evaluation on stock price ticks
+          if (stocks.length > 0) {
+            const stockMap = stocks.reduce((acc, s) => {
+              acc[s.symbol] = s;
+              return acc;
+            }, {} as Record<string, StockData>);
+            evaluateClientPortfolioRiskAlerts(positions, stockMap);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Global Portfolio Sentinel Error]:', err);
+    }
+  }, [stocks]);
 
   // Helper to safely parse JSON response
   const safeParseJson = async (res: Response) => {
