@@ -90,7 +90,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     }
   };
 
-  const isPositive = stock.change >= 0;
+  const isPositive = stock.change > 0;
+  const isNegative = stock.change < 0;
   const tech = stock.technical;
   const fund = stock.fundamental;
 
@@ -133,11 +134,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   const bandPercent = stock.exchange === 'UPCOM' ? '±15%' : stock.exchange === 'HNX' ? '±10%' : '±7%';
   const isCeiling = stock.price >= stock.ceilingPrice;
   const isFloor = stock.price <= stock.floorPrice;
-  const isRef = stock.price === stock.referencePrice;
+  const isRef = stock.price === stock.referencePrice || Math.abs(stock.change) < 0.001;
   
-  let priceColorClass = isPositive ? 'text-emerald-400' : 'text-red-400';
-  let priceBadgeText = isPositive ? 'TĂNG' : 'GIẢM';
-  let priceBadgeBg = isPositive ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800' : 'bg-red-950/80 text-red-400 border-red-800';
+  let priceColorClass = isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-amber-400';
+  let priceBadgeText = isPositive ? 'TĂNG' : isNegative ? 'GIẢM' : 'THAM CHIẾU';
+  let priceBadgeBg = isPositive 
+    ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800' 
+    : isNegative 
+    ? 'bg-red-950/80 text-red-400 border-red-800' 
+    : 'bg-amber-950/80 text-amber-400 border-amber-800';
 
   if (isCeiling) {
     priceColorClass = 'text-purple-400 font-black';
@@ -386,8 +391,10 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             <span className={`text-3xl font-black font-mono tracking-tight ${priceColorClass}`}>
               {stock.price.toFixed(2)}
             </span>
-            <div className={`flex items-center space-x-1 font-mono font-bold text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-              {isPositive ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+            <div className={`flex items-center space-x-1 font-mono font-bold text-sm ${
+              isCeiling ? 'text-purple-400' : isFloor ? 'text-cyan-400' : isRef ? 'text-amber-400' : isPositive ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {isPositive ? <ArrowUp className="w-4 h-4" /> : isNegative ? <ArrowDown className="w-4 h-4" /> : null}
               <span>
                 {isPositive ? '+' : ''}
                 {stock.change.toFixed(2)} ({isPositive ? '+' : ''}

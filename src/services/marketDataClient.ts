@@ -159,8 +159,8 @@ export async function fetchDirectLiveQuote(symbol: string): Promise<Partial<Stoc
         const lowPrice = Number(item.lowPrice) > 0 ? Number(item.lowPrice) : lastPrice;
         const ceilingPrice = Number(item.c) || Number((ref * 1.07).toFixed(2));
         const floorPrice = Number(item.f) || Number((ref * 0.93).toFixed(2));
-        const change = Number(item.ot) || Number((lastPrice - ref).toFixed(2));
-        const pct = Number(item.changePc) || (ref > 0 ? Number(((change / ref) * 100).toFixed(2)) : 0);
+        const change = ref > 0 ? Number((lastPrice - ref).toFixed(2)) : (Number(item.ot) || 0);
+        const pct = ref > 0 ? Number(((change / ref) * 100).toFixed(2)) : (Number(item.changePc) || 0);
         const volume = Number(item.lot || 0) * 10;
         const value = Number(((lastPrice * volume) / 10000000).toFixed(1));
 
