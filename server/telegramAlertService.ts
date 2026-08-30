@@ -16,6 +16,7 @@ import {
   clearSignalCooldown,
   TelegramConfig,
 } from './dataStore';
+import { isVietnamQuietHours, getMarketSessionInfo, getVietnamDateString } from './timeUtils';
 
 export function getTelegramConfig(): TelegramConfig {
   return getTelegramConfigStore();
@@ -251,7 +252,26 @@ ${safeNote ? `📝 <b>Ghi chú người dùng:</b> <i>${safeNote}</i>\n` : ''}
  */
 export async function runCronMarketSyncAndCheckAlerts() {
   const startTime = Date.now();
-  console.log(`[CRON] 🚀 Bắt đầu chu kỳ cập nhật dữ liệu & kiểm tra cảnh báo 4 tầng (${new Date().toISOString()})...`);
+  const cfg = getTelegramConfig();
+
+  // Evaluate Quiet Hours and Market Session
+  const sessionInfo = getMarketSessionInfo();
+  const currentDateStr = getVietnamDateString();
+  const quietCheck = isVietnamQuietHours({
+    quietHoursEnabled: cfg.quietHoursEnabled !== false,
+    quietHoursStart: cfg.quietHoursStart,
+    quietHoursEnd: cfg.quietHoursEnd,
+    quietWeekendEnabled: cfg.quietWeekendEnabled !== false,
+  });
+
+  const isQuietHoursActive = quietCheck.isQuiet;
+  const isMarketClosed = !sessionInfo.isOpen;
+
+  if (isQuietHoursActive) {
+    console.log(`[CRON] 🌙 Chế độ im lặng ban đêm đang BẬT (${quietCheck.currentTimeStr}): ${quietCheck.reason}. Tạm hoãn gửi Telegram.`);
+  } else {
+    console.log(`[CRON] 🚀 Bắt đầu chu kỳ cập nhật dữ liệu & kiểm tra cảnh báo 4 tầng (${sessionInfo.label})...`);
+  }
 
   // 1. Refresh news and stocks data
   const latestNews = await getLatestNewsAsync();
@@ -261,8 +281,6 @@ export async function runCronMarketSyncAndCheckAlerts() {
   let alertsTriggered = 0;
   let telegramSentCount = 0;
   const triggerLog: Array<{ symbol: string; alertId: string; message: string; telegramSuccess: boolean }> = [];
-
-  const cfg = getTelegramConfig();
 
   // 2. Evaluate active server alerts (Tier P2)
   if (cfg.enableP2CustomAlerts !== false) {
@@ -296,11 +314,13 @@ export async function runCronMarketSyncAndCheckAlerts() {
 
       if (evalResult.isTriggered) {
         // Unique signature for this specific trigger condition
-        const currentSignature = `${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}`;
+        const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
+        const currentSignature = `${alert.id}_${alert.symbol}_${alert.triggerType}_${alert.condition}_${alert.targetValue}${closedSuffix}`;
         const cooldownKey = `P2_${currentSignature}`;
+        const effectiveCooldown = isMarketClosed ? 720 : 120;
 
         // Deduplication check: Single-shot / cooldown
-        if (alert.lastSentSignature === currentSignature || isSignalInCooldown(cooldownKey, 120)) {
+        if (alert.lastSentSignature === currentSignature || isSignalInCooldown(cooldownKey, effectiveCooldown)) {
           console.log(`[CRON P2] ⚠️ Bỏ qua gửi Telegram cho ${alert.symbol} (${alert.id}): Thông báo trùng lặp đã được gửi trước đó.`);
           triggerLog.push({
             symbol: alert.symbol,
@@ -314,7 +334,7 @@ export async function runCronMarketSyncAndCheckAlerts() {
         alertsTriggered++;
         
         let telegramSuccess = false;
-        if (cfg.enabled && cfg.botToken && cfg.chatId) {
+        if (!isQuietHoursActive && cfg.enabled && cfg.botToken && cfg.chatId) {
           const msg = formatTelegramAlertMessage(alert, stock, evalResult);
           const res = await sendTelegramMessage(msg);
           telegramSuccess = res.success;
@@ -330,7 +350,7 @@ export async function runCronMarketSyncAndCheckAlerts() {
           alert.lastSentSignature = currentSignature;
           alert.triggerCount = (alert.triggerCount || 0) + 1;
           alert.lastTriggeredAt = new Date().toISOString();
-          recordSignalSent(cooldownKey, 'LOGGED_NO_TELEGRAM');
+          recordSignalSent(cooldownKey, isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM');
           stateChanged = true;
         }
 
@@ -339,7 +359,7 @@ export async function runCronMarketSyncAndCheckAlerts() {
           symbol: alert.symbol,
           alertId: alert.id,
           tier: 'P2',
-          message: `[P2 ĐÃ ĐẶT] ${evalResult.message}`,
+          message: isQuietHoursActive ? `[P2 ĐÃ ĐẶT] (Ban đêm - Im lặng) ${evalResult.message}` : `[P2 ĐÃ ĐẶT] ${evalResult.message}`,
           telegramSuccess,
         });
 
@@ -390,6 +410,9 @@ export async function runCronMarketSyncAndCheckAlerts() {
       watchlistSentinelSignals: multiTierReport?.activeSignalsFound || 0,
       telegramSentCount,
       telegramConfigured: Boolean(cfg.botToken && cfg.chatId),
+      isQuietHours: isQuietHoursActive,
+      quietReason: quietCheck.reason,
+      marketSession: sessionInfo.label,
     },
     triggeredAlerts: triggerLog,
     multiTierReport,

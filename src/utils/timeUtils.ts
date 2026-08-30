@@ -211,3 +211,72 @@ export function getVietnamDateString(date: Date | number | string = new Date()):
     year: 'numeric',
   });
 }
+
+/**
+ * Checks if current Vietnam time falls within Quiet Hours (Night mode or Weekend silence)
+ * Default: 21:30 to 08:30 (next morning), and Saturday/Sunday
+ */
+export function isVietnamQuietHours(
+  options: {
+    quietHoursEnabled?: boolean;
+    quietHoursStart?: string; // e.g. "21:30" or "22:00"
+    quietHoursEnd?: string;   // e.g. "08:30"
+    quietWeekendEnabled?: boolean; // e.g. true
+    date?: Date;
+  } = {}
+): { isQuiet: boolean; reason?: string; currentTimeStr: string } {
+  const {
+    quietHoursEnabled = true,
+    quietHoursStart = '21:30',
+    quietHoursEnd = '08:30',
+    quietWeekendEnabled = true,
+    date = new Date(),
+  } = options;
+
+  const { dayOfWeek, hours, minutes } = getVietnamTimeParts(date);
+  const currentTotalMinutes = hours * 60 + minutes;
+  const currentTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  if (!quietHoursEnabled) {
+    return { isQuiet: false, currentTimeStr };
+  }
+
+  // Check Weekend (Sat = 6, Sun = 0)
+  if (quietWeekendEnabled && (dayOfWeek === 0 || dayOfWeek === 6)) {
+    const dayName = dayOfWeek === 0 ? 'Chủ Nhật' : 'Thứ Bảy';
+    return {
+      isQuiet: true,
+      reason: `Cuối tuần (${dayName}) - Thị trường đóng cửa & Chế độ Im Lặng Ban Đêm/Nghỉ Lễ kích hoạt`,
+      currentTimeStr,
+    };
+  }
+
+  // Parse start & end times (HH:mm)
+  const [startH, startM] = (quietHoursStart || '21:30').split(':').map((v) => parseInt(v, 10) || 0);
+  const [endH, endM] = (quietHoursEnd || '08:30').split(':').map((v) => parseInt(v, 10) || 0);
+
+  const startTotalMinutes = startH * 60 + startM;
+  const endTotalMinutes = endH * 60 + endM;
+
+  // If start > end (e.g. 21:30 -> 08:30 spans midnight)
+  if (startTotalMinutes > endTotalMinutes) {
+    if (currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes) {
+      return {
+        isQuiet: true,
+        reason: `Ban đêm (${currentTimeStr} nằm trong khung giờ yên lặng ${quietHoursStart} - ${quietHoursEnd} VN)`,
+        currentTimeStr,
+      };
+    }
+  } else {
+    // start <= end (e.g. 01:00 -> 06:00)
+    if (currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes) {
+      return {
+        isQuiet: true,
+        reason: `Khung giờ yên lặng ban đêm (${currentTimeStr} nằm trong ${quietHoursStart} - ${quietHoursEnd} VN)`,
+        currentTimeStr,
+      };
+    }
+  }
+
+  return { isQuiet: false, currentTimeStr };
+}

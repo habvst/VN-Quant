@@ -18,6 +18,11 @@ export interface TelegramConfig {
   minPriceChangePercent?: number; // Chỉ gửi khi biến động >= %
   // Deduplication & Cooldown Control
   cooldownMinutes?: number; // Thời gian chống lặp lại cùng tín hiệu (phút)
+  // Night Quiet Hours & Market Schedule Control
+  quietHoursEnabled?: boolean; // Bật chế độ im lặng ban đêm (mặc định: true)
+  quietHoursStart?: string; // Giờ bắt đầu im lặng (mặc định: '21:30')
+  quietHoursEnd?: string; // Giờ kết thúc im lặng (mặc định: '08:30')
+  quietWeekendEnabled?: boolean; // Tắt thông báo kỹ thuật cuối tuần Thứ 7 & CN (mặc định: true)
 }
 
 export interface PortfolioPositionStoreItem {
@@ -88,6 +93,10 @@ const DEFAULT_STORE: AppDataStore = {
     enableP3Watchlist: true,
     enableP4MarketOpportunities: false,
     cooldownMinutes: 120, // 2 hours default cooldown for indicator signals
+    quietHoursEnabled: true, // Bật chế độ im lặng ban đêm
+    quietHoursStart: '21:30', // Bắt đầu lúc 21:30
+    quietHoursEnd: '08:30', // Kết thúc lúc 08:30 sáng hôm sau
+    quietWeekendEnabled: true, // Không gửi tín hiệu kỹ thuật cuối tuần khi sàn nghỉ
   },
   watchlistSentinelConfig: {
     enabled: true,

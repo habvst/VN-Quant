@@ -15,6 +15,12 @@ import {
 } from './dataStore';
 import { getAllStocks, getOrFetchStockBySymbol } from './marketDataService';
 import { sendTelegramMessage, escapeTelegramHtml } from './telegramAlertService';
+import {
+  isVietnamQuietHours,
+  getMarketSessionInfo,
+  getVietnamDateString,
+  getVietnamTimeString,
+} from './timeUtils';
 
 export interface WatchlistTriggerSignal {
   symbol: string;
@@ -36,6 +42,7 @@ export interface WatchlistScanResultItem {
   changePercent: number;
   signals: WatchlistTriggerSignal[];
   telegramSent: boolean;
+  quietHoursSilenced?: boolean;
 }
 
 export interface MultiTierSentinelReport {
@@ -46,6 +53,9 @@ export interface MultiTierSentinelReport {
   tier4OpportunitiesChecked: number;
   activeSignalsFound: number;
   telegramMessagesSent: number;
+  isQuietHours?: boolean;
+  quietReason?: string;
+  marketSession?: string;
   results: WatchlistScanResultItem[];
 }
 
@@ -531,7 +541,7 @@ export function formatMarketOpportunityTelegramAlert(stock: StockData, signal: W
  * UNIFIED 4-TIER SENTINEL SCAN (P1 -> P2 -> P3 -> P4)
  * ============================================================================
  */
-export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean } = {}): Promise<MultiTierSentinelReport> {
+export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean; bypassQuietHours?: boolean } = {}): Promise<MultiTierSentinelReport> {
   const startTime = Date.now();
   const telegramConfig = getTelegramConfigStore();
   const sentinelConfig = getWatchlistSentinelConfigStore();
@@ -539,7 +549,24 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
   const watchlistSymbols = getWatchlistStore();
   const allStocks = getAllStocks();
 
-  console.log(`[MULTI-TIER SENTINEL] 🛡️ Bắt đầu quét phân cấp 4 tầng (P1: ${portfolioPositions.length} sở hữu, P3: ${watchlistSymbols.length} theo dõi)...`);
+  // Evaluate Vietnam Market Quiet Hours & Closed Session
+  const sessionInfo = getMarketSessionInfo();
+  const currentDateStr = getVietnamDateString();
+  const quietCheck = isVietnamQuietHours({
+    quietHoursEnabled: telegramConfig.quietHoursEnabled !== false,
+    quietHoursStart: telegramConfig.quietHoursStart,
+    quietHoursEnd: telegramConfig.quietHoursEnd,
+    quietWeekendEnabled: telegramConfig.quietWeekendEnabled !== false,
+  });
+
+  const isQuietHoursActive = quietCheck.isQuiet && !options.forceSendAll && !options.bypassQuietHours;
+  const isMarketClosed = !sessionInfo.isOpen;
+
+  if (isQuietHoursActive) {
+    console.log(`[MULTI-TIER SENTINEL] 🌙 KHUNG GIỜ YÊN LẶNG (${quietCheck.currentTimeStr}): ${quietCheck.reason}. Tạm dừng gửi Telegram ban đêm để tránh làm phiền.`);
+  } else {
+    console.log(`[MULTI-TIER SENTINEL] 🛡️ Bắt đầu quét phân cấp 4 tầng (Phiên: ${sessionInfo.label} | P1: ${portfolioPositions.length} sở hữu, P3: ${watchlistSymbols.length} theo dõi)...`);
+  }
 
   const results: WatchlistScanResultItem[] = [];
   let totalSignals = 0;
@@ -559,15 +586,18 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
         let sentForStock = false;
 
         for (const sig of p1Signals) {
-          const sigKey = `P1_${pos.symbol}_${sig.signature}`;
-          const inCooldown = isSignalInCooldown(sigKey, sig.cooldownMinutes || 60);
+          // When market is closed, lock signature with current date to prevent repeating on static data
+          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
+          const sigKey = `P1_${pos.symbol}_${sig.signature}${closedSuffix}`;
+          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || 60);
+          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
 
           if (inCooldown && !options.forceSendAll) {
             console.log(`[SENTINEL P1] ⚠️ Bỏ qua thông báo trùng lặp cho ${pos.symbol}: ${sig.indicatorName}`);
             continue;
           }
 
-          if (telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatPortfolioTelegramAlert(pos, stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -583,12 +613,13 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
               });
             }
           } else {
-            recordSignalSent(sigKey, 'LOGGED_NO_TELEGRAM');
+            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM';
+            recordSignalSent(sigKey, stateLabel);
             addTriggerHistoryItem({
               symbol: stock.symbol,
               alertId: `p1-${sig.type.toLowerCase()}`,
               tier: 'P1',
-              message: `[P1 SỞ HỮU] ${sig.indicatorName}`,
+              message: isQuietHoursActive ? `[P1 SỞ HỮU] (Ban đêm - Im lặng) ${sig.indicatorName}` : `[P1 SỞ HỮU] ${sig.indicatorName}`,
               telegramSuccess: false,
             });
           }
@@ -601,6 +632,7 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
           changePercent: stock.changePercent,
           signals: p1Signals,
           telegramSent: sentForStock,
+          quietHoursSilenced: isQuietHoursActive,
         });
       }
     }
@@ -627,15 +659,18 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
         let sentForStock = false;
 
         for (const sig of p3Signals) {
-          const sigKey = `P3_${stock.symbol}_${sig.signature}`;
-          const inCooldown = isSignalInCooldown(sigKey, sig.cooldownMinutes || configuredCooldown);
+          // When market is closed, lock signature with current date to prevent repeating on static data
+          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
+          const sigKey = `P3_${stock.symbol}_${sig.signature}${closedSuffix}`;
+          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || configuredCooldown);
+          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
 
           if (inCooldown && !options.forceSendAll) {
             console.log(`[SENTINEL P3] ⚠️ Bỏ qua tín hiệu trùng lặp cho ${stock.symbol}: ${sig.indicatorName}`);
             continue;
           }
 
-          if (telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatWatchlistTelegramAlert(stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -651,12 +686,13 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
               });
             }
           } else {
-            recordSignalSent(sigKey, 'LOGGED_NO_TELEGRAM');
+            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM';
+            recordSignalSent(sigKey, stateLabel);
             addTriggerHistoryItem({
               symbol: stock.symbol,
               alertId: `p3-${sig.type.toLowerCase()}`,
               tier: 'P3',
-              message: `[P3 WATCHLIST] ${sig.indicatorName}`,
+              message: isQuietHoursActive ? `[P3 WATCHLIST] (Ban đêm - Im lặng) ${sig.indicatorName}` : `[P3 WATCHLIST] ${sig.indicatorName}`,
               telegramSuccess: false,
             });
           }
@@ -669,6 +705,7 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
           changePercent: stock.changePercent,
           signals: p3Signals,
           telegramSent: sentForStock,
+          quietHoursSilenced: isQuietHoursActive,
         });
       }
     }
@@ -687,12 +724,14 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
       if (p4Signals.length > 0) {
         totalSignals += p4Signals.length;
         for (const sig of p4Signals) {
-          const sigKey = `P4_${stock.symbol}_${sig.signature}`;
-          const inCooldown = isSignalInCooldown(sigKey, sig.cooldownMinutes || 360);
+          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
+          const sigKey = `P4_${stock.symbol}_${sig.signature}${closedSuffix}`;
+          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || 360);
+          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
 
           if (inCooldown && !options.forceSendAll) continue;
 
-          if (telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatMarketOpportunityTelegramAlert(stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -706,6 +745,8 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
                 telegramSuccess: true,
               });
             }
+          } else {
+            recordSignalSent(sigKey, isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM');
           }
         }
       }
@@ -713,7 +754,7 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
   }
 
   const durationMs = Date.now() - startTime;
-  console.log(`[MULTI-TIER SENTINEL] ✅ Hoàn thành quét trong ${durationMs}ms: ${totalSignals} tín hiệu, ${telegramMessagesSent} tin Telegram đã gửi.`);
+  console.log(`[MULTI-TIER SENTINEL] ✅ Hoàn thành quét trong ${durationMs}ms (Im lặng ban đêm: ${isQuietHoursActive ? 'BẬT' : 'TẮT'}): ${totalSignals} tín hiệu, ${telegramMessagesSent} tin Telegram đã gửi.`);
 
   return {
     timestamp: new Date().toISOString(),
@@ -723,6 +764,9 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
     tier4OpportunitiesChecked: allStocks.length,
     activeSignalsFound: totalSignals,
     telegramMessagesSent,
+    isQuietHours: isQuietHoursActive,
+    quietReason: quietCheck.reason,
+    marketSession: sessionInfo.label,
     results,
   };
 }

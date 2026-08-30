@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Flame,
   Layers,
+  Moon,
   RefreshCw,
   Send,
   ShieldAlert,
@@ -21,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { isVietnamQuietHours, getMarketSessionInfo } from '../utils/timeUtils';
 
 interface TelegramSettingsModalProps {
   isOpen: boolean;
@@ -28,7 +30,7 @@ interface TelegramSettingsModalProps {
 }
 
 export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'ROADMAP' | 'CREDENTIALS' | 'FILTERS'>('ROADMAP');
+  const [activeTab, setActiveTab] = useState<'ROADMAP' | 'QUIET_HOURS' | 'FILTERS' | 'CREDENTIALS'>('ROADMAP');
 
   // Credentials & Master Switch
   const [botToken, setBotToken] = useState('');
@@ -40,6 +42,12 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   const [enableP2CustomAlerts, setEnableP2CustomAlerts] = useState(true);
   const [enableP3Watchlist, setEnableP3Watchlist] = useState(true);
   const [enableP4MarketOpportunities, setEnableP4MarketOpportunities] = useState(false);
+
+  // Quiet Hours & Night-time Restrictions
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(true);
+  const [quietHoursStart, setQuietHoursStart] = useState('21:30');
+  const [quietHoursEnd, setQuietHoursEnd] = useState('08:30');
+  const [quietWeekendEnabled, setQuietWeekendEnabled] = useState(true);
 
   // Smart Filters
   const [filterVolumeSurgeOnly, setFilterVolumeSurgeOnly] = useState(false);
@@ -53,6 +61,32 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   const [testLoading, setTestLoading] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Live session status
+  const [currentSession, setCurrentSession] = useState(() => getMarketSessionInfo());
+  const [quietStatus, setQuietStatus] = useState(() =>
+    isVietnamQuietHours({
+      quietHoursEnabled,
+      quietHoursStart,
+      quietHoursEnd,
+      quietWeekendEnabled,
+    })
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSession(getMarketSessionInfo());
+      setQuietStatus(
+        isVietnamQuietHours({
+          quietHoursEnabled,
+          quietHoursStart,
+          quietHoursEnd,
+          quietWeekendEnabled,
+        })
+      );
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [quietHoursEnabled, quietHoursStart, quietHoursEnd, quietWeekendEnabled]);
+
   useEffect(() => {
     if (!isOpen) return;
     fetch('/api/telegram/config')
@@ -65,6 +99,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
         setEnableP2CustomAlerts(data.enableP2CustomAlerts !== false);
         setEnableP3Watchlist(data.enableP3Watchlist !== false);
         setEnableP4MarketOpportunities(Boolean(data.enableP4MarketOpportunities));
+        setQuietHoursEnabled(data.quietHoursEnabled !== false);
+        setQuietHoursStart(data.quietHoursStart || '21:30');
+        setQuietHoursEnd(data.quietHoursEnd || '08:30');
+        setQuietWeekendEnabled(data.quietWeekendEnabled !== false);
         setFilterVolumeSurgeOnly(!!data.filterVolumeSurgeOnly);
         setFilterStopLossTakeProfitOnly(!!data.filterStopLossTakeProfitOnly);
         setFilterBreakoutOnly(!!data.filterBreakoutOnly);
@@ -93,6 +131,10 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
           enableP2CustomAlerts,
           enableP3Watchlist,
           enableP4MarketOpportunities,
+          quietHoursEnabled,
+          quietHoursStart,
+          quietHoursEnd,
+          quietWeekendEnabled,
           filterVolumeSurgeOnly,
           filterStopLossTakeProfitOnly,
           filterBreakoutOnly,
@@ -102,7 +144,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
       });
       const data = await res.json();
       if (data.status === 'success') {
-        setStatusMsg({ type: 'success', text: '✅ Đã lưu toàn bộ cấu hình 4 tầng & bộ lọc Telegram thành công!' });
+        setStatusMsg({ type: 'success', text: '✅ Đã lưu toàn bộ cấu hình 4 tầng & khung giờ im lặng Telegram thành công!' });
       } else {
         setStatusMsg({ type: 'error', text: '❌ Lỗi khi lưu cấu hình Telegram Bot' });
       }
@@ -200,41 +242,56 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-800 bg-[#070709] px-3 pt-2 gap-1 text-xs">
+        <div className="flex border-b border-gray-800 bg-[#070709] px-3 pt-2 gap-1 text-xs overflow-x-auto">
           <button
             onClick={() => setActiveTab('ROADMAP')}
-            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x transition ${
+            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x whitespace-nowrap transition ${
               activeTab === 'ROADMAP'
                 ? 'bg-[#0e111a] border-blue-500/60 text-blue-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>1. Lộ Trình 4 Tầng Ưu Tiên</span>
+            <span>1. 4 Tầng Ưu Tiên</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('CREDENTIALS')}
-            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x transition ${
-              activeTab === 'CREDENTIALS'
-                ? 'bg-[#0e111a] border-blue-500/60 text-blue-400'
+            onClick={() => setActiveTab('QUIET_HOURS')}
+            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x whitespace-nowrap transition ${
+              activeTab === 'QUIET_HOURS'
+                ? 'bg-[#0e111a] border-amber-500/60 text-amber-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>2. Kết Nối Bot &amp; Chat ID</span>
+            <Moon className="w-3.5 h-3.5" />
+            <span>2. Khung Giờ &amp; Ban Đêm</span>
+            {quietStatus.isQuiet && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Đang trong khung giờ im lặng" />
+            )}
           </button>
 
           <button
             onClick={() => setActiveTab('FILTERS')}
-            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x transition ${
+            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x whitespace-nowrap transition ${
               activeTab === 'FILTERS'
                 ? 'bg-[#0e111a] border-blue-500/60 text-blue-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>3. Chống Trùng Lặp &amp; Bộ Lọc</span>
+            <span>3. Chống Trùng Lặp &amp; Lọc</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('CREDENTIALS')}
+            className={`px-3 py-2 font-bold rounded-t flex items-center space-x-1.5 border-t border-x whitespace-nowrap transition ${
+              activeTab === 'CREDENTIALS'
+                ? 'bg-[#0e111a] border-blue-500/60 text-blue-400'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>4. Kết Nối Bot &amp; Webhook</span>
           </button>
         </div>
 
@@ -370,6 +427,130 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                 <p className="text-[10px] text-gray-400 leading-relaxed">
                   • <strong>Sự kiện giám sát:</strong> Cổ phiếu toàn sàn đạt Quant Composite Score &ge; 85/100 kèm dấu chân dòng tiền tổ chức mua ròng đột biến.
                   <br />• <strong>Cơ chế:</strong> Tần suất thấp, Cooldown 360 phút để không làm loãng tin nhắn của nhà đầu tư.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: QUIET HOURS & NIGHT RESTRICTION */}
+          {activeTab === 'QUIET_HOURS' && (
+            <div className="space-y-3.5">
+              {/* Status Header */}
+              <div className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${
+                quietStatus.isQuiet
+                  ? 'bg-[#181408] border-amber-500/40 text-amber-300'
+                  : 'bg-[#081512] border-emerald-500/40 text-emerald-300'
+              }`}>
+                <div className="flex items-center space-x-2.5">
+                  <div className={`p-2 rounded ${quietStatus.isQuiet ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    <Moon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-xs uppercase">
+                        {quietStatus.isQuiet ? '🌙 Đang trong khung giờ Yên Lặng' : '☀️ Đang trong khung giờ Hoạt Động'}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 border border-current font-mono">
+                        {quietStatus.currentTimeStr} (Giờ VN)
+                      </span>
+                    </div>
+                    <p className="text-[10px] opacity-90 mt-0.5">
+                      {quietStatus.reason}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                  quietStatus.isQuiet ? 'bg-amber-500 text-black' : 'bg-emerald-600 text-white'
+                }`}>
+                  {currentSession.label}
+                </span>
+              </div>
+
+              {/* Master Quiet Hours Switch */}
+              <div className="bg-[#050811] p-3 rounded-lg border border-blue-900/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-gray-200 block text-xs">
+                      1. Chế độ Im Lặng Ban Đêm (Quiet Hours)
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      Tự động chặn gửi tin Telegram ngoài giờ giao dịch để không làm phiền giấc ngủ của bạn
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={quietHoursEnabled}
+                    onChange={(e) => setQuietHoursEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                  />
+                </div>
+
+                {quietHoursEnabled && (
+                  <div className="bg-[#050505] p-3 rounded border border-gray-800 space-y-2.5">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block">
+                      Khung giờ im lặng (Theo giờ Việt Nam - ICT / UTC+7):
+                    </span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-1">Bắt đầu im lặng từ (Buổi tối):</label>
+                        <select
+                          value={quietHoursStart}
+                          onChange={(e) => setQuietHoursStart(e.target.value)}
+                          className="w-full bg-[#000] border border-gray-700 rounded px-2.5 py-1.5 text-xs font-bold text-white outline-none focus:border-amber-500"
+                        >
+                          <option value="20:00">20:00 (8:00 PM)</option>
+                          <option value="21:00">21:00 (9:00 PM)</option>
+                          <option value="21:30">21:30 (9:30 PM - Khuyến nghị)</option>
+                          <option value="22:00">22:00 (10:00 PM)</option>
+                          <option value="23:00">23:00 (11:00 PM)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-1">Kết thúc im lặng lúc (Buổi sáng):</label>
+                        <select
+                          value={quietHoursEnd}
+                          onChange={(e) => setQuietHoursEnd(e.target.value)}
+                          className="w-full bg-[#000] border border-gray-700 rounded px-2.5 py-1.5 text-xs font-bold text-white outline-none focus:border-amber-500"
+                        >
+                          <option value="07:30">07:30 (7:30 AM)</option>
+                          <option value="08:00">08:00 (8:00 AM)</option>
+                          <option value="08:30">08:30 (8:30 AM - Trước mở cửa)</option>
+                          <option value="09:00">09:00 (9:00 AM - Phiên ATO)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Weekend Switch */}
+              <div className="bg-[#050811] p-3 rounded-lg border border-blue-900/60 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-gray-200 block text-xs">
+                    2. Im Lặng Suốt Cuối Tuần (Thứ 7 &amp; Chủ Nhật)
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    Thị trường HOSE/HNX/UPCoM đóng cửa cuối tuần. Không gửi bất kỳ cảnh báo định kỳ nào.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={quietWeekendEnabled}
+                  onChange={(e) => setQuietWeekendEnabled(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Architect Explanation */}
+              <div className="bg-[#030610] p-3 rounded-lg border border-blue-500/30 text-[11px] text-gray-300 space-y-1.5 leading-relaxed">
+                <span className="font-bold text-blue-400 flex items-center space-x-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Cơ Chế Bảo Vệ Kỹ Thuật Định Lượng (Quant Architecture):</span>
+                </span>
+                <p className="text-[10px] text-gray-400">
+                  • <strong>Khi thị trường đóng cửa:</strong> Hệ thống tự động khóa mã chữ ký (Date-Locked Signature) và gia hạn thời gian Cooldown lên <strong>12 tiếng</strong>. Do giá không thay đổi ngoài giờ, bạn sẽ không bao giờ bị nhận tin lặp lại cùng một nội dung.
+                  <br />• <strong>Trong khung giờ Quiet Hours:</strong> Mọi tính toán định lượng vẫn chạy ngầm và lưu vào Nhật Ký Kích Hoạt trong ứng dụng, nhưng lệnh gọi API Telegram được tạm dừng để đảm bảo sự riêng tư tuyệt đối cho nhà đầu tư.
                 </p>
               </div>
             </div>
