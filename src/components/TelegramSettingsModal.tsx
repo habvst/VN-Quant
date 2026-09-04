@@ -48,6 +48,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   const [quietHoursStart, setQuietHoursStart] = useState('21:30');
   const [quietHoursEnd, setQuietHoursEnd] = useState('08:30');
   const [quietWeekendEnabled, setQuietWeekendEnabled] = useState(true);
+  const [onlyDuringMarketHours, setOnlyDuringMarketHours] = useState(true);
 
   // Smart Filters
   const [filterVolumeSurgeOnly, setFilterVolumeSurgeOnly] = useState(false);
@@ -103,6 +104,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
         setQuietHoursStart(data.quietHoursStart || '21:30');
         setQuietHoursEnd(data.quietHoursEnd || '08:30');
         setQuietWeekendEnabled(data.quietWeekendEnabled !== false);
+        setOnlyDuringMarketHours(data.onlyDuringMarketHours !== false);
         setFilterVolumeSurgeOnly(!!data.filterVolumeSurgeOnly);
         setFilterStopLossTakeProfitOnly(!!data.filterStopLossTakeProfitOnly);
         setFilterBreakoutOnly(!!data.filterBreakoutOnly);
@@ -135,6 +137,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
           quietHoursStart,
           quietHoursEnd,
           quietWeekendEnabled,
+          onlyDuringMarketHours,
           filterVolumeSurgeOnly,
           filterStopLossTakeProfitOnly,
           filterBreakoutOnly,
@@ -539,6 +542,24 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                   checked={quietWeekendEnabled}
                   onChange={(e) => setQuietWeekendEnabled(e.target.checked)}
                   className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Strict Market Trading Hours Only Switch */}
+              <div className="bg-[#050811] p-3 rounded-lg border border-emerald-900/60 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-emerald-300 block text-xs flex items-center space-x-1.5">
+                    <span>3. Chỉ Gửi Trong Giờ Giao Dịch Khớp Lệnh Thực Tế (Khuyến nghị BẬT)</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 block mt-0.5">
+                    Hệ thống chỉ gửi tin nhắn tự động khi thị trường Việt Nam đang mở cửa khớp lệnh (09:00 - 11:30 và 13:00 - 15:00, Thứ 2 - Thứ 6). Ngoài giờ giao dịch hoặc ngày nghỉ, tin nhắn tự động bị chặn tuyệt đối để chống lặp lại trên dữ liệu tĩnh.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={onlyDuringMarketHours}
+                  onChange={(e) => setOnlyDuringMarketHours(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500 rounded cursor-pointer ml-3 shrink-0"
                 />
               </div>
 

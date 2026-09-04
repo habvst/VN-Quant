@@ -97,6 +97,11 @@ async function startServer() {
       filterBreakoutOnly: Boolean(cfg.filterBreakoutOnly),
       minPriceChangePercent: cfg.minPriceChangePercent ?? 0,
       cooldownMinutes: cfg.cooldownMinutes ?? 120,
+      quietHoursEnabled: cfg.quietHoursEnabled !== false,
+      quietHoursStart: cfg.quietHoursStart || '21:30',
+      quietHoursEnd: cfg.quietHoursEnd || '08:30',
+      quietWeekendEnabled: cfg.quietWeekendEnabled !== false,
+      onlyDuringMarketHours: cfg.onlyDuringMarketHours !== false,
       isConfigured: Boolean(cfg.botToken && cfg.chatId),
     });
   });
@@ -115,6 +120,11 @@ async function startServer() {
       filterBreakoutOnly,
       minPriceChangePercent,
       cooldownMinutes,
+      quietHoursEnabled,
+      quietHoursStart,
+      quietHoursEnd,
+      quietWeekendEnabled,
+      onlyDuringMarketHours,
     } = req.body;
 
     const updated = updateTelegramConfig({
@@ -130,6 +140,11 @@ async function startServer() {
       filterBreakoutOnly: typeof filterBreakoutOnly === 'boolean' ? filterBreakoutOnly : undefined,
       minPriceChangePercent: typeof minPriceChangePercent === 'number' ? minPriceChangePercent : undefined,
       cooldownMinutes: typeof cooldownMinutes === 'number' ? cooldownMinutes : undefined,
+      quietHoursEnabled: typeof quietHoursEnabled === 'boolean' ? quietHoursEnabled : undefined,
+      quietHoursStart: typeof quietHoursStart === 'string' ? quietHoursStart : undefined,
+      quietHoursEnd: typeof quietHoursEnd === 'string' ? quietHoursEnd : undefined,
+      quietWeekendEnabled: typeof quietWeekendEnabled === 'boolean' ? quietWeekendEnabled : undefined,
+      onlyDuringMarketHours: typeof onlyDuringMarketHours === 'boolean' ? onlyDuringMarketHours : undefined,
     });
     res.json({ status: 'success', config: updated });
   });

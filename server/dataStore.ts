@@ -23,6 +23,7 @@ export interface TelegramConfig {
   quietHoursStart?: string; // Giờ bắt đầu im lặng (mặc định: '21:30')
   quietHoursEnd?: string; // Giờ kết thúc im lặng (mặc định: '08:30')
   quietWeekendEnabled?: boolean; // Tắt thông báo kỹ thuật cuối tuần Thứ 7 & CN (mặc định: true)
+  onlyDuringMarketHours?: boolean; // CHỈ gửi cảnh báo tự động trong phiên giao dịch thực tế (mặc định: true)
 }
 
 export interface PortfolioPositionStoreItem {
@@ -97,6 +98,7 @@ const DEFAULT_STORE: AppDataStore = {
     quietHoursStart: '21:30', // Bắt đầu lúc 21:30
     quietHoursEnd: '08:30', // Kết thúc lúc 08:30 sáng hôm sau
     quietWeekendEnabled: true, // Không gửi tín hiệu kỹ thuật cuối tuần khi sàn nghỉ
+    onlyDuringMarketHours: true, // Chặn hoàn toàn tin nhắn tự động khi thị trường đóng cửa
   },
   watchlistSentinelConfig: {
     enabled: true,
@@ -439,6 +441,23 @@ export function recordSignalSent(key: string, stateKey?: string, value?: number)
 export function clearSignalCooldown(key: string): void {
   if (inMemoryStore.cooldownEntries && inMemoryStore.cooldownEntries[key]) {
     delete inMemoryStore.cooldownEntries[key];
+    saveStore();
+  }
+}
+
+/**
+ * Clears cooldowns matching a prefix (e.g. when a position recovers from breach)
+ */
+export function clearSignalCooldownsByPrefix(prefix: string): void {
+  if (!inMemoryStore.cooldownEntries) return;
+  let changed = false;
+  for (const key of Object.keys(inMemoryStore.cooldownEntries)) {
+    if (key.startsWith(prefix)) {
+      delete inMemoryStore.cooldownEntries[key];
+      changed = true;
+    }
+  }
+  if (changed) {
     saveStore();
   }
 }

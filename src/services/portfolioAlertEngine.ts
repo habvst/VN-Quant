@@ -118,15 +118,20 @@ export function evaluateClientPortfolioRiskAlerts(
           ALERT_COOLDOWN_MAP.set(sig, now);
           playAlertSound();
 
+          const isProfitable = pnlPercent >= 0;
           const notif: MockNotification = {
             id: `p1-ts-${Date.now()}-${pos.symbol}`,
             symbol: pos.symbol,
             triggerType: 'STOP_LOSS_TAKE_PROFIT',
-            title: `📉 [DANH MỤC] VI PHẠM TRAILING STOP: #${pos.symbol}`,
-            message: `Thị giá ${currentPrice.toFixed(2)}k lùi từ đỉnh ${highestPrice.toFixed(2)}k chạm mốc Trailing Stop ${trailingStopPrice.toFixed(2)}k. Lãi hiện tại: ${pnlStr}. Khuyến nghị: Bán chốt lời bảo toàn thành quả!`,
+            title: isProfitable
+              ? `📉 [DANH MỤC] VI PHẠM TRAILING STOP: #${pos.symbol}`
+              : `⚠️ [DANH MỤC] GÃY ĐÀ TĂNG - RƠI DƯỚI GIÁ VỐN: #${pos.symbol}`,
+            message: isProfitable
+              ? `Thị giá ${currentPrice.toFixed(2)}k lùi từ đỉnh ${highestPrice.toFixed(2)}k chạm Trailing Stop ${trailingStopPrice.toFixed(2)}k. Lợi nhuận còn: ${pnlStr}. Khuyến nghị: Bán chốt lời chủ động bảo toàn lãi!`
+              : `Thị giá ${currentPrice.toFixed(2)}k rơi từ đỉnh ${highestPrice.toFixed(2)}k thủng Trailing Stop và rơi về dưới giá vốn (${buyPrice.toFixed(2)}k). Trạng thái: Đang lỗ ${pnlStr}. Đề xuất: Bán hạ tỷ trọng / cắt lỗ sớm bảo toàn vốn!`,
             timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             channel: pos.alertChannel || 'IN_APP',
-            severity: 'WARNING',
+            severity: isProfitable ? 'WARNING' : 'DANGER',
             read: false,
           };
 
@@ -135,7 +140,7 @@ export function evaluateClientPortfolioRiskAlerts(
             symbol: pos.symbol,
             type: 'TRAILING_STOP',
             message: notif.message,
-            severity: 'WARNING',
+            severity: isProfitable ? 'WARNING' : 'DANGER',
           });
 
           if (onTriggerAction) onTriggerAction('TRAILING_STOP', pos, stock);

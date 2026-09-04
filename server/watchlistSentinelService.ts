@@ -11,6 +11,7 @@ import {
   isSignalInCooldown,
   recordSignalSent,
   clearSignalCooldown,
+  clearSignalCooldownsByPrefix,
   WatchlistSentinelConfig,
 } from './dataStore';
 import { getAllStocks, getOrFetchStockBySymbol } from './marketDataService';
@@ -116,22 +117,42 @@ export function evaluatePortfolioHoldingSignals(
     }
   }
 
-  // 2. Trailing Stop Breach (Vi phạm điểm dừng lãi động)
+  // 2. Trailing Stop Breach (Vi phạm điểm dừng lãi động hoặc Gãy đà tăng rơi về dưới giá vốn)
   if (position.trailingStopPercent && position.trailingStopPercent > 0) {
     const trailingStopPrice = Number((highestPrice * (1 - position.trailingStopPercent / 100)).toFixed(2));
     if (price <= trailingStopPrice && highestPrice >= buyPrice * 1.05) {
-      signals.push({
-        symbol: stock.symbol,
-        tier: 'P1',
-        type: 'PORTFOLIO_STOP_LOSS',
-        headerBadge: '📉 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] VI PHẠM MỐC TRAILING STOP BẢO VỆ LÃI</b>',
-        indicatorName: `Thị giá ${price.toFixed(2)}k thủng mốc Trailing Stop ${trailingStopPrice.toFixed(2)}k (Lùi ${position.trailingStopPercent}% từ đỉnh ${highestPrice.toFixed(2)}k)`,
-        description: `Cổ phiếu #${stock.symbol} đã điều chỉnh lùi từ vùng đỉnh ngắn hạn. Lãi hiện tại: ${pnlStr}.`,
-        severity: 'WARNING',
-        recommendation: `Bán chốt lời chủ động để bảo toàn phần lợi nhuận đã đạt được trước khi bị thị trường cuốn trôi!`,
-        signature: `P1_TRAILING_STOP_${stock.symbol}_${trailingStopPrice.toFixed(2)}`,
-        cooldownMinutes: 120,
-      });
+      const isProfitable = pnlPercent >= 0;
+      const peakGainPct = (((highestPrice - buyPrice) / buyPrice) * 100).toFixed(2);
+
+      if (isProfitable) {
+        // VỊ THẾ CÒN LÃI DƯƠNG: Bảo vệ thành quả lợi nhuận đã đạt được
+        signals.push({
+          symbol: stock.symbol,
+          tier: 'P1',
+          type: 'PORTFOLIO_STOP_LOSS',
+          headerBadge: '📉 <b>[P1 - DANH MỤC ĐANG SỞ HỮU] VI PHẠM MỐC TRAILING STOP BẢO VỆ LÃI</b>',
+          indicatorName: `Thị giá ${price.toFixed(2)}k thủng mốc Trailing Stop ${trailingStopPrice.toFixed(2)}k (Lùi ${position.trailingStopPercent}% từ đỉnh ${highestPrice.toFixed(2)}k)`,
+          description: `Cổ phiếu #${stock.symbol} đã lùi ${position.trailingStopPercent}% từ đỉnh ngắn hạn ${highestPrice.toFixed(2)}k (từng lãi +${peakGainPct}%). Lợi nhuận tạm tính còn lại: +${pnlPercent.toFixed(2)}% (+${(pnlAmount / 1000000).toFixed(2)} tr).`,
+          severity: 'WARNING',
+          recommendation: `Bán chốt lời chủ động để bảo toàn phần lợi nhuận còn lại (+${pnlPercent.toFixed(2)}%) trước khi áp lực bán cuốn trôi!`,
+          signature: `P1_TRAILING_STOP_PROFIT_${stock.symbol}_${trailingStopPrice.toFixed(2)}`,
+          cooldownMinutes: 120,
+        });
+      } else {
+        // VỊ THẾ BỊ LỖ (PnL < 0): Giá đã rơi từ đỉnh về dưới giá vốn, xoá sạch lãi
+        signals.push({
+          symbol: stock.symbol,
+          tier: 'P1',
+          type: 'PORTFOLIO_STOP_LOSS',
+          headerBadge: '⚠️ <b>[P1 - DANH MỤC ĐANG SỞ HỮU] CẢNH BÁO GÃY ĐÀ TĂNG - RƠI TỪ ĐỈNH VỀ DƯỚI GIÁ VỐN</b>',
+          indicatorName: `Thị giá ${price.toFixed(2)}k thủng mốc Trailing Stop ${trailingStopPrice.toFixed(2)}k (Lùi ${position.trailingStopPercent}% từ đỉnh ${highestPrice.toFixed(2)}k)`,
+          description: `Cổ phiếu #${stock.symbol} từng đạt đỉnh ${highestPrice.toFixed(2)}k (+${peakGainPct}%) nhưng đà tăng đã gãy hoàn toàn, thị giá đảo chiều rơi ngược xuống dưới giá vốn (${buyPrice.toFixed(2)}k). Trạng thái hiện tại: Đang lỗ ${pnlStr}.`,
+          severity: 'DANGER',
+          recommendation: `Vị thế đã xoá sạch toàn bộ mức tăng từ đỉnh và rơi vào vùng lỗ (${pnlPercent.toFixed(2)}%). Cân nhắc BÁN HẠ TỶ TRỌNG / CẮT LỖ SỚM để bảo toàn vốn trước khi chạm ngưỡng Cắt Lỗ cứng (SL: ${stopLossThreshold.toFixed(2)}k)!`,
+          signature: `P1_TRAILING_STOP_DEFENSE_${stock.symbol}_${trailingStopPrice.toFixed(2)}`,
+          cooldownMinutes: 120,
+        });
+      }
     }
   }
 
@@ -561,9 +582,16 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
 
   const isQuietHoursActive = quietCheck.isQuiet && !options.forceSendAll && !options.bypassQuietHours;
   const isMarketClosed = !sessionInfo.isOpen;
+  const onlyDuringMarketHours = telegramConfig.onlyDuringMarketHours !== false;
+  // Live trading is only when market is open and can match orders (ATO, Continuous Morning/Afternoon, ATC)
+  const isMarketLiveTrading = sessionInfo.isOpen && sessionInfo.canMatchOrders;
+  // Automated Telegram messages are strictly allowed only during live active trading sessions
+  const canSendAutomatedTelegram = !isQuietHoursActive && (isMarketLiveTrading || !onlyDuringMarketHours || options.forceSendAll);
 
   if (isQuietHoursActive) {
     console.log(`[MULTI-TIER SENTINEL] 🌙 KHUNG GIỜ YÊN LẶNG (${quietCheck.currentTimeStr}): ${quietCheck.reason}. Tạm dừng gửi Telegram ban đêm để tránh làm phiền.`);
+  } else if (!isMarketLiveTrading && onlyDuringMarketHours && !options.forceSendAll) {
+    console.log(`[MULTI-TIER SENTINEL] ⏸️ Thị trường đóng cửa (${sessionInfo.label}) - Chặn tự động gửi Telegram để chống lặp lại tin nhắn trên dữ liệu tĩnh.`);
   } else {
     console.log(`[MULTI-TIER SENTINEL] 🛡️ Bắt đầu quét phân cấp 4 tầng (Phiên: ${sessionInfo.label} | P1: ${portfolioPositions.length} sở hữu, P3: ${watchlistSymbols.length} theo dõi)...`);
   }
@@ -586,18 +614,18 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
         let sentForStock = false;
 
         for (const sig of p1Signals) {
-          // When market is closed, lock signature with current date to prevent repeating on static data
-          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
-          const sigKey = `P1_${pos.symbol}_${sig.signature}${closedSuffix}`;
-          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || 60);
-          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
+          // Robust Edge-Triggering Deduplication:
+          // A breach event (e.g. Stop Loss, Trailing Stop) is locked until the stock price recovers!
+          // Cooldown is set to 14 days (20160 minutes) so it will NEVER re-trigger on static prices across cycles or non-trading days
+          const sigKey = `P1_${pos.symbol}_${sig.signature}`;
+          const inCooldown = isSignalInCooldown(sigKey, 20160);
 
           if (inCooldown && !options.forceSendAll) {
-            console.log(`[SENTINEL P1] ⚠️ Bỏ qua thông báo trùng lặp cho ${pos.symbol}: ${sig.indicatorName}`);
+            console.log(`[SENTINEL P1] 🛡️ Bỏ qua cảnh báo đã gửi trước đó cho ${pos.symbol}: ${sig.indicatorName} (Khóa trạng thái vi phạm)`);
             continue;
           }
 
-          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (canSendAutomatedTelegram && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatPortfolioTelegramAlert(pos, stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -613,13 +641,17 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
               });
             }
           } else {
-            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM';
-            recordSignalSent(sigKey, stateLabel);
+            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : (!isMarketLiveTrading ? 'MARKET_CLOSED_SILENCED' : 'LOGGED_NO_TELEGRAM');
+            if (options.forceSendAll) {
+              recordSignalSent(sigKey, stateLabel);
+            }
             addTriggerHistoryItem({
               symbol: stock.symbol,
               alertId: `p1-${sig.type.toLowerCase()}`,
               tier: 'P1',
-              message: isQuietHoursActive ? `[P1 SỞ HỮU] (Ban đêm - Im lặng) ${sig.indicatorName}` : `[P1 SỞ HỮU] ${sig.indicatorName}`,
+              message: isQuietHoursActive
+                ? `[P1 SỞ HỮU] (Ban đêm - Im lặng) ${sig.indicatorName}`
+                : (!isMarketLiveTrading ? `[P1 SỞ HỮU] (Ngoài giờ giao dịch - Chặn gửi) ${sig.indicatorName}` : `[P1 SỞ HỮU] ${sig.indicatorName}`),
               telegramSuccess: false,
             });
           }
@@ -634,6 +666,10 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
           telegramSent: sentForStock,
           quietHoursSilenced: isQuietHoursActive,
         });
+      } else {
+        // Price has recovered or no signals: clear previous breach locks so future breaches can alert again
+        clearSignalCooldownsByPrefix(`P1_${pos.symbol}_P1_TRAILING_STOP`);
+        clearSignalCooldownsByPrefix(`P1_${pos.symbol}_P1_SL_`);
       }
     }
   }
@@ -642,8 +678,6 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
   // TIER P3: CHECK WATCHLIST SYMBOLS (MEDIUM PRIORITY - TECHNICAL SIGNALS)
   // --------------------------------------------------------------------------
   if (telegramConfig.enableP3Watchlist !== false) {
-    const configuredCooldown = telegramConfig.cooldownMinutes || 120;
-
     for (const sym of watchlistSymbols) {
       // Avoid duplicate checking if already evaluated in P1
       if (portfolioPositions.some((p) => p.symbol === sym)) {
@@ -659,18 +693,15 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
         let sentForStock = false;
 
         for (const sig of p3Signals) {
-          // When market is closed, lock signature with current date to prevent repeating on static data
-          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
-          const sigKey = `P3_${stock.symbol}_${sig.signature}${closedSuffix}`;
-          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || configuredCooldown);
-          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
+          // Lock each technical indicator to AT MOST 1 alert per day per symbol
+          const sigKey = `P3_${stock.symbol}_${sig.signature}_DATE_${currentDateStr}`;
+          const inCooldown = isSignalInCooldown(sigKey, 1440); // 24 hours lock
 
           if (inCooldown && !options.forceSendAll) {
-            console.log(`[SENTINEL P3] ⚠️ Bỏ qua tín hiệu trùng lặp cho ${stock.symbol}: ${sig.indicatorName}`);
             continue;
           }
 
-          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (canSendAutomatedTelegram && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatWatchlistTelegramAlert(stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -686,13 +717,15 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
               });
             }
           } else {
-            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : 'LOGGED_NO_TELEGRAM';
-            recordSignalSent(sigKey, stateLabel);
+            const stateLabel = isQuietHoursActive ? 'QUIET_HOURS_SILENCED' : (!isMarketLiveTrading ? 'MARKET_CLOSED_SILENCED' : 'LOGGED_NO_TELEGRAM');
+            if (options.forceSendAll) {
+              recordSignalSent(sigKey, stateLabel);
+            }
             addTriggerHistoryItem({
               symbol: stock.symbol,
               alertId: `p3-${sig.type.toLowerCase()}`,
               tier: 'P3',
-              message: isQuietHoursActive ? `[P3 WATCHLIST] (Ban đêm - Im lặng) ${sig.indicatorName}` : `[P3 WATCHLIST] ${sig.indicatorName}`,
+              message: isQuietHoursActive ? `[P3 WATCHLIST] (Ban đêm - Im lặng) ${sig.indicatorName}` : (!isMarketLiveTrading ? `[P3 WATCHLIST] (Ngoài giờ giao dịch - Chặn gửi) ${sig.indicatorName}` : `[P3 WATCHLIST] ${sig.indicatorName}`),
               telegramSuccess: false,
             });
           }
@@ -724,14 +757,12 @@ export async function runWatchlistSentinelScan(options: { forceSendAll?: boolean
       if (p4Signals.length > 0) {
         totalSignals += p4Signals.length;
         for (const sig of p4Signals) {
-          const closedSuffix = isMarketClosed ? `_CLOSED_${currentDateStr}` : '';
-          const sigKey = `P4_${stock.symbol}_${sig.signature}${closedSuffix}`;
-          const effectiveCooldown = isMarketClosed ? 720 : (sig.cooldownMinutes || 360);
-          const inCooldown = isSignalInCooldown(sigKey, effectiveCooldown);
+          const sigKey = `P4_${stock.symbol}_${sig.signature}_DATE_${currentDateStr}`;
+          const inCooldown = isSignalInCooldown(sigKey, 1440);
 
           if (inCooldown && !options.forceSendAll) continue;
 
-          if (!isQuietHoursActive && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+          if (canSendAutomatedTelegram && telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
             const htmlMsg = formatMarketOpportunityTelegramAlert(stock, sig);
             const sendRes = await sendTelegramMessage(htmlMsg);
             if (sendRes.success) {
@@ -790,6 +821,14 @@ export function startWatchlistSentinelDaemon() {
     try {
       const cfg = getWatchlistSentinelConfigStore();
       if (!cfg.enabled) return;
+
+      const tCfg = getTelegramConfigStore();
+      const session = getMarketSessionInfo();
+      // On weekends, holidays, or closed sessions, if onlyDuringMarketHours is true, do not execute background scans on static data
+      if (tCfg.onlyDuringMarketHours !== false && !session.isOpen) {
+        return;
+      }
+
       await runWatchlistSentinelScan();
     } catch (err) {
       console.error('[SENTINEL DAEMON ERROR]:', err);
