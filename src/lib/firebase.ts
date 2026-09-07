@@ -198,14 +198,27 @@ export async function loginWithGoogle(): Promise<User | null> {
     }
     return null;
   } catch (err: any) {
-    console.error('[Auth] Google sign-in failed:', err);
-    if (err?.code === 'auth/popup-blocked') {
+    const errorCode = err?.code || '';
+    const errorMsg = err?.message || '';
+
+    if (errorCode === 'auth/unauthorized-domain' || errorMsg.includes('unauthorized-domain')) {
+      console.warn('[Auth] Domain unauthorized for Google Sign-in:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
+      throw new Error(`auth/unauthorized-domain: Tên miền "${typeof window !== 'undefined' ? window.location.hostname : ''}" chưa được thêm vào Authorized Domains trong Firebase Console.`);
+    } else if (errorCode === 'auth/popup-blocked') {
+      console.warn('[Auth] Popup blocked by browser');
       throw new Error('Trình duyệt đã chặn cửa sổ Popup Google. Vui lòng cho phép popup hoặc mở trong tab mới.');
-    } else if (err?.code === 'auth/popup-closed-by-user') {
+    } else if (errorCode === 'auth/popup-closed-by-user') {
+      console.warn('[Auth] Sign-in popup closed by user');
       throw new Error('Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất.');
-    } else if (err?.code === 'auth/cancelled-popup-request') {
+    } else if (errorCode === 'auth/cancelled-popup-request') {
+      console.warn('[Auth] Popup request superseded');
       throw new Error('Yêu cầu đăng nhập bị hủy do có tác vụ mới.');
+    } else if (errorCode === 'auth/api-key-not-valid' || errorMsg.includes('api-key-not-valid')) {
+      console.warn('[Auth] Invalid Firebase API Key provided');
+      throw new Error('auth/api-key-not-valid: API Key Firebase không hợp lệ hoặc chưa kích hoạt Google provider.');
     }
+
+    console.error('[Auth] Google sign-in failed:', err);
     throw new Error(err.message || 'Đăng nhập Google thất bại');
   }
 }

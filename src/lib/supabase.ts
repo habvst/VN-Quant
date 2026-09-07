@@ -4,11 +4,8 @@ const meta = import.meta as unknown as { env?: Record<string, string> };
 const supabaseUrl = meta.env?.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase URL or Anon Key is missing in environment variables (.env). Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-}
+// Optional Supabase client instance (app currently uses Firebase Firestore for Cloud Sync)
+export const supabase = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-);
