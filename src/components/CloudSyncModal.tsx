@@ -354,6 +354,51 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
                   </div>
                 </div>
               )}
+
+              {(errorMsg.toLowerCase().includes('api-key-not-valid') || errorMsg.toLowerCase().includes('api_key_invalid')) && (
+                <div className="p-3 bg-amber-950/40 border border-amber-600/70 rounded text-amber-200 text-xs space-y-2.5 font-sans">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Cách xử lý: Khắc phục lỗi API Key không hợp lệ (auth/api-key-not-valid)</span>
+                  </div>
+                  <div className="text-[11px] text-gray-300 space-y-2 leading-relaxed">
+                    <div className="bg-black/50 p-2 rounded border border-gray-700 text-[11px] font-mono">
+                      <div>Project ID: <span className="text-emerald-400 font-bold">{activeFirebaseConfig.projectId}</span></div>
+                      <div>API Key đang dùng: <span className="text-amber-300">{activeFirebaseConfig.apiKey ? `${activeFirebaseConfig.apiKey.substring(0, 8)}...${activeFirebaseConfig.apiKey.slice(-4)}` : 'Chưa có'}</span></div>
+                    </div>
+                    <div>
+                      <b>1. Chưa kích hoạt Google Sign-In:</b> Vào <b>Firebase Console &rarr; Build &rarr; Authentication &rarr; Sign-in method</b>, bấm vào <b>Google</b>, chọn <b>Enable</b> và chọn <i>Support email</i> rồi bấm <b>Save</b>.
+                    </div>
+                    <div>
+                      <b>2. Kiểm tra API Key:</b> Vào <b>Firebase Console &rarr; Project Settings (bánh răng)</b>, cuộn xuống mục <b>Your apps</b> &rarr; đối chiếu chính xác chuỗi <code>apiKey</code>.
+                    </div>
+                    <div>
+                      <b>3. Bị giới hạn trong Google Cloud Console:</b> Nếu API key bị bật hạn chế API, hãy mở <b>Google Cloud Console &rarr; APIs & Services &rarr; Credentials</b>, bấm vào API key đó và đảm bảo đã cấp phép cho <b>Identity Toolkit API</b>.
+                    </div>
+                  </div>
+
+                  <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowConfigEditor(!showConfigEditor)}
+                      className="inline-flex items-center gap-1.5 text-[11px] bg-amber-600 hover:bg-amber-500 text-black font-bold px-2.5 py-1 rounded transition"
+                    >
+                      <Settings2 className="w-3.5 h-3.5" />
+                      Dán lại cấu hình chính xác
+                    </button>
+
+                    <a
+                      href={`https://console.firebase.google.com/project/${activeFirebaseConfig.projectId}/authentication/providers`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] text-amber-400 hover:text-amber-300 underline font-semibold"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Kiểm tra Sign-in method trên Firebase
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -34,16 +34,25 @@ function getStoredCustomConfig() {
   return null;
 }
 
+function cleanVal(val?: string): string {
+  if (!val) return '';
+  let str = String(val).trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  return str;
+}
+
 const localConfig = getStoredCustomConfig();
 
 // Determine custom config via Vite environment variables statically replaced at build time
-const customApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const customAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-const customProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const customStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-const customMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-const customAppId = import.meta.env.VITE_FIREBASE_APP_ID;
-const customDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID?.trim();
+const customApiKey = cleanVal(import.meta.env.VITE_FIREBASE_API_KEY);
+const customAuthDomain = cleanVal(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
+const customProjectId = cleanVal(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+const customStorageBucket = cleanVal(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET);
+const customMessagingSenderId = cleanVal(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID);
+const customAppId = cleanVal(import.meta.env.VITE_FIREBASE_APP_ID);
+const customDbId = cleanVal(import.meta.env.VITE_FIREBASE_DATABASE_ID);
 
 const isCustomProject = Boolean(localConfig?.projectId || customProjectId);
 const rawDbId = localConfig?.firestoreDatabaseId || customDbId;
@@ -51,12 +60,12 @@ const isDefaultDb = !rawDbId || rawDbId === 'default' || rawDbId === '(default)'
 
 // Initialize Firebase App with fallback to environment variables and local config
 export const activeFirebaseConfig = {
-  apiKey: localConfig?.apiKey || customApiKey || firebaseConfig.apiKey,
-  authDomain: localConfig?.authDomain || customAuthDomain || firebaseConfig.authDomain,
-  projectId: localConfig?.projectId || customProjectId || firebaseConfig.projectId,
-  storageBucket: localConfig?.storageBucket || customStorageBucket || firebaseConfig.storageBucket,
-  messagingSenderId: localConfig?.messagingSenderId || customMessagingSenderId || firebaseConfig.messagingSenderId,
-  appId: localConfig?.appId || customAppId || firebaseConfig.appId,
+  apiKey: cleanVal(localConfig?.apiKey) || customApiKey || firebaseConfig.apiKey,
+  authDomain: cleanVal(localConfig?.authDomain) || customAuthDomain || firebaseConfig.authDomain,
+  projectId: cleanVal(localConfig?.projectId) || customProjectId || firebaseConfig.projectId,
+  storageBucket: cleanVal(localConfig?.storageBucket) || customStorageBucket || firebaseConfig.storageBucket,
+  messagingSenderId: cleanVal(localConfig?.messagingSenderId) || customMessagingSenderId || firebaseConfig.messagingSenderId,
+  appId: cleanVal(localConfig?.appId) || customAppId || firebaseConfig.appId,
   firestoreDatabaseId: isDefaultDb ? (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId) : rawDbId,
 };
 
