@@ -4,7 +4,9 @@ import {
   ArrowUpToLine,
   CheckCircle2,
   Cloud,
+  Copy,
   Database,
+  ExternalLink,
   Eye,
   EyeOff,
   KeyRound,
@@ -19,7 +21,7 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react';
-import { auth, loginWithGoogle, logoutUser } from '../lib/firebase';
+import { auth, loginWithGoogle, logoutUser, activeFirebaseConfig } from '../lib/firebase';
 import { User } from 'firebase/auth';
 import { CloudSyncStatus, portfolioCloudSync } from '../services/portfolioCloudSync';
 
@@ -34,6 +36,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('LOCAL_ONLY');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState<boolean>(false);
 
   const [pinInput, setPinInput] = useState<string>(() => portfolioCloudSync.getPin());
   const [showPin, setShowPin] = useState<boolean>(false);
@@ -210,9 +213,61 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
           )}
 
           {errorMsg && (
-            <div className="p-2.5 bg-red-950/80 border border-red-600/80 rounded text-red-300 text-[11px] flex items-center space-x-2 animate-in fade-in">
-              <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-              <span>{errorMsg}</span>
+            <div className="space-y-2 animate-in fade-in">
+              <div className="p-2.5 bg-red-950/80 border border-red-600/80 rounded text-red-300 text-[11px] flex items-center space-x-2">
+                <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+
+              {errorMsg.toLowerCase().includes('unauthorized-domain') && (
+                <div className="p-3 bg-blue-950/40 border border-blue-600/60 rounded text-blue-200 text-xs space-y-2.5 font-sans">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Cách xử lý: Thêm tên miền Render vào Firebase Authorized Domains</span>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Firebase Auth chặn các tên miền lạ để bảo vệ tài khoản. Bạn chỉ cần sao chép tên miền hiện tại của Render và dán vào phần cài đặt của Firebase:
+                  </p>
+
+                  <div className="bg-[#050811] p-2 rounded border border-gray-700 flex items-center justify-between text-xs font-mono">
+                    <span className="text-emerald-400 select-all truncate mr-2 font-bold">
+                      {typeof window !== 'undefined' ? window.location.hostname : 'your-app.onrender.com'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          navigator.clipboard.writeText(window.location.hostname);
+                          setCopiedDomain(true);
+                          setTimeout(() => setCopiedDomain(false), 2500);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-semibold flex items-center gap-1 shrink-0 transition"
+                    >
+                      {copiedDomain ? <CheckCircle2 className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+                      {copiedDomain ? 'Đã sao chép' : 'Sao chép Domain'}
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-gray-300 space-y-1.5 pl-2.5 border-l-2 border-blue-500">
+                    <div><b>Trường hợp 1 (Dự án riêng):</b> Nếu dùng dự án Firebase của bạn, vào <b>Build &rarr; Authentication &rarr; Settings &rarr; Authorized domains</b> &rarr; bấm <b>Add domain</b> và dán domain ở trên.</div>
+                    <div><b>Trường hợp 2 (Dự án mặc định AI Studio):</b> Do dự án <span className="font-mono text-amber-300 font-bold">{activeFirebaseConfig.projectId}</span> là sandbox được tạo tự động bởi AI Studio, tài khoản thông thường không có quyền admin thêm domain. Bạn chỉ cần tạo 1 Project Firebase miễn phí riêng của mình rồi cấu hình biến môi trường trên Render là xong 100%!</div>
+                  </div>
+
+                  <div className="pt-1 flex items-center justify-between">
+                    <a
+                      href={`https://console.firebase.google.com/project/${activeFirebaseConfig.projectId}/authentication/settings`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 underline font-semibold"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Mở Firebase Console
+                    </a>
+                    <span className="text-[10px] text-gray-400">Xem hướng dẫn chi tiết bên dưới</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

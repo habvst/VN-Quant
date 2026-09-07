@@ -17,14 +17,36 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+const meta = import.meta as unknown as { env?: Record<string, string> };
+
+const isCustomProject = Boolean(meta.env?.VITE_FIREBASE_PROJECT_ID);
+
+const rawDbId = meta.env?.VITE_FIREBASE_DATABASE_ID?.trim();
+const isDefaultDb = !rawDbId || rawDbId === 'default' || rawDbId === '(default)';
+
+// Initialize Firebase App with fallback to environment variables for custom deployments (e.g. Render, Vercel)
+export const activeFirebaseConfig = {
+  apiKey: meta.env?.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: meta.env?.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: meta.env?.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: meta.env?.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: meta.env?.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  firestoreDatabaseId: isDefaultDb ? (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId) : rawDbId,
+};
+
+const app = initializeApp(activeFirebaseConfig);
 
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore with custom database ID from config if present (standard projects use '(default)' or 'default')
+export const db =
+  activeFirebaseConfig.firestoreDatabaseId &&
+  activeFirebaseConfig.firestoreDatabaseId !== '(default)' &&
+  activeFirebaseConfig.firestoreDatabaseId !== 'default'
+    ? getFirestore(app, activeFirebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
