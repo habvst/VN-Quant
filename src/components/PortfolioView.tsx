@@ -10,7 +10,7 @@ import { CloudSyncModal } from './CloudSyncModal';
 import { StressTestingModule } from './StressTestingModule';
 import { MonteCarloModule } from './MonteCarloModule';
 import { PortfolioRiskAlertModal } from './PortfolioRiskAlertModal';
-import { evaluateClientPortfolioRiskAlerts, syncPortfolioToServer } from '../services/portfolioAlertEngine';
+import { evaluateClientPortfolioRiskAlerts, syncPortfolioToServer, PORTFOLIO_STORAGE_KEY, PORTFOLIO_UPDATED_EVENT } from '../services/portfolioAlertEngine';
 
 interface PortfolioViewProps {
   stocks: StockData[];
@@ -136,6 +136,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       evaluateClientPortfolioRiskAlerts(positions, stockMap);
     }
   }, [stocks, positions]);
+
+  // Sync positions to localStorage and dispatch event for cross-component reactivity
+  useEffect(() => {
+    localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(positions));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent(PORTFOLIO_UPDATED_EVENT, {
+          detail: { positions, symbols: positions.map((p) => p.symbol.toUpperCase()) },
+        })
+      );
+    }
+  }, [positions]);
 
   // Handler to save Risk Settings for a position
   const handleSaveRiskSettings = async (updatedPos: PortfolioPosition) => {

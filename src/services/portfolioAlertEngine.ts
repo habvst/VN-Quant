@@ -2,6 +2,26 @@ import { PortfolioPosition, StockData } from '../types';
 import { MockNotification } from '../types/alert';
 import { getStoredNotifications, playAlertSound, saveNotificationsToStorage } from './alertService';
 
+export const PORTFOLIO_STORAGE_KEY = 'vnquant_portfolio_positions';
+export const PORTFOLIO_UPDATED_EVENT = 'vnquant_portfolio_updated';
+
+export function getStoredPositions(): PortfolioPosition[] {
+  try {
+    const saved = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse portfolio positions:', e);
+  }
+  return [];
+}
+
+export function getStoredPortfolioSymbols(): string[] {
+  return getStoredPositions().map((p) => p.symbol.toUpperCase());
+}
+
 const ALERT_COOLDOWN_MAP = new Map<string, number>();
 
 /**

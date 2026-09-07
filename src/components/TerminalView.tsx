@@ -1,9 +1,10 @@
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Wifi, X, Zap } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Wallet, Wifi, X, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
 import { getStoredAlerts, saveAlertsToStorage, getStoredNotifications, saveNotificationsToStorage, playAlertSound } from '../services/alertService';
 import { useWatchlist } from '../services/watchlistService';
+import { PORTFOLIO_UPDATED_EVENT, getStoredPortfolioSymbols } from '../services/portfolioAlertEngine';
 import { marketStreamClient } from '../services/marketStreamClient';
 import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
@@ -48,8 +49,43 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   const [activeToastNotif, setActiveToastNotif] = useState<MockNotification | null>(null);
 
   // Watchlist State & Sentinel Integration
-  const { isWatching, toggle: toggleWatch } = useWatchlist();
+  const { watchlist, isWatching, toggle: toggleWatch } = useWatchlist();
   const isWatched = isWatching(stock.symbol);
+
+  // Ticker Filter State: ALL | WATCHLIST | PORTFOLIO
+  const [tickerFilter, setTickerFilter] = useState<'ALL' | 'WATCHLIST' | 'PORTFOLIO'>('ALL');
+
+  // Real-time Portfolio Symbols Tracking
+  const [portfolioSymbols, setPortfolioSymbols] = useState<string[]>(() => getStoredPortfolioSymbols());
+
+  useEffect(() => {
+    const handlePortfolioUpdate = (e: any) => {
+      if (e.detail?.symbols) {
+        setPortfolioSymbols(e.detail.symbols.map((s: string) => s.toUpperCase()));
+      } else {
+        setPortfolioSymbols(getStoredPortfolioSymbols());
+      }
+    };
+
+    window.addEventListener(PORTFOLIO_UPDATED_EVENT, handlePortfolioUpdate);
+    window.addEventListener('storage', handlePortfolioUpdate);
+    return () => {
+      window.removeEventListener(PORTFOLIO_UPDATED_EVENT, handlePortfolioUpdate);
+      window.removeEventListener('storage', handlePortfolioUpdate);
+    };
+  }, []);
+
+  const watchlistSymbols = useMemo(() => watchlist.map((w) => w.symbol.toUpperCase()), [watchlist]);
+
+  const filteredStocks = useMemo(() => {
+    if (tickerFilter === 'WATCHLIST') {
+      return stocks.filter((s) => watchlistSymbols.includes(s.symbol.toUpperCase()));
+    }
+    if (tickerFilter === 'PORTFOLIO') {
+      return stocks.filter((s) => portfolioSymbols.includes(s.symbol.toUpperCase()));
+    }
+    return stocks;
+  }, [stocks, tickerFilter, watchlistSymbols, portfolioSymbols]);
 
   const handleToggleWatchlist = () => {
     const res = toggleWatch(stock.symbol, {
@@ -268,27 +304,86 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
   return (
     <div className="flex flex-col space-y-3 p-3 bg-[#050505] text-[#d1d5db] min-h-screen">
-      {/* Top Stock Selector Bar with Horizontal Scrollbar & Scroll Controls */}
+      {/* Top Stock Selector Bar with Horizontal Scrollbar & Filter Controls */}
       <div className="relative bg-[#0a0a0a] rounded-sm border border-gray-800 p-1.5 shadow-md">
         <div className="flex items-center">
-          {/* Label + Left Scroll Arrow */}
-          <div className="flex items-center space-x-1 shrink-0 pr-2 border-r border-gray-800/80 mr-2">
-            <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-wider whitespace-nowrap">
-              WATCHLIST TICKERS:
-            </span>
+          {/* Left Filter & Controls Group */}
+          <div className="flex items-center space-x-1.5 shrink-0 pr-2.5 border-r border-gray-800 mr-2">
+            {/* Scroll navigation arrows */}
+            <div className="flex items-center space-x-0.5">
+              <button
+                onClick={() => scrollTickers('left')}
+                className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
+                title="Cuộn danh sách sang trái"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => scrollTickers('right')}
+                className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
+                title="Cuộn danh sách sang phải"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-gray-800" />
+
+            {/* Nút 1: Tất Cả */}
             <button
-              onClick={() => scrollTickers('left')}
-              className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
-              title="Cuộn sang trái"
+              onClick={() => setTickerFilter('ALL')}
+              className={`px-2 py-0.5 text-[10px] font-mono rounded-sm transition border cursor-pointer whitespace-nowrap ${
+                tickerFilter === 'ALL'
+                  ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-sm'
+                  : 'bg-[#050505] text-gray-400 hover:text-gray-200 hover:bg-gray-800 border-gray-800'
+              }`}
+              title="Hiển thị tất cả cổ phiếu trên sàn"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              TẤT CẢ ({stocks.length})
             </button>
+
+            {/* Nút 2: Cổ Phiếu Theo Dõi */}
             <button
-              onClick={() => scrollTickers('right')}
-              className="p-1 text-gray-400 hover:text-white bg-[#050505] hover:bg-gray-800 border border-gray-800 rounded-sm transition cursor-pointer"
-              title="Cuộn sang phải"
+              onClick={() => setTickerFilter(tickerFilter === 'WATCHLIST' ? 'ALL' : 'WATCHLIST')}
+              className={`flex items-center space-x-1 px-2 py-0.5 text-[10px] font-mono rounded-sm transition border cursor-pointer whitespace-nowrap ${
+                tickerFilter === 'WATCHLIST'
+                  ? 'bg-amber-500 text-black font-black border-amber-400 shadow-sm shadow-amber-500/20'
+                  : 'bg-[#050505] text-amber-300 hover:text-amber-200 hover:bg-amber-950/40 border-gray-800 hover:border-amber-700/80'
+              }`}
+              title="Lọc lấy danh sách Cổ phiếu đang theo dõi (Watchlist)"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <span>⭐ THEO DÕI</span>
+              <span
+                className={`px-1 py-0.2 rounded text-[9px] ${
+                  tickerFilter === 'WATCHLIST'
+                    ? 'bg-black/30 text-white font-black'
+                    : 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/80'
+                }`}
+              >
+                {watchlistSymbols.length}
+              </span>
+            </button>
+
+            {/* Nút 3: Cổ Phiếu Đang Sở Hữu */}
+            <button
+              onClick={() => setTickerFilter(tickerFilter === 'PORTFOLIO' ? 'ALL' : 'PORTFOLIO')}
+              className={`flex items-center space-x-1 px-2 py-0.5 text-[10px] font-mono rounded-sm transition border cursor-pointer whitespace-nowrap ${
+                tickerFilter === 'PORTFOLIO'
+                  ? 'bg-emerald-500 text-black font-black border-emerald-400 shadow-sm shadow-emerald-500/20'
+                  : 'bg-[#050505] text-emerald-300 hover:text-emerald-200 hover:bg-emerald-950/40 border-gray-800 hover:border-emerald-700/80'
+              }`}
+              title="Lọc lấy danh sách Cổ phiếu đang sở hữu trong danh mục"
+            >
+              <span>💼 ĐANG SỞ HỮU</span>
+              <span
+                className={`px-1 py-0.2 rounded text-[9px] ${
+                  tickerFilter === 'PORTFOLIO'
+                    ? 'bg-black/30 text-white font-black'
+                    : 'bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-800/80'
+                }`}
+              >
+                {portfolioSymbols.length}
+              </span>
             </button>
           </div>
 
@@ -297,27 +392,59 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             ref={tickerScrollRef}
             className="flex items-center space-x-2 custom-scrollbar-x overflow-x-auto pb-1.5 pt-0.5 w-full select-none"
           >
-            {stocks.map((s) => {
-              const isSelected = s.symbol === stock.symbol;
-              const pos = s.changePercent >= 0;
-              return (
+            {filteredStocks.length === 0 ? (
+              <div className="flex items-center space-x-2 py-0.5 px-2 text-[11px] font-mono text-gray-400">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>
+                  {tickerFilter === 'WATCHLIST'
+                    ? 'Chưa có mã nào trong Danh mục Theo dõi (Bấm ⭐ ở thông tin mã để thêm).'
+                    : 'Chưa có mã nào trong Danh mục Đang sở hữu (Vào tab Danh Mục để thêm lệnh mua).'}
+                </span>
                 <button
-                  key={s.symbol}
-                  onClick={() => onSelectStock(s.symbol)}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-sm text-xs font-mono transition whitespace-nowrap border shrink-0 cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-900/40 text-white border-blue-500 font-bold shadow-sm shadow-blue-500/20'
-                      : 'bg-[#050505] text-gray-300 hover:bg-gray-800/60 border-gray-800 hover:border-gray-700'
-                  }`}
+                  onClick={() => setTickerFilter('ALL')}
+                  className="text-blue-400 hover:text-blue-300 underline font-bold cursor-pointer ml-1 whitespace-nowrap"
                 >
-                  <span className={isSelected ? 'text-blue-400 font-bold' : 'text-gray-200'}>{s.symbol}</span>
-                  <span className={pos ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
-                    {pos ? '+' : ''}
-                    {s.changePercent}%
-                  </span>
+                  Xem tất cả ({stocks.length} mã)
                 </button>
-              );
-            })}
+              </div>
+            ) : (
+              filteredStocks.map((s) => {
+                const isSelected = s.symbol === stock.symbol;
+                const pos = s.changePercent >= 0;
+                const inWatch = watchlistSymbols.includes(s.symbol.toUpperCase());
+                const inPort = portfolioSymbols.includes(s.symbol.toUpperCase());
+
+                return (
+                  <button
+                    key={s.symbol}
+                    onClick={() => onSelectStock(s.symbol)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-sm text-xs font-mono transition whitespace-nowrap border shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-900/40 text-white border-blue-500 font-bold shadow-sm shadow-blue-500/20'
+                        : 'bg-[#050505] text-gray-300 hover:bg-gray-800/60 border-gray-800 hover:border-gray-700'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-1">
+                      <span className={isSelected ? 'text-blue-400 font-bold' : 'text-gray-200'}>{s.symbol}</span>
+                      {inPort && (
+                        <span className="text-[9px]" title="Cổ phiếu đang sở hữu trong danh mục">
+                          💼
+                        </span>
+                      )}
+                      {inWatch && !inPort && (
+                        <span className="text-[9px]" title="Cổ phiếu trong danh mục theo dõi">
+                          ⭐
+                        </span>
+                      )}
+                    </span>
+                    <span className={pos ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
+                      {pos ? '+' : ''}
+                      {s.changePercent}%
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
