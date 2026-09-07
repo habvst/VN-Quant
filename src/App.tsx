@@ -243,7 +243,7 @@ export function App() {
       {/* Secure LockScreen Overlay */}
       <LockScreen isLocked={isLocked} setIsLocked={setIsLocked} />
 
-      <div>
+      <div className="flex-1 pb-10 w-full">
         <HeaderNav
           indices={indices}
           stocks={stocks}
@@ -326,8 +326,8 @@ export function App() {
         )}
       </div>
 
-      {/* Geometric Balance Footer Status */}
-      <footer className="h-9 border-t border-gray-800 bg-[#0a0a0a] flex items-center px-3 sm:px-4 justify-between text-[10px] font-mono sticky bottom-0 z-40 select-none">
+      {/* Geometric Balance Footer Status - Permanently Fixed at Viewport Bottom */}
+      <footer className="h-9 border-t border-gray-800 bg-[#0a0a0a]/95 backdrop-blur-md flex items-center px-3 sm:px-4 justify-between text-[10px] font-mono fixed bottom-0 left-0 right-0 z-40 select-none w-full shadow-2xl">
         <div className="flex items-center space-x-3 text-gray-500">
           {/* Vietnam Trading Session Badge */}
           <div className="flex items-center space-x-1.5 bg-[#050811] px-2 py-0.5 rounded border border-gray-800">

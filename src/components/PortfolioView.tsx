@@ -2059,11 +2059,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
                     onChange={(e) => setSellPriceInput(e.target.value)}
                     className="w-full bg-[#050505] text-amber-300 font-bold p-2 rounded border border-gray-800 outline-none focus:border-amber-500"
                   />
-                  {stock && (
-                    <span className="text-[9px] text-gray-500 block mt-1">
-                      Giá thị trường: {stock.price} ({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent}%)
-                    </span>
-                  )}
+                  {stock && (() => {
+                    const isRef = Math.abs(stock.changePercent) < 0.001 || stock.changePercent === 0;
+                    const isGain = !isRef && stock.changePercent > 0;
+                    return (
+                      <span className="text-[9px] text-gray-500 block mt-1">
+                        Giá thị trường: {stock.price} (
+                        <span className={isRef ? 'text-amber-400 font-semibold' : isGain ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
+                          {isGain ? '+' : ''}{isRef ? '0%' : `${stock.changePercent}%`}
+                        </span>
+                        )
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div>

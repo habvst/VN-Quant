@@ -233,9 +233,15 @@ export const PortfolioRiskAlertModal: React.FC<PortfolioRiskAlertModalProps> = (
             <span className="text-gray-400 text-[10px] block uppercase">Thị Giá Hiện Tại</span>
             <span className="font-bold text-white flex items-center gap-1">
               {currentPrice.toFixed(2)}k
-              <span className={`text-[10px] font-semibold ${stock.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                ({stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)
-              </span>
+              {(() => {
+                const isRef = Math.abs(stock.changePercent) < 0.001 || stock.changePercent === 0;
+                const isGain = !isRef && stock.changePercent > 0;
+                return (
+                  <span className={`text-[10px] font-semibold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                    ({isGain ? '+' : ''}{isRef ? '0%' : `${stock.changePercent.toFixed(2)}%`})
+                  </span>
+                );
+              })()}
             </span>
           </div>
           <div>

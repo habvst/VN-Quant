@@ -168,10 +168,16 @@ export const SetAlertModal: React.FC<SetAlertModalProps> = ({
               <div>
                 <span className="text-[10px] text-gray-500 uppercase block font-bold">GIÁ HIỆN TẠI</span>
                 <span className="text-lg font-black text-white">{targetStock.price.toFixed(2)} VNĐ</span>
-                <span className={`text-[11px] ml-2 font-bold ${targetStock.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {targetStock.change >= 0 ? '+' : ''}
-                  {targetStock.changePercent.toFixed(2)}%
-                </span>
+                {(() => {
+                  const isRef = Math.abs(targetStock.changePercent) < 0.001 || targetStock.changePercent === 0;
+                  const isGain = !isRef && targetStock.changePercent > 0;
+                  return (
+                    <span className={`text-[11px] ml-2 font-bold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {isGain ? '+' : ''}
+                      {isRef ? '0%' : `${targetStock.changePercent.toFixed(2)}%`}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 

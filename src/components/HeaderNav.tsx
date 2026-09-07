@@ -284,11 +284,15 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 <span className="text-[9px] text-blue-300 font-mono font-semibold uppercase tracking-wider">CỔ PHIẾU ĐANG CHỌN</span>
                 <div className="flex items-center space-x-2">
                   <span className="font-mono font-black text-base text-amber-400">{selectedStockSymbol}</span>
-                  {currentStock && (
-                    <span className={`text-xs font-mono font-bold ${currentStock.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {currentStock.price} ({currentStock.changePercent >= 0 ? '+' : ''}{currentStock.changePercent}%)
-                    </span>
-                  )}
+                  {currentStock && (() => {
+                    const isRef = Math.abs(currentStock.changePercent) < 0.001 || currentStock.changePercent === 0;
+                    const isGain = !isRef && currentStock.changePercent > 0;
+                    return (
+                      <span className={`text-xs font-mono font-bold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {currentStock.price} ({isGain ? '+' : ''}{isRef ? '0%' : `${currentStock.changePercent}%`})
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -378,11 +382,15 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                           }`}
                         >
                           {sym}
-                          {st && (
-                            <span className={`ml-1 text-[9px] ${st.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                              {st.changePercent >= 0 ? '▲' : '▼'}
-                            </span>
-                          )}
+                          {st && (() => {
+                            const isRef = Math.abs(st.changePercent) < 0.001 || st.changePercent === 0;
+                            const isGain = !isRef && st.changePercent > 0;
+                            return (
+                              <span className={`ml-1 text-[9px] ${isRef ? 'text-amber-400 font-bold' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {isRef ? '■' : isGain ? '▲' : '▼'}
+                              </span>
+                            );
+                          })()}
                         </button>
                       );
                     })}
@@ -426,12 +434,18 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                           </div>
                           <div className="text-right font-mono shrink-0 ml-2">
                             <div className="text-white font-bold">{stk.price}</div>
-                            <div
-                              className={`text-[10px] font-semibold ${stk.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-                            >
-                              {stk.changePercent >= 0 ? '+' : ''}
-                              {stk.changePercent}%
-                            </div>
+                            {(() => {
+                              const isRef = Math.abs(stk.changePercent) < 0.001 || stk.changePercent === 0;
+                              const isGain = !isRef && stk.changePercent > 0;
+                              return (
+                                <div
+                                  className={`text-[10px] font-semibold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}
+                                >
+                                  {isGain ? '+' : ''}
+                                  {isRef ? '0%' : `${stk.changePercent}%`}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

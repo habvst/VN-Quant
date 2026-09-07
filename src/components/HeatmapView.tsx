@@ -233,7 +233,8 @@ export const HeatmapView: React.FC<HeatmapViewProps> = ({ stocks, onSelectStock 
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 font-mono text-xs">
               {stocks.map((stk) => {
-                const isPos = stk.changePercent >= 0;
+                const isRef = Math.abs(stk.changePercent) < 0.001 || stk.changePercent === 0 || (stk.referencePrice !== undefined && stk.price === stk.referencePrice);
+                const isGain = !isRef && stk.changePercent > 0;
                 const sizeClass = stk.fundamental.marketCap > 100000 ? 'col-span-2 row-span-2 p-4' : 'col-span-1 p-2.5';
 
                 return (
@@ -241,7 +242,9 @@ export const HeatmapView: React.FC<HeatmapViewProps> = ({ stocks, onSelectStock 
                     key={stk.symbol}
                     onClick={() => onSelectStock(stk.symbol)}
                     className={`${sizeClass} rounded-sm border cursor-pointer transition shadow flex flex-col justify-between ${
-                      isPos
+                      isRef
+                        ? 'bg-amber-950/70 hover:bg-amber-900/80 border-amber-800/80 text-amber-300'
+                        : isGain
                         ? 'bg-emerald-950/80 hover:bg-emerald-900 border-emerald-800/80 text-emerald-300'
                         : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-300'
                     }`}
@@ -256,9 +259,9 @@ export const HeatmapView: React.FC<HeatmapViewProps> = ({ stocks, onSelectStock 
 
                     <div className="mt-2 text-right">
                       <span className="font-bold block text-sm">{stk.price}</span>
-                      <span className="text-[11px] font-bold">
-                        {isPos ? '+' : ''}
-                        {stk.changePercent}%
+                      <span className={`text-[11px] font-bold ${isRef ? 'text-amber-400' : ''}`}>
+                        {isGain ? '+' : ''}
+                        {isRef ? '0%' : `${stk.changePercent}%`}
                       </span>
                     </div>
                   </div>
@@ -284,10 +287,16 @@ export const HeatmapView: React.FC<HeatmapViewProps> = ({ stocks, onSelectStock 
                       <span className="text-gray-500 text-[10px] block">Top Gainer: {sec.topGainer}</span>
                     </div>
                     <div className="text-right">
-                      <span className={`font-bold text-sm ${sec.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {sec.changePercent >= 0 ? '+' : ''}
-                        {sec.changePercent}%
-                      </span>
+                      {(() => {
+                        const isRef = Math.abs(sec.changePercent) < 0.001 || sec.changePercent === 0;
+                        const isGain = !isRef && sec.changePercent > 0;
+                        return (
+                          <span className={`font-bold text-sm ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {isGain ? '+' : ''}
+                            {isRef ? '0%' : `${sec.changePercent}%`}
+                          </span>
+                        );
+                      })()}
                       <span className="text-gray-400 text-[10px] block">GTGD: {sec.totalValue} Tỷ</span>
                     </div>
                   </div>

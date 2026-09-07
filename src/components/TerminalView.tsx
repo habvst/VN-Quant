@@ -410,7 +410,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
             ) : (
               filteredStocks.map((s) => {
                 const isSelected = s.symbol === stock.symbol;
-                const pos = s.changePercent >= 0;
+                const isRef = Math.abs(s.changePercent) < 0.001 || s.changePercent === 0 || (s.referencePrice !== undefined && s.price === s.referencePrice);
+                const isGain = !isRef && s.changePercent > 0;
                 const inWatch = watchlistSymbols.includes(s.symbol.toUpperCase());
                 const inPort = portfolioSymbols.includes(s.symbol.toUpperCase());
 
@@ -437,9 +438,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                         </span>
                       )}
                     </span>
-                    <span className={pos ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
-                      {pos ? '+' : ''}
-                      {s.changePercent}%
+                    <span className={`font-semibold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {isGain ? '+' : ''}
+                      {isRef ? '0%' : `${s.changePercent}%`}
                     </span>
                   </button>
                 );

@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Eye,
   Info,
+  Minus,
   Newspaper,
   Plus,
   Radar,
@@ -510,7 +511,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
             <tbody className="divide-y divide-gray-800">
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const stk = watchlistStocks[virtualRow.index];
-                const pos = stk.changePercent >= 0;
+                const isRef = Math.abs(stk.changePercent) < 0.001 || stk.changePercent === 0 || (stk.referencePrice !== undefined && stk.price === stk.referencePrice);
+                const isGain = !isRef && stk.changePercent > 0;
                 const tech = stk.technical;
                 const sent = sentiments[stk.symbol];
 
@@ -614,15 +616,15 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                       )}
                     </td>
 
-                    <td className={`p-3 text-right font-bold text-sm ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <td className={`p-3 text-right font-bold text-sm ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
                       {stk.price.toFixed(2)}
                     </td>
-                    <td className={`p-3 text-right font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <td className={`p-3 text-right font-bold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
                       <div className="flex items-center justify-end space-x-0.5">
-                        {pos ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                        {isRef ? <Minus className="w-3 h-3 text-amber-400" /> : isGain ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                         <span>
-                          {pos ? '+' : ''}
-                          {stk.changePercent}%
+                          {isGain ? '+' : ''}
+                          {isRef ? '0%' : `${stk.changePercent}%`}
                         </span>
                       </div>
                     </td>
@@ -902,10 +904,20 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ stocks, onSelectSt
                       <div className="flex items-center justify-between border-b border-gray-800 pb-2">
                         <div className="flex items-center space-x-2">
                           <span className="font-black text-white text-sm">#{item.symbol}</span>
-                          <span className="text-emerald-400 font-bold">{item.price}k</span>
-                          <span className={item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}>
-                            ({item.changePercent >= 0 ? '+' : ''}{item.changePercent}%)
-                          </span>
+                          {(() => {
+                            const isRef = Math.abs(item.changePercent) < 0.001 || item.changePercent === 0;
+                            const isGain = !isRef && item.changePercent > 0;
+                            return (
+                              <>
+                                <span className={`font-bold ${isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {item.price}k
+                                </span>
+                                <span className={isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}>
+                                  ({isGain ? '+' : ''}{isRef ? '0%' : `${item.changePercent}%`})
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                         <span
                           className={`text-[10px] px-2 py-0.5 rounded font-bold ${

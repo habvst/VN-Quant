@@ -627,9 +627,18 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({ onSelect
                   <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-[#050505] p-2.5 rounded-sm border border-gray-800 mb-2.5">
                     <div>
                       <span className="text-gray-500 text-[10px] uppercase block">GIÁ HIỆN TẠI</span>
-                      <span className={`font-bold ${isTrap ? 'text-red-400' : 'text-gray-100'}`}>
-                        {item.price}k ({item.changePercent > 0 ? `+${item.changePercent}` : item.changePercent}%)
-                      </span>
+                      {(() => {
+                        const isRef = Math.abs(item.changePercent) < 0.001 || item.changePercent === 0;
+                        const isGain = !isRef && item.changePercent > 0;
+                        return (
+                          <span className={`font-bold ${isTrap ? 'text-red-400' : 'text-gray-100'}`}>
+                            {item.price}k{' '}
+                            <span className={isRef ? 'text-amber-400' : isGain ? 'text-emerald-400' : 'text-red-400'}>
+                              ({isGain ? '+' : ''}{isRef ? '0%' : `${item.changePercent}%`})
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div>
                       <span className="text-gray-500 text-[10px] uppercase block">
