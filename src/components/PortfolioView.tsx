@@ -6,6 +6,7 @@ import { MetricTooltip } from './MetricTooltip';
 import { MoneyInput } from './MoneyInput';
 import { numberToVietnameseWords } from '../utils/numberToVietnameseWords';
 import { portfolioCloudSync, CloudSyncStatus, PortfolioDataModel } from '../services/portfolioCloudSync';
+import { getStoredWatchlist } from '../services/watchlistService';
 import { CloudSyncModal } from './CloudSyncModal';
 import { StressTestingModule } from './StressTestingModule';
 import { MonteCarloModule } from './MonteCarloModule';
@@ -293,6 +294,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ stocks, onSelectSt
       cashBalance,
       pendingCash,
       transactions: realizedTrades,
+      watchlist: getStoredWatchlist(),
       updatedAt: new Date().toISOString(),
       version: 1,
     });

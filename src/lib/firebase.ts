@@ -87,26 +87,50 @@ export async function loginWithGoogle(): Promise<User | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     if (result.user) {
-      // Upsert user profile record
+      // Upsert user profile record without altering original createdAt
       const userRef = doc(db, 'users', result.user.uid);
-      await setDoc(
-        userRef,
-        {
-          userId: result.user.uid,
-          email: result.user.email || '',
-          displayName: result.user.displayName || '',
-          photoURL: result.user.photoURL || '',
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      try {
+        const userDoc = await getDoc(userRef);
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            userId: result.user.uid,
+            email: result.user.email || 'investor@vnquant.local',
+            displayName: result.user.displayName || 'Nhà đầu tư Quant',
+            photoURL: result.user.photoURL || '',
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+          });
+        } else {
+          const existing = userDoc.data();
+          await setDoc(
+            userRef,
+            {
+              userId: result.user.uid,
+              email: result.user.email || existing.email || 'investor@vnquant.local',
+              displayName: result.user.displayName || existing.displayName || 'Nhà đầu tư Quant',
+              photoURL: result.user.photoURL || existing.photoURL || '',
+              createdAt: existing.createdAt || new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+      } catch (firestoreErr) {
+        console.warn('[Firebase Auth] Profile sync notice:', firestoreErr);
+      }
       return result.user;
     }
     return null;
   } catch (err: any) {
     console.error('[Auth] Google sign-in failed:', err);
-    throw err;
+    if (err?.code === 'auth/popup-blocked') {
+      throw new Error('Trình duyệt đã chặn cửa sổ Popup Google. Vui lòng cho phép popup hoặc mở trong tab mới.');
+    } else if (err?.code === 'auth/popup-closed-by-user') {
+      throw new Error('Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất.');
+    } else if (err?.code === 'auth/cancelled-popup-request') {
+      throw new Error('Yêu cầu đăng nhập bị hủy do có tác vụ mới.');
+    }
+    throw new Error(err.message || 'Đăng nhập Google thất bại');
   }
 }
 

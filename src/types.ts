@@ -305,6 +305,29 @@ export interface AIRecommendation {
     | 'ĐỘT_BIẾN_PHIÊN_SÁNG'
     | 'PHÂN_KỲ_DÒNG_TIỀN'
     | 'CẢNH_BÁO_BẪY_GIÁ';
+  categories?: (
+    | 'TOP_MUA_MẠNH' 
+    | 'TOP_MUA' 
+    | 'TOP_THEO_DÕI' 
+    | 'TOP_BÁN' 
+    | 'TOP_RỦI_RO' 
+    | 'BREAKOUT' 
+    | 'TÍCH_LŨY' 
+    | 'GOLDEN_CROSS' 
+    | 'RSI_QUÁ_BÁN' 
+    | 'DÒNG_TIỀN_MẠNH' 
+    | 'KHỐI_NGOẠI_MUA'
+    | 'GOM_HÀNG_NGẦM'
+    | 'ĐỘT_BIẾN_PHIÊN_SÁNG'
+    | 'PHÂN_KỲ_DÒNG_TIỀN'
+    | 'CẢNH_BÁO_BẪY_GIÁ'
+  )[];
+  signals?: {
+    type: string;
+    label: string;
+    badge: string;
+    color: string;
+  }[];
   price: number;
   changePercent: number;
   score: number;
@@ -314,9 +337,51 @@ export interface AIRecommendation {
   potentialProfitPercent: number;
   riskPercent: number;
   timeframe: string;
+  tradingValue?: number; // Giá trị giao dịch trong phiên (Tỷ VNĐ)
+  avgVolume20?: number; // Khối lượng trung bình 20 phiên
+  liquidityRating?: 'RẤT_CAO' | 'CAO' | 'CHUẨN_MIDCAP' | 'THANH_KHOẢN_THẤP';
+  isSafeLiquidity?: boolean; // Vượt qua màng lọc an toàn không kẹt vốn
   reasons: string[];
   risks: string[];
   updatedAt: string;
+}
+
+export interface ClosedTrade {
+  id: string;
+  symbol: string;
+  name: string;
+  exchange: MarketType;
+  sector: string;
+  entryDate: string;
+  closedDate: string;
+  entryPrice: number;
+  closedPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  returnPercent: number;
+  holdingDays: number;
+  status: 'CHỐT_LỜI_TP' | 'CẮT_LỖ_SL' | 'CHỐT_CHỦ_ĐỘNG';
+  signalPattern: string;
+}
+
+export interface RecommendationPerformance {
+  period: string; // e.g. "90 Ngày Gần Nhất"
+  winRate: number; // e.g. 84.6%
+  totalTrades: number; // e.g. 39
+  winningTrades: number; // e.g. 33
+  losingTrades: number; // e.g. 6
+  avgProfitPercent: number; // e.g. +12.4%
+  avgWinningProfitPercent: number; // e.g. +15.2%
+  avgLossPercent: number; // e.g. -4.1%
+  profitFactor: number; // e.g. 3.25
+  avgHoldingDays: number; // e.g. 16.5 ngày
+  maxDrawdown: number; // e.g. -5.2%
+  distribution: {
+    targetHitPercent: number; // e.g. 84.6
+    inProgressProfitablePercent: number; // e.g. 10.3
+    stoplossHitPercent: number; // e.g. 5.1
+  };
+  closedTrades: ClosedTrade[];
 }
 
 export interface NewsAuthenticity {

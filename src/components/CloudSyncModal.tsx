@@ -1,28 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  CheckCircle2,
   Cloud,
-  CloudCheck,
-  CloudOff,
   Database,
   Eye,
   EyeOff,
   KeyRound,
   Lock,
   LogOut,
+  PieChart,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Upload,
   User as UserIcon,
-  Wifi,
   X,
-  Zap,
 } from 'lucide-react';
 import { auth, loginWithGoogle, logoutUser } from '../lib/firebase';
 import { User } from 'firebase/auth';
-import { CloudSyncStatus, portfolioCloudSync, PortfolioDataModel } from '../services/portfolioCloudSync';
+import { CloudSyncStatus, portfolioCloudSync } from '../services/portfolioCloudSync';
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -36,11 +35,16 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [pinInput, setPinInput] = useState<string>('0000');
+  const [pinInput, setPinInput] = useState<string>(() => portfolioCloudSync.getPin());
   const [showPin, setShowPin] = useState<boolean>(false);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [isSyncingNow, setIsSyncingNow] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+
+  // Local data summary snapshot
+  const [summary, setSummary] = useState(() => portfolioCloudSync.getLocalDataSummary());
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => {
@@ -52,6 +56,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
       setLastSyncTime(time);
       if (err) setErrorMsg(err);
       else setErrorMsg(null);
+      setSummary(portfolioCloudSync.getLocalDataSummary());
     });
 
     return () => {
@@ -59,6 +64,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
       unsubSync();
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPinInput(portfolioCloudSync.getPin());
+      setSummary(portfolioCloudSync.getLocalDataSummary());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -92,7 +104,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
       return;
     }
     portfolioCloudSync.setPin(pinInput);
-    setSyncSuccessMsg(`Đã cập nhật mã PIN E2EE! Khóa giải mã AES-256 đang được thiết lập.`);
+    setSyncSuccessMsg(`Đã lưu & áp dụng mã PIN E2EE! Khóa giải mã AES-256 đã sẵn sàng.`);
     setErrorMsg(null);
     setTimeout(() => setSyncSuccessMsg(null), 4000);
   };
@@ -104,12 +116,54 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
       if (onManualSyncTrigger) {
         onManualSyncTrigger();
       }
-      setSyncSuccessMsg('Đã phát tín hiệu đồng bộ đám mây tức thì!');
-      setTimeout(() => setSyncSuccessMsg(null), 3000);
+      const res = await portfolioCloudSync.syncNow();
+      if (res.success) {
+        setSyncSuccessMsg(res.message);
+      } else {
+        setErrorMsg(res.message);
+      }
+      setSummary(portfolioCloudSync.getLocalDataSummary());
+      setTimeout(() => setSyncSuccessMsg(null), 4000);
     } catch (e: any) {
-      setErrorMsg(e.message);
+      setErrorMsg(e.message || 'Lỗi đồng bộ');
     } finally {
-      setTimeout(() => setIsSyncingNow(false), 600);
+      setIsSyncingNow(false);
+    }
+  };
+
+  const handleForceUpload = async () => {
+    setIsUploading(true);
+    setErrorMsg(null);
+    try {
+      const ok = await portfolioCloudSync.pushToCloud();
+      if (ok) {
+        setSyncSuccessMsg('Đã mã hóa và tải toàn bộ danh mục lên Cloud Firestore an toàn!');
+        setSummary(portfolioCloudSync.getLocalDataSummary());
+        setTimeout(() => setSyncSuccessMsg(null), 4000);
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Lỗi khi tải lên Cloud');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleForceDownload = async () => {
+    setIsDownloading(true);
+    setErrorMsg(null);
+    try {
+      const ok = await portfolioCloudSync.pullFromCloud();
+      if (ok) {
+        setSyncSuccessMsg('Đã khôi phục dữ liệu từ Cloud Firestore về thiết bị thành công!');
+        setSummary(portfolioCloudSync.getLocalDataSummary());
+        setTimeout(() => setSyncSuccessMsg(null), 4000);
+      } else {
+        setErrorMsg('Chưa tìm thấy dữ liệu đã lưu trên Cloud hoặc mã PIN chưa chính xác.');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Lỗi khi kéo dữ liệu từ Cloud');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -146,7 +200,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div className="p-4 space-y-3.5 max-h-[80vh] overflow-y-auto custom-scrollbar">
           {/* Notifications */}
           {syncSuccessMsg && (
             <div className="p-2.5 bg-emerald-950/80 border border-emerald-600/80 rounded text-emerald-300 text-[11px] flex items-center space-x-2 animate-in fade-in">
@@ -197,7 +251,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
                     </div>
                   )}
                   <div>
-                    <div className="font-bold text-white">{currentUser.displayName || 'Nhà đầu tư'}</div>
+                    <div className="font-bold text-white">{currentUser.displayName || 'Nhà đầu tư Quant'}</div>
                     <div className="text-[10px] text-gray-400">{currentUser.email}</div>
                   </div>
                 </div>
@@ -246,7 +300,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
 
             <div className="p-2.5 bg-black/60 rounded border border-amber-500/30 text-[11px] text-gray-300 space-y-1">
               <p>
-                <strong className="text-amber-300">Cơ chế bảo mật Zero-Knowledge:</strong> Dữ liệu danh mục, vốn, tiền mặt và lịch sử lệnh được mã hóa trực tiếp trên trình duyệt bằng mã PIN của bạn trước khi tải lên Cloud.
+                <strong className="text-amber-300">Cơ chế bảo mật Zero-Knowledge:</strong> Dữ liệu danh mục, vốn, tiền mặt, lệnh và watchlist được mã hóa trực tiếp trên trình duyệt bằng mã PIN của bạn trước khi tải lên Cloud.
               </p>
               <p className="text-[10px] text-gray-400">
                 • Kể cả máy chủ hay nhà cung cấp Đám mây cũng không thể giải mã nội dung nếu không có mã PIN này.
@@ -273,18 +327,52 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
 
               <button
                 onClick={handleApplyPin}
-                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.5 rounded transition cursor-pointer shrink-0"
+                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.5 rounded transition cursor-pointer shrink-0 flex items-center space-x-1"
               >
-                ÁP DỤNG PIN
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>LƯU & ÁP DỤNG PIN</span>
               </button>
+            </div>
+
+            <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5">
+              <span>Mã PIN đang kích hoạt: <strong className="text-amber-400 font-mono">••••</strong> (Tự động ghi nhớ trên thiết bị)</span>
             </div>
           </div>
 
-          {/* Section 3: Live Sync State & Diagnostics */}
+          {/* Section 3: Data Protected Summary */}
           <div className="bg-[#050811] p-3 rounded border border-gray-800 space-y-2">
             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center space-x-1.5">
+              <PieChart className="w-3.5 h-3.5 text-blue-400" />
+              <span>DỮ LIỆU ĐƯỢC BẢO VỆ & ĐỒNG BỘ</span>
+            </span>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div className="p-2 bg-black/60 rounded border border-gray-800">
+                <div className="text-[10px] text-gray-400">Vị thế sở hữu</div>
+                <div className="text-xs font-bold text-emerald-400">{summary.positionsCount} mã CP</div>
+              </div>
+              <div className="p-2 bg-black/60 rounded border border-gray-800">
+                <div className="text-[10px] text-gray-400">Theo dõi (Watchlist)</div>
+                <div className="text-xs font-bold text-blue-400">{summary.watchlistCount} mã</div>
+              </div>
+              <div className="p-2 bg-black/60 rounded border border-gray-800">
+                <div className="text-[10px] text-gray-400">Lệnh đã chốt</div>
+                <div className="text-xs font-bold text-purple-400">{summary.tradesCount} lệnh</div>
+              </div>
+              <div className="p-2 bg-black/60 rounded border border-gray-800">
+                <div className="text-[10px] text-gray-400">Tiền khả dụng</div>
+                <div className="text-xs font-bold text-amber-400">
+                  {summary.cashBalance ? (summary.cashBalance / 1e6).toFixed(0) + ' Tr' : '0 Tr'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Live Sync State & Diagnostics */}
+          <div className="bg-[#050811] p-3 rounded border border-gray-800 space-y-2.5">
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center space-x-1.5">
               <Smartphone className="w-3.5 h-3.5 text-blue-400" />
-              <span>TRẠNG THÁI ĐỒNG BỘ ĐA THIẾT BỊ</span>
+              <span>TRẠNG THÁI & THAO TÁC ĐỒNG BỘ ĐA THIẾT BỊ</span>
             </span>
 
             <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -317,11 +405,31 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-1 flex flex-wrap justify-end gap-2">
+              <button
+                onClick={handleForceDownload}
+                disabled={isDownloading || !currentUser}
+                title="Khôi phục dữ liệu từ Cloud Firestore về máy này"
+                className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-gray-300 px-3 py-1.5 rounded font-bold transition cursor-pointer disabled:opacity-50"
+              >
+                <ArrowDownToLine className={`w-3.5 h-3.5 ${isDownloading ? 'animate-bounce' : ''}`} />
+                <span>KHÔI PHỤC TỪ CLOUD</span>
+              </button>
+
+              <button
+                onClick={handleForceUpload}
+                disabled={isUploading || !currentUser}
+                title="Mã hóa và tải dữ liệu máy này lên Cloud Firestore"
+                className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-300 px-3 py-1.5 rounded font-bold transition cursor-pointer disabled:opacity-50"
+              >
+                <ArrowUpToLine className={`w-3.5 h-3.5 ${isUploading ? 'animate-bounce' : ''}`} />
+                <span>TẢI LÊN CLOUD (BACKUP)</span>
+              </button>
+
               <button
                 onClick={handleForceManualSync}
-                disabled={isSyncingNow}
-                className="flex items-center space-x-1.5 bg-blue-900/60 hover:bg-blue-800 border border-blue-700 text-blue-200 px-3 py-1.5 rounded font-bold transition cursor-pointer disabled:opacity-50"
+                disabled={isSyncingNow || !currentUser}
+                className="flex items-center space-x-1.5 bg-blue-900/60 hover:bg-blue-800 border border-blue-700 text-blue-200 px-3.5 py-1.5 rounded font-bold transition cursor-pointer disabled:opacity-50 shadow-md"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNow ? 'animate-spin' : ''}`} />
                 <span>ĐỒNG BỘ NGAY BÂY GIỜ</span>
@@ -346,3 +454,4 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
     </div>
   );
 };
+

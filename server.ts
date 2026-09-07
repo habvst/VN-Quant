@@ -15,7 +15,7 @@ import {
   getStockBySymbol,
   getTradeTicks,
 } from './server/marketDataService';
-import { generateScreenerRecommendations } from './server/screenerEngine';
+import { generateScreenerRecommendations, getRecommendationPerformance } from './server/screenerEngine';
 import {
   addServerAlert,
   deleteServerAlert,
@@ -526,9 +526,13 @@ async function startServer() {
     res.json(getMacroData());
   });
 
-  // 10. Screener Recommendations
+  // 10. Screener Recommendations & Performance Metrics
   app.get('/api/recommendations', (req, res) => {
     res.json(generateScreenerRecommendations());
+  });
+
+  app.get('/api/recommendations/performance', (req, res) => {
+    res.json(getRecommendationPerformance());
   });
 
   // 11. AI Deep Analysis
