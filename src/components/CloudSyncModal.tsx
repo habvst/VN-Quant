@@ -249,9 +249,21 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({ isOpen, onClose,
                     </button>
                   </div>
 
-                  <div className="text-[11px] text-gray-300 space-y-1.5 pl-2.5 border-l-2 border-blue-500">
-                    <div><b>Trường hợp 1 (Dự án riêng):</b> Nếu dùng dự án Firebase của bạn, vào <b>Build &rarr; Authentication &rarr; Settings &rarr; Authorized domains</b> &rarr; bấm <b>Add domain</b> và dán domain ở trên.</div>
-                    <div><b>Trường hợp 2 (Dự án mặc định AI Studio):</b> Do dự án <span className="font-mono text-amber-300 font-bold">{activeFirebaseConfig.projectId}</span> là sandbox được tạo tự động bởi AI Studio, tài khoản thông thường không có quyền admin thêm domain. Bạn chỉ cần tạo 1 Project Firebase miễn phí riêng của mình rồi cấu hình biến môi trường trên Render là xong 100%!</div>
+                  <div className="text-[11px] text-gray-300 space-y-2 pl-2.5 border-l-2 border-blue-500">
+                    <div className="bg-black/40 p-2 rounded border border-gray-700 text-[11px]">
+                      <span className="text-gray-400">Firebase Project đang nhận: </span>
+                      <span className={`font-mono font-bold ${activeFirebaseConfig.projectId === 'phrasal-perigee-bkm1r' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {activeFirebaseConfig.projectId}
+                      </span>
+                      {activeFirebaseConfig.projectId === 'phrasal-perigee-bkm1r' && (
+                        <div className="text-amber-300 text-[10px] mt-1">
+                          ⚠️ Render hiện vẫn đang chạy với Project mặc định cũ (chưa nhận biến môi trường của dự án <b>my-vnquant-terminal</b>).
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <b>Cách xử lý:</b> Bạn đã thêm domain vào Firebase <b>my-vnquant-terminal</b> rất chuẩn xác! Giờ chỉ cần cấu hình các biến môi trường <code>VITE_FIREBASE_*</code> trên Render và bấm <b>Manual Deploy &rarr; Clear build cache & deploy</b> để Render nạp cấu hình mới.
+                    </div>
                   </div>
 
                   <div className="pt-1 flex items-center justify-between">
