@@ -17,68 +17,23 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Storage key for client-side custom Firebase configuration override
-export const CUSTOM_FIREBASE_STORAGE_KEY = 'vnquant_custom_firebase_config';
+const meta = import.meta as unknown as { env?: Record<string, string> };
 
-function getStoredCustomConfig() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(CUSTOM_FIREBASE_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.projectId === 'string' && parsed.projectId.trim() && parsed.apiKey) {
-        return parsed;
-      }
-    }
-  } catch {}
-  return null;
-}
+const isCustomProject = Boolean(meta.env?.VITE_FIREBASE_PROJECT_ID);
 
-const localConfig = getStoredCustomConfig();
-
-// Determine custom config via Vite environment variables statically replaced at build time
-const customApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const customAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-const customProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const customStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-const customMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-const customAppId = import.meta.env.VITE_FIREBASE_APP_ID;
-const customDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID?.trim();
-
-const isCustomProject = Boolean(localConfig?.projectId || customProjectId);
-const rawDbId = localConfig?.firestoreDatabaseId || customDbId;
+const rawDbId = meta.env?.VITE_FIREBASE_DATABASE_ID?.trim();
 const isDefaultDb = !rawDbId || rawDbId === 'default' || rawDbId === '(default)';
 
-// Initialize Firebase App with fallback to environment variables and local config
+// Initialize Firebase App with fallback to environment variables for custom deployments (e.g. Render, Vercel)
 export const activeFirebaseConfig = {
-  apiKey: localConfig?.apiKey || customApiKey || firebaseConfig.apiKey,
-  authDomain: localConfig?.authDomain || customAuthDomain || firebaseConfig.authDomain,
-  projectId: localConfig?.projectId || customProjectId || firebaseConfig.projectId,
-  storageBucket: localConfig?.storageBucket || customStorageBucket || firebaseConfig.storageBucket,
-  messagingSenderId: localConfig?.messagingSenderId || customMessagingSenderId || firebaseConfig.messagingSenderId,
-  appId: localConfig?.appId || customAppId || firebaseConfig.appId,
+  apiKey: meta.env?.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: meta.env?.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: meta.env?.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: meta.env?.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: meta.env?.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
   firestoreDatabaseId: isDefaultDb ? (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId) : rawDbId,
 };
-
-export function saveCustomFirebaseConfig(config: {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket?: string;
-  messagingSenderId?: string;
-  appId: string;
-  firestoreDatabaseId?: string;
-}) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(CUSTOM_FIREBASE_STORAGE_KEY, JSON.stringify(config));
-  }
-}
-
-export function resetToDefaultFirebaseConfig() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(CUSTOM_FIREBASE_STORAGE_KEY);
-  }
-}
 
 const app = initializeApp(activeFirebaseConfig);
 
