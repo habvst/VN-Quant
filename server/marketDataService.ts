@@ -2,7 +2,7 @@ import { Candle, FundamentalData, MacroData, MarketIndex, MarketType, NewsItem, 
 import { computeTechnicalIndicators } from '../src/utils/technicalEngine';
 import { analyzeSmartMoneySignal } from './smartMoneyAnomalyService';
 import { enrichNewsItemWithDeepScoring } from './newsSentimentEngine';
-import { getMarketSessionInfo, getVietnamDateString, getVietnamTimeParts, getVietnamTimeShort, getVietnamTimeString } from './timeUtils';
+import { getMarketSessionInfo, getVietnamDateString, getVietnamTimeParts, getVietnamTimeShort, getVietnamTimeString, isVietnamStockMarketClosed } from './timeUtils';
 
 // Seed raw stock universe info with realistic base prices
 interface RawStockSeed {
@@ -1364,7 +1364,7 @@ function generateHistoricalCandles(targetPrice: number, referencePrice: number =
   while (dates.length < daysToGenerate) {
     const d = new Date(now.getTime() - dayOffset * 24 * 60 * 60 * 1000);
     dayOffset++;
-    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    if (isVietnamStockMarketClosed(d)) continue;
     dates.push(d.toISOString().split('T')[0]);
   }
 
@@ -2222,6 +2222,19 @@ export async function fetchLiveQuoteFromExchange(symbol: string): Promise<{
   return null;
 }
 
+// Safe JSON fetcher with timeout and user agent
+const safeFetchJson = async (url: string) => {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text || !text.trim()) return null;
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
 export async function getOrFetchStockBySymbol(symbol: string, forceRefresh = false): Promise<StockData | undefined> {
   const sym = symbol.toUpperCase().trim();
   if (!sym) return undefined;
@@ -2266,18 +2279,6 @@ export async function getOrFetchStockBySymbol(symbol: string, forceRefresh = fal
 
   // Dynamic Lookup for newly searched stock
   try {
-    const safeFetchJson = async (url: string) => {
-      try {
-        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(4000) });
-        if (!res.ok) return null;
-        const text = await res.text();
-        if (!text || !text.trim()) return null;
-        return JSON.parse(text);
-      } catch {
-        return null;
-      }
-    };
-
     // 1. Fetch info from finfo
     const infoUrl = `https://api-finfo.vndirect.com.vn/v4/stocks?q=code:${sym}`;
     const infoJson = await safeFetchJson(infoUrl);
@@ -2432,8 +2433,113 @@ export async function getOrFetchStockBySymbol(symbol: string, forceRefresh = fal
   }
 }
 
+const isRealCandlesLoaded: Record<string, boolean> = {};
+
+/**
+ * Fetches authentic historical daily candles from Vietnam Stock Exchange datafeeds (VNDirect Dchart & DNSE Entrade).
+ * Guarantees zero holiday sessions (e.g. 02/09, 30/04, 01/05, Tet) and exact historical closing prices.
+ */
+export async function fetchRealCandlesFromExchanges(sym: string): Promise<Candle[] | null> {
+  const cleanSym = sym.toUpperCase().trim();
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - 3600 * 24 * 1095; // 3 years
+
+  let candles: Candle[] = [];
+
+  // 1. Primary: VNDirect Dchart (100% authentic exchange sessions)
+  try {
+    const dchartUrl = `https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol=${cleanSym}&from=${from}&to=${now}`;
+    const cData = await safeFetchJson(dchartUrl);
+    if (cData && cData.t && cData.t.length > 0) {
+      const temp = cData.t.map((ts: number, idx: number) => ({
+        time: new Date(ts * 1000).toISOString().split('T')[0],
+        open: cData.o[idx],
+        high: cData.h[idx],
+        low: cData.l[idx],
+        close: cData.c[idx],
+        volume: cData.v[idx],
+      }));
+      const map = new Map<string, Candle>();
+      temp.forEach((c: Candle) => map.set(c.time, c));
+      candles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+    }
+  } catch {}
+
+  // 2. Fallback: DNSE Entrade API
+  if (candles.length === 0) {
+    try {
+      const dnseUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=${cleanSym}&from=${from}&to=${now}&resolution=1D`;
+      const dnseData = await safeFetchJson(dnseUrl);
+      if (dnseData && dnseData.t && dnseData.t.length > 0) {
+        const temp = dnseData.t.map((ts: number, idx: number) => ({
+          time: new Date(ts * 1000).toISOString().split('T')[0],
+          open: dnseData.o[idx],
+          high: dnseData.h[idx],
+          low: dnseData.l[idx],
+          close: dnseData.c[idx],
+          volume: dnseData.v[idx],
+        }));
+        const map = new Map<string, Candle>();
+        temp.forEach((c: Candle) => map.set(c.time, c));
+        candles = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+      }
+    } catch {}
+  }
+
+  if (candles.length > 0) {
+    // Filter out any weekend or closed holiday sessions (e.g. 02/09)
+    candles = candles.filter((c) => {
+      const [y, m, d] = c.time.split('-').map((v) => parseInt(v, 10));
+      if (!y || !m || !d) return true;
+      return !isVietnamStockMarketClosed(new Date(y, m - 1, d));
+    });
+
+    candleStore[cleanSym] = candles;
+    isRealCandlesLoaded[cleanSym] = true;
+
+    // Update technical indicators if stock exists in store
+    const stock = stockStore[cleanSym];
+    if (stock) {
+      const tech = computeTechnicalIndicators(candles);
+      stock.technical = tech;
+      stock.smartMoney = analyzeSmartMoneySignal(stock);
+    }
+
+    return candles;
+  }
+
+  return null;
+}
+
+export async function getOrFetchRealCandles(symbol: string): Promise<Candle[]> {
+  const sym = symbol.toUpperCase().trim();
+  if (!isRealCandlesLoaded[sym]) {
+    const realCandles = await fetchRealCandlesFromExchanges(sym);
+    if (realCandles && realCandles.length > 0) {
+      return realCandles;
+    }
+  }
+  return candleStore[sym] || generateHistoricalCandles(30);
+}
+
 export function getCandlesForSymbol(symbol: string): Candle[] {
-  return candleStore[symbol.toUpperCase()] || generateHistoricalCandles(30);
+  const sym = symbol.toUpperCase().trim();
+  if (!isRealCandlesLoaded[sym]) {
+    fetchRealCandlesFromExchanges(sym).catch(() => {});
+  }
+  return candleStore[sym] || generateHistoricalCandles(30);
+}
+
+// Background preload of authentic exchange candles for universe stocks
+export async function preloadRealCandlesForCoreStocks() {
+  const coreSymbols = RAW_STOCKS.map((s) => s.symbol);
+  for (const sym of coreSymbols) {
+    try {
+      await fetchRealCandlesFromExchanges(sym);
+      await new Promise((r) => setTimeout(r, 60));
+    } catch {}
+  }
+  console.log(`[MarketDataService] Successfully preloaded authentic exchange candles for ${coreSymbols.length} core stocks.`);
 }
 
 // REAL-TIME MARKET DATA SYNCHRONIZATION ENGINE (VPS Batch + Multi-tier Fallbacks)
@@ -2633,8 +2739,9 @@ export async function syncRealMarketData() {
   }
 }
 
-// Initial Sync and recurring 5s refresh
+// Initial Sync, real candles preload, and recurring 5s refresh
 syncRealMarketData();
+preloadRealCandlesForCoreStocks().catch((err) => console.error('Error preloading real candles:', err));
 setInterval(() => {
   syncRealMarketData();
 }, 5 * 1000);

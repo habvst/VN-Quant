@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Wallet, Wifi, X, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, BookmarkCheck, BookmarkPlus, Bot, Calendar, Check, CheckCircle, ChevronLeft, ChevronRight, Eye, Flame, Layers, Plus, Radar, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Wallet, Wifi, X, Zap } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Candle, OrderBook, StockData, TradeTick } from '../types';
 import { StockAlert, MockNotification } from '../types/alert';
@@ -10,6 +10,7 @@ import { StockChart } from './StockChart';
 import { SetAlertModal } from './SetAlertModal';
 import { AlertsDrawer } from './AlertsDrawer';
 import { AlertToast } from './AlertToast';
+import { ClosingPriceHistoryTable } from './ClosingPriceHistoryTable';
 import { getMarketSessionInfo, getVietnamTimeString } from '../utils/timeUtils';
 
 interface TerminalViewProps {
@@ -31,7 +32,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
   onSelectStock,
   onOpenAIChat,
 }) => {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TECHNICAL' | 'FUNDAMENTAL' | 'PATTERNS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TECHNICAL' | 'FUNDAMENTAL' | 'PATTERNS' | 'CLOSING_30D'>('OVERVIEW');
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -609,6 +610,20 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
               )}
             </button>
 
+            {/* Quick Button: 30-Day Closing Prices Table */}
+            <button
+              onClick={() => setActiveTab('CLOSING_30D')}
+              className={`px-3 py-2 font-bold rounded-sm text-xs border flex items-center space-x-1.5 transition whitespace-nowrap shadow cursor-pointer ${
+                activeTab === 'CLOSING_30D'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-blue-900/50'
+                  : 'bg-[#050505] hover:bg-gray-800 text-sky-400 border-gray-800 hover:border-sky-800'
+              }`}
+              title="Xem bảng giá đóng cửa và thống kê định lượng 30 phiên gần nhất"
+            >
+              <Calendar className="w-4 h-4 text-sky-400" />
+              <span>BẢNG GIÁ 30 PHIÊN</span>
+            </button>
+
             {/* Direct TradingView Link Button */}
             <a
               href={`https://www.tradingview.com/chart/?symbol=${stock.exchange || 'HOSE'}:${stock.symbol}`}
@@ -643,12 +658,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
 
           {/* Sub Panels: Technical & Fundamental Indicators */}
           <div className="bg-[#0a0a0a] rounded-sm p-3 border border-gray-800">
-            <div className="flex items-center space-x-2 border-b border-gray-800 pb-2 mb-3">
-              {(['OVERVIEW', 'TECHNICAL', 'FUNDAMENTAL', 'PATTERNS'] as const).map((t) => (
+            <div className="flex items-center space-x-2 border-b border-gray-800 pb-2 mb-3 overflow-x-auto">
+              {(['OVERVIEW', 'TECHNICAL', 'FUNDAMENTAL', 'PATTERNS', 'CLOSING_30D'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
-                  className={`px-3 py-1 rounded-sm text-xs font-mono transition border ${
+                  className={`px-3 py-1 rounded-sm text-xs font-mono transition border whitespace-nowrap ${
                     activeTab === t
                       ? 'bg-blue-600 text-white border-blue-500 font-bold'
                       : 'bg-[#050505] text-gray-400 hover:text-gray-200 border-gray-800'
@@ -660,7 +675,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                     ? 'PHÂN TÍCH KỸ THUẬT'
                     : t === 'FUNDAMENTAL'
                     ? 'PHÂN TÍCH CƠ BẢN'
-                    : 'MẪU HÌNH NẾN'}
+                    : t === 'PATTERNS'
+                    ? 'MẪU HÌNH NẾN'
+                    : '📅 GIÁ ĐÓNG CỬA 30 PHIÊN'}
                 </button>
               ))}
             </div>
@@ -868,6 +885,10 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
                   <div className="text-gray-500 text-center py-4">Mô hình giá tích lũy đi ngang.</div>
                 )}
               </div>
+            )}
+
+            {activeTab === 'CLOSING_30D' && (
+              <ClosingPriceHistoryTable stock={stock} candles={candles} />
             )}
           </div>
         </div>

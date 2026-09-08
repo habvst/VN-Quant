@@ -10,6 +10,7 @@ import {
   getMacroData,
   getMarketIndices,
   getOrderBook,
+  getOrFetchRealCandles,
   getOrFetchStockBySymbol,
   getSectors,
   getStockBySymbol,
@@ -437,7 +438,8 @@ async function startServer() {
   app.get('/api/market/candles/:symbol', async (req, res) => {
     const symbol = req.params.symbol;
     await getOrFetchStockBySymbol(symbol);
-    res.json(getCandlesForSymbol(symbol));
+    const candles = await getOrFetchRealCandles(symbol);
+    res.json(candles);
   });
 
   // 5. Order Book Depth
